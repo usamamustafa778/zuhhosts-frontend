@@ -7,7 +7,12 @@ import DataTable from "@/components/common/DataTable";
 import Modal from "@/components/common/Modal";
 import FormField from "@/components/common/FormField";
 import StatusPill from "@/components/common/StatusPill";
-import { getAllProperties, createProperty, updateProperty, deleteProperty } from "@/lib/api";
+import {
+  getAllProperties,
+  createProperty,
+  updateProperty,
+  deleteProperty,
+} from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
 
 export default function PropertiesPage() {
@@ -25,7 +30,7 @@ export default function PropertiesPage() {
     status: "",
     minPrice: "",
     maxPrice: "",
-    bedrooms: ""
+    bedrooms: "",
   });
   const [formData, setFormData] = useState({
     title: "",
@@ -36,19 +41,24 @@ export default function PropertiesPage() {
     bedrooms: "",
     bathrooms: "",
     area: "",
-    status: "available"
+    status: "available",
   });
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    console.log("🟢 PropertiesPage: useEffect triggered, calling getAllProperties");
+    console.log(
+      "🟢 PropertiesPage: useEffect triggered, calling getAllProperties"
+    );
     const loadProperties = async () => {
       try {
         setIsLoading(true);
         setError(null);
         console.log("🟢 PropertiesPage: Starting API call...");
         const data = await getAllProperties();
-        console.log("🟢 PropertiesPage: API call successful, data received:", data);
+        console.log(
+          "🟢 PropertiesPage: API call successful, data received:",
+          data
+        );
         setPropertiesData(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("🔴 PropertiesPage: API call failed:", err);
@@ -71,7 +81,7 @@ export default function PropertiesPage() {
       bedrooms: "",
       bathrooms: "",
       area: "",
-      status: "available"
+      status: "available",
     });
   };
 
@@ -124,16 +134,16 @@ export default function PropertiesPage() {
         toast.error(validationError);
         return;
       }
-      
+
       // Convert string numbers to actual numbers
       const payload = {
         ...formData,
         price: Number(formData.price),
         bedrooms: formData.bedrooms ? Number(formData.bedrooms) : 0,
         bathrooms: formData.bathrooms ? Number(formData.bathrooms) : 0,
-        area: Number(formData.area)
+        area: Number(formData.area),
       };
-      
+
       const toastId = toast.loading("Creating property...");
       const newProperty = await createProperty(payload);
       setPropertiesData((prev) => [...prev, newProperty]);
@@ -148,7 +158,7 @@ export default function PropertiesPage() {
   const handleUpdateProperty = async () => {
     try {
       const propertyId = selectedProperty.id || selectedProperty._id;
-      
+
       // Only include fields that have values
       const payload = {};
       if (formData.title) payload.title = formData.title;
@@ -156,22 +166,28 @@ export default function PropertiesPage() {
       if (formData.price) payload.price = Number(formData.price);
       if (formData.location) payload.location = formData.location;
       if (formData.propertyType) payload.propertyType = formData.propertyType;
-      if (formData.bedrooms !== "") payload.bedrooms = Number(formData.bedrooms);
-      if (formData.bathrooms !== "") payload.bathrooms = Number(formData.bathrooms);
+      if (formData.bedrooms !== "")
+        payload.bedrooms = Number(formData.bedrooms);
+      if (formData.bathrooms !== "")
+        payload.bathrooms = Number(formData.bathrooms);
       if (formData.area) payload.area = Number(formData.area);
       if (formData.status) payload.status = formData.status;
-      
+
       // Validate form (only fields being updated)
       const validationError = validatePropertyForm(payload, true);
       if (validationError) {
         toast.error(validationError);
         return;
       }
-      
+
       const toastId = toast.loading("Updating property...");
       const updatedProperty = await updateProperty(propertyId, payload);
       setPropertiesData((prev) =>
-        prev.map((prop) => (prop.id === propertyId || prop._id === propertyId ? updatedProperty : prop))
+        prev.map((prop) =>
+          prop.id === propertyId || prop._id === propertyId
+            ? updatedProperty
+            : prop
+        )
       );
       setSelectedProperty(null);
       resetForm();
@@ -183,11 +199,13 @@ export default function PropertiesPage() {
 
   const handleDeleteProperty = async (propertyId) => {
     if (!confirm("Are you sure you want to delete this property?")) return;
-    
+
     try {
       const toastId = toast.loading("Deleting property...");
       await deleteProperty(propertyId);
-      setPropertiesData((prev) => prev.filter((prop) => (prop.id || prop._id) !== propertyId));
+      setPropertiesData((prev) =>
+        prev.filter((prop) => (prop.id || prop._id) !== propertyId)
+      );
       toast.success("Property deleted successfully!", { id: toastId });
     } catch (err) {
       toast.error(err.message || "Failed to delete property");
@@ -205,7 +223,7 @@ export default function PropertiesPage() {
       bedrooms: property.bedrooms?.toString() || "",
       bathrooms: property.bathrooms?.toString() || "",
       area: property.area?.toString() || "",
-      status: property.status || "available"
+      status: property.status || "available",
     });
   };
 
@@ -230,7 +248,7 @@ export default function PropertiesPage() {
       status: "",
       minPrice: "",
       maxPrice: "",
-      bedrooms: ""
+      bedrooms: "",
     });
   };
 
@@ -240,13 +258,20 @@ export default function PropertiesPage() {
       // Search filter (title or location)
       if (filters.search) {
         const searchLower = filters.search.toLowerCase();
-        const titleMatch = (property.title || "").toLowerCase().includes(searchLower);
-        const locationMatch = (property.location || "").toLowerCase().includes(searchLower);
+        const titleMatch = (property.title || "")
+          .toLowerCase()
+          .includes(searchLower);
+        const locationMatch = (property.location || "")
+          .toLowerCase()
+          .includes(searchLower);
         if (!titleMatch && !locationMatch) return false;
       }
 
       // Property type filter
-      if (filters.propertyType && property.propertyType !== filters.propertyType) {
+      if (
+        filters.propertyType &&
+        property.propertyType !== filters.propertyType
+      ) {
         return false;
       }
 
@@ -302,34 +327,38 @@ export default function PropertiesPage() {
     <div className="space-y-8">
       <Toaster position="top-right" />
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="text-sm uppercase tracking-[0.3em] text-slate-400">
-            Portfolio
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold text-slate-900">
-            Properties
-          </h1>
-          <p className="text-sm text-slate-500">
-            Manage units, track occupancy, and keep photos fresh.
-          </p>
-        </div>
+        <h1 className="mt-2 text-3xl font-semibold text-slate-900">
+          Properties
+        </h1>
+
         <div className="flex flex-wrap gap-2">
           {/* Mobile Filters Button */}
           <button
             className="md:hidden rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-2"
             onClick={() => setShowFilters(!showFilters)}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+              />
             </svg>
             Filters
-            {Object.values(filters).some(val => val !== "") && (
+            {Object.values(filters).some((val) => val !== "") && (
               <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-slate-900 rounded-full">
-                {Object.values(filters).filter(val => val !== "").length}
+                {Object.values(filters).filter((val) => val !== "").length}
               </span>
             )}
           </button>
-          
+
           <div className="flex rounded-full border border-slate-200 p-1">
             <button
               className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
@@ -339,8 +368,19 @@ export default function PropertiesPage() {
               }`}
               onClick={() => setViewMode("cards")}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+                />
               </svg>
             </button>
             <button
@@ -351,8 +391,19 @@ export default function PropertiesPage() {
               }`}
               onClick={() => setViewMode("table")}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                />
               </svg>
             </button>
           </div>
@@ -363,7 +414,7 @@ export default function PropertiesPage() {
           >
             Add
           </button>
-          
+
           {/* Desktop: Add property and Import buttons */}
           <button
             className="hidden sm:inline-block rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
@@ -378,7 +429,11 @@ export default function PropertiesPage() {
       </div>
 
       {/* Filters Section */}
-      <div className={`rounded-3xl border border-slate-100 bg-white shadow-sm transition-all ${showFilters || 'hidden md:block'}`}>
+      <div
+        className={`rounded-3xl border border-slate-100 bg-white shadow-sm transition-all ${
+          showFilters || "hidden md:block"
+        }`}
+      >
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-slate-900">Filters</h3>
@@ -391,108 +446,114 @@ export default function PropertiesPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          {/* Search */}
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Search
-            </label>
-            <input
-              type="text"
-              placeholder="Title or location..."
-              value={filters.search}
-              onChange={(e) => handleFilterChange("search", e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
-            />
-          </div>
+            {/* Search */}
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Search
+              </label>
+              <input
+                type="text"
+                placeholder="Title or location..."
+                value={filters.search}
+                onChange={(e) => handleFilterChange("search", e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+            </div>
 
-          {/* Property Type */}
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Property Type
-            </label>
-            <select
-              value={filters.propertyType}
-              onChange={(e) => handleFilterChange("propertyType", e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
-            >
-              <option value="">All Types</option>
-              <option value="house">House</option>
-              <option value="apartment">Apartment</option>
-              <option value="villa">Villa</option>
-              <option value="land">Land</option>
-              <option value="commercial">Commercial</option>
-            </select>
-          </div>
+            {/* Property Type */}
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Property Type
+              </label>
+              <select
+                value={filters.propertyType}
+                onChange={(e) =>
+                  handleFilterChange("propertyType", e.target.value)
+                }
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              >
+                <option value="">All Types</option>
+                <option value="house">House</option>
+                <option value="apartment">Apartment</option>
+                <option value="villa">Villa</option>
+                <option value="land">Land</option>
+                <option value="commercial">Commercial</option>
+              </select>
+            </div>
 
-          {/* Status */}
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Status
-            </label>
-            <select
-              value={filters.status}
-              onChange={(e) => handleFilterChange("status", e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
-            >
-              <option value="">All Status</option>
-              <option value="available">Available</option>
-              <option value="rented">Rented</option>
-              <option value="sold">Sold</option>
-            </select>
-          </div>
+            {/* Status */}
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Status
+              </label>
+              <select
+                value={filters.status}
+                onChange={(e) => handleFilterChange("status", e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              >
+                <option value="">All Status</option>
+                <option value="available">Available</option>
+                <option value="rented">Rented</option>
+                <option value="sold">Sold</option>
+              </select>
+            </div>
 
-          {/* Min Price */}
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Min Price
-            </label>
-            <input
-              type="number"
-              placeholder="Min"
-              value={filters.minPrice}
-              onChange={(e) => handleFilterChange("minPrice", e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
-            />
-          </div>
+            {/* Min Price */}
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Min Price
+              </label>
+              <input
+                type="number"
+                placeholder="Min"
+                value={filters.minPrice}
+                onChange={(e) => handleFilterChange("minPrice", e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+            </div>
 
-          {/* Max Price */}
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Max Price
-            </label>
-            <input
-              type="number"
-              placeholder="Max"
-              value={filters.maxPrice}
-              onChange={(e) => handleFilterChange("maxPrice", e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
-            />
-          </div>
+            {/* Max Price */}
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Max Price
+              </label>
+              <input
+                type="number"
+                placeholder="Max"
+                value={filters.maxPrice}
+                onChange={(e) => handleFilterChange("maxPrice", e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+            </div>
 
-          {/* Bedrooms */}
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Bedrooms
-            </label>
-            <select
-              value={filters.bedrooms}
-              onChange={(e) => handleFilterChange("bedrooms", e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
-            >
-              <option value="">Any</option>
-              <option value="1">1</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-              <option value="5">5+</option>
-            </select>
+            {/* Bedrooms */}
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Bedrooms
+              </label>
+              <select
+                value={filters.bedrooms}
+                onChange={(e) => handleFilterChange("bedrooms", e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              >
+                <option value="">Any</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5+</option>
+              </select>
+            </div>
           </div>
-        </div>
 
           {/* Results count */}
           <div className="mt-4 pt-4 border-t border-slate-100">
             <p className="text-sm text-slate-600">
-              Showing <span className="font-semibold text-slate-900">{filteredProperties.length}</span> of {propertiesData.length} properties
+              Showing{" "}
+              <span className="font-semibold text-slate-900">
+                {filteredProperties.length}
+              </span>{" "}
+              of {propertiesData.length} properties
             </p>
           </div>
         </div>
@@ -502,105 +563,114 @@ export default function PropertiesPage() {
         <section className="grid gap-4 md:grid-cols-2">
           {filteredProperties.map((property) => {
             const propertyId = property.id || property._id;
-            const photos = property.photos || (property.photo ? [property.photo] : []);
+            const photos =
+              property.photos || (property.photo ? [property.photo] : []);
             return (
-            <div
-              key={propertyId}
-              className="flex flex-col gap-4 rounded-3xl border border-slate-100 bg-white p-4 shadow-sm"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold text-slate-400">
-                    {propertyId}
-                  </p>
-                  <h3 className="text-lg font-semibold text-slate-900">
-                    {property.title || property.name || property.propertyName}
-                  </h3>
-                  <p className="text-sm text-slate-500">{property.location || property.address}</p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    {property.bedrooms || 0} bed • {property.bathrooms || 0} bath • {property.area || 0} sq ft
-                  </p>
+              <div
+                key={propertyId}
+                className="flex flex-col gap-4 rounded-3xl border border-slate-100 bg-white p-4 shadow-sm"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400">
+                      {propertyId}
+                    </p>
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      {property.title || property.name || property.propertyName}
+                    </h3>
+                    <p className="text-sm text-slate-500">
+                      {property.location || property.address}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {property.bedrooms || 0} bed • {property.bathrooms || 0}{" "}
+                      bath • {property.area || 0} sq ft
+                    </p>
+                  </div>
+                  <div className="text-right text-sm text-slate-500">
+                    <p className="text-xs uppercase text-slate-400">Price</p>
+                    <p className="text-2xl font-semibold text-slate-900">
+                      ${property.price || 0}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {property.propertyType || "house"}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right text-sm text-slate-500">
-                  <p className="text-xs uppercase text-slate-400">Price</p>
-                  <p className="text-2xl font-semibold text-slate-900">
-                    ${property.price || 0}
-                  </p>
-                  <p className="text-xs text-slate-400">{property.propertyType || "house"}</p>
+                {photos.length > 0 && <PhotoCarousel photos={photos} />}
+                <div className="flex items-center justify-between text-sm text-slate-500">
+                  <StatusPill label={property.status || "available"} />
+                  <div className="flex gap-2">
+                    <button
+                      className="text-slate-900 underline-offset-2 hover:underline"
+                      onClick={() => openEditModal(property)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="text-rose-600 underline-offset-2 hover:underline"
+                      onClick={() => handleDeleteProperty(propertyId)}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
-              {photos.length > 0 && <PhotoCarousel photos={photos} />}
-              <div className="flex items-center justify-between text-sm text-slate-500">
-                <StatusPill label={property.status || "available"} />
-                <div className="flex gap-2">
-                  <button
-                    className="text-slate-900 underline-offset-2 hover:underline"
-                    onClick={() => openEditModal(property)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="text-rose-600 underline-offset-2 hover:underline"
-                    onClick={() => handleDeleteProperty(propertyId)}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
+            );
           })}
         </section>
       )}
 
       {viewMode === "table" && (
         <section>
-            <DataTable
-              headers={[
-                "S.No",
-                "Title",
-                "Host Name",
-                "Location",
-                "Type",
-                "Beds/Baths",
-                "Area",
-                "Price",
-                "Status",
-                "Actions",
-              ]}
-              rows={filteredProperties.map((property, index) => {
-                const propertyId = property.id || property._id;
-                const hostName = property.hostId?.name || "N/A";
-                return {
-                  id: propertyId,
-                  cells: [
-                    index + 1,
-                    property.title || property.name || property.propertyName,
-                    hostName,
-                    property.location || property.address,
-                    property.propertyType || "house",
-                    `${property.bedrooms || 0} / ${property.bathrooms || 0}`,
-                    `${property.area || 0} sq ft`,
-                    `$${property.price || 0}`,
-                    <StatusPill key="status" label={property.status || "available"} />,
-                    <div key="actions" className="flex gap-2">
-                      <button
-                        className="text-slate-900 underline-offset-2 hover:underline text-sm"
-                        onClick={() => openEditModal(property)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="text-rose-600 underline-offset-2 hover:underline text-sm"
-                        onClick={() => handleDeleteProperty(propertyId)}
-                      >
-                        Delete
-                      </button>
-                    </div>,
-                  ],
-                };
-              })}
-            />
+          <DataTable
+            headers={[
+              "S.No",
+              "Title",
+              "Host Name",
+              "Location",
+              "Type",
+              "Beds/Baths",
+              "Area",
+              "Price",
+              "Status",
+              "Actions",
+            ]}
+            rows={filteredProperties.map((property, index) => {
+              const propertyId = property.id || property._id;
+              const hostName = property.hostId?.name || "N/A";
+              return {
+                id: propertyId,
+                cells: [
+                  index + 1,
+                  property.title || property.name || property.propertyName,
+                  hostName,
+                  property.location || property.address,
+                  property.propertyType || "house",
+                  `${property.bedrooms || 0} / ${property.bathrooms || 0}`,
+                  `${property.area || 0} sq ft`,
+                  `$${property.price || 0}`,
+                  <StatusPill
+                    key="status"
+                    label={property.status || "available"}
+                  />,
+                  <div key="actions" className="flex gap-2">
+                    <button
+                      className="text-slate-900 underline-offset-2 hover:underline text-sm"
+                      onClick={() => openEditModal(property)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="text-rose-600 underline-offset-2 hover:underline text-sm"
+                      onClick={() => handleDeleteProperty(propertyId)}
+                    >
+                      Delete
+                    </button>
+                  </div>,
+                ],
+              };
+            })}
+          />
         </section>
       )}
 
@@ -612,15 +682,15 @@ export default function PropertiesPage() {
         primaryActionLabel="Update property"
         primaryAction={handleUpdateProperty}
       >
-        <FormField 
-          label="Title" 
+        <FormField
+          label="Title"
           value={formData.title}
           onChange={(e) => handleFormChange("title", e.target.value)}
           placeholder="e.g. Beautiful Beach House"
         />
         <div>
-          <FormField 
-            label="Description" 
+          <FormField
+            label="Description"
             as="textarea"
             rows={3}
             value={formData.description}
@@ -632,37 +702,37 @@ export default function PropertiesPage() {
           </p>
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <FormField 
-            label="Price (per night)" 
+          <FormField
+            label="Price (per night)"
             type="number"
             value={formData.price}
             onChange={(e) => handleFormChange("price", e.target.value)}
             placeholder="250"
           />
-          <FormField 
-            label="Area (sq ft)" 
+          <FormField
+            label="Area (sq ft)"
             type="number"
             value={formData.area}
             onChange={(e) => handleFormChange("area", e.target.value)}
             placeholder="2000"
           />
         </div>
-        <FormField 
-          label="Location" 
+        <FormField
+          label="Location"
           value={formData.location}
           onChange={(e) => handleFormChange("location", e.target.value)}
           placeholder="123 Ocean Drive, Miami, FL"
         />
         <div className="grid grid-cols-2 gap-4">
-          <FormField 
-            label="Property Type" 
+          <FormField
+            label="Property Type"
             as="select"
             value={formData.propertyType}
             onChange={(e) => handleFormChange("propertyType", e.target.value)}
             options={["house", "apartment", "villa", "land", "commercial"]}
           />
-          <FormField 
-            label="Status" 
+          <FormField
+            label="Status"
             as="select"
             value={formData.status}
             onChange={(e) => handleFormChange("status", e.target.value)}
@@ -670,15 +740,15 @@ export default function PropertiesPage() {
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <FormField 
-            label="Bedrooms" 
+          <FormField
+            label="Bedrooms"
             type="number"
             value={formData.bedrooms}
             onChange={(e) => handleFormChange("bedrooms", e.target.value)}
             placeholder="3"
           />
-          <FormField 
-            label="Bathrooms" 
+          <FormField
+            label="Bathrooms"
             type="number"
             value={formData.bathrooms}
             onChange={(e) => handleFormChange("bathrooms", e.target.value)}
@@ -696,19 +766,17 @@ export default function PropertiesPage() {
         primaryAction={handleCreateProperty}
       >
         <div>
-          <FormField 
-            label="Title *" 
+          <FormField
+            label="Title *"
             value={formData.title}
             onChange={(e) => handleFormChange("title", e.target.value)}
             placeholder="e.g. Beautiful Beach House"
           />
-          <p className="mt-1 text-xs text-slate-500">
-            Minimum 3 characters
-          </p>
+          <p className="mt-1 text-xs text-slate-500">Minimum 3 characters</p>
         </div>
         <div>
-          <FormField 
-            label="Description *" 
+          <FormField
+            label="Description *"
             as="textarea"
             rows={3}
             value={formData.description}
@@ -720,37 +788,37 @@ export default function PropertiesPage() {
           </p>
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <FormField 
-            label="Price * (per night)" 
+          <FormField
+            label="Price * (per night)"
             type="number"
             value={formData.price}
             onChange={(e) => handleFormChange("price", e.target.value)}
             placeholder="250"
           />
-          <FormField 
-            label="Area * (sq ft)" 
+          <FormField
+            label="Area * (sq ft)"
             type="number"
             value={formData.area}
             onChange={(e) => handleFormChange("area", e.target.value)}
             placeholder="2000"
           />
         </div>
-        <FormField 
-          label="Location *" 
+        <FormField
+          label="Location *"
           value={formData.location}
           onChange={(e) => handleFormChange("location", e.target.value)}
           placeholder="123 Ocean Drive, Miami, FL"
         />
         <div className="grid grid-cols-2 gap-4">
-          <FormField 
-            label="Property Type" 
+          <FormField
+            label="Property Type"
             as="select"
             value={formData.propertyType}
             onChange={(e) => handleFormChange("propertyType", e.target.value)}
             options={["house", "apartment", "villa", "land", "commercial"]}
           />
-          <FormField 
-            label="Status" 
+          <FormField
+            label="Status"
             as="select"
             value={formData.status}
             onChange={(e) => handleFormChange("status", e.target.value)}
@@ -758,15 +826,15 @@ export default function PropertiesPage() {
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <FormField 
-            label="Bedrooms" 
+          <FormField
+            label="Bedrooms"
             type="number"
             value={formData.bedrooms}
             onChange={(e) => handleFormChange("bedrooms", e.target.value)}
             placeholder="3"
           />
-          <FormField 
-            label="Bathrooms" 
+          <FormField
+            label="Bathrooms"
             type="number"
             value={formData.bathrooms}
             onChange={(e) => handleFormChange("bathrooms", e.target.value)}
@@ -777,4 +845,3 @@ export default function PropertiesPage() {
     </div>
   );
 }
-

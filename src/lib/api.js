@@ -841,6 +841,53 @@ export async function getHostPayments(hostId) {
   return handleResponse(res, "Failed to fetch host payments");
 }
 
+/**
+ * Impersonate a host account (Superadmin only)
+ * @param {string} hostId - The ID of the host to impersonate
+ * @returns {Promise<{token: string, user: Object}>}
+ */
+export async function impersonateHost(hostId) {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.authToken")
+      : null;
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const res = await fetch(`${API_BASE_URL}/superadmin/impersonate/${hostId}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleResponse(res, "Failed to impersonate host");
+}
+
+/**
+ * Stop impersonating and return to superadmin view
+ * @returns {Promise<{token: string, user: Object}>}
+ */
+export async function stopImpersonation() {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.authToken")
+      : null;
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const res = await fetch(`${API_BASE_URL}/superadmin/stop-impersonation`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleResponse(res, "Failed to stop impersonation");
+}
+
 // ============================================
 // Multi-Tenant User Functions  
 // ============================================

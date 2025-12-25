@@ -19,7 +19,6 @@ export const useDashboard = () => {
 export default function DashboardShell({ children }) {
   const pathname = usePathname();
   const { isAuthenticated, isLoading } = useAuth();
-  const [role, setRole] = useState("Admin");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -37,18 +36,14 @@ export default function DashboardShell({ children }) {
   const isSidebarDisabled = !mounted || isLoading || !isAuthenticated;
 
   const contextValue = useMemo(
-    () => ({
-      role,
-      setRole,
-    }),
-    [role]
+    () => ({}),
+    []
   );
 
   return (
     <DashboardContext.Provider value={contextValue}>
       <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-900">
         <Sidebar
-          role={role}
           collapsed={sidebarCollapsed}
           isVisible={sidebarVisible}
           isDisabled={isSidebarDisabled}
@@ -57,8 +52,6 @@ export default function DashboardShell({ children }) {
         />
         <div className="flex flex-1 flex-col overflow-hidden">
           <Topbar
-            role={role}
-            onRoleChange={setRole}
             onMenuToggle={() => setSidebarVisible((prev) => !prev)}
           />
           <main className="flex-1 overflow-y-auto px-4 py-6 lg:px-10">

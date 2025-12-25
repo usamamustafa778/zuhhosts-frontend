@@ -6,7 +6,13 @@ import StatusPill from "@/components/common/StatusPill";
 import Modal from "@/components/common/Modal";
 import FormField from "@/components/common/FormField";
 import { useDashboard } from "@/components/layout/DashboardShell";
-import { getAllUsers, deleteUser as deleteUserApi, getAllRoles, createUser, updateUser } from "@/lib/api";
+import {
+  getAllUsers,
+  deleteUser as deleteUserApi,
+  getAllRoles,
+  createUser,
+  updateUser,
+} from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 
 const formatPermissions = (permissions) =>
@@ -18,7 +24,12 @@ const formatPermissions = (permissions) =>
 
 export default function UsersPage() {
   const { role } = useDashboard();
-  const { isAuthenticated, isLoading: authLoading, isSuperAdmin, isHost } = useAuth();
+  const {
+    isAuthenticated,
+    isLoading: authLoading,
+    isSuperAdmin,
+    isHost,
+  } = useAuth();
   const [selectedUser, setSelectedUser] = useState(null);
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [usersData, setUsersData] = useState([]);
@@ -60,18 +71,18 @@ export default function UsersPage() {
       try {
         setIsLoading(true);
         setError(null);
-        
+
         // Fetch users and roles in parallel
         const [usersResponse, rolesResponse] = await Promise.all([
           getAllUsers(),
           getAllRoles(),
         ]);
-        
+
         if (isMounted) {
           setUsersData(Array.isArray(usersResponse) ? usersResponse : []);
           // Handle both direct array and nested response
-          const rolesArray = Array.isArray(rolesResponse) 
-            ? rolesResponse 
+          const rolesArray = Array.isArray(rolesResponse)
+            ? rolesResponse
             : rolesResponse?.roles ?? [];
           setRolesData(rolesArray);
         }
@@ -96,7 +107,7 @@ export default function UsersPage() {
   // Initialize create form role when roles are loaded
   useEffect(() => {
     if (rolesData.length > 0 && !createForm.role) {
-      setCreateForm(prev => ({
+      setCreateForm((prev) => ({
         ...prev,
         role: rolesData[0].name,
       }));
@@ -106,10 +117,11 @@ export default function UsersPage() {
   // Update edit form when selectedUser changes
   useEffect(() => {
     if (selectedUser) {
-      const roleName = typeof selectedUser.role === 'object' 
-        ? selectedUser.role?.name 
-        : selectedUser.role;
-      
+      const roleName =
+        typeof selectedUser.role === "object"
+          ? selectedUser.role?.name
+          : selectedUser.role;
+
       setEditForm({
         name: selectedUser.name || "",
         email: selectedUser.email || "",
@@ -127,7 +139,7 @@ export default function UsersPage() {
 
       // Find role ID from role name
       const selectedRole = rolesData.find(
-        r => r.name.toLowerCase() === createForm.role.toLowerCase()
+        (r) => r.name.toLowerCase() === createForm.role.toLowerCase()
       );
 
       // Prepare data for API
@@ -141,7 +153,7 @@ export default function UsersPage() {
       };
 
       const result = await createUser(userData);
-      
+
       setUsersData((prev) => [...prev, result]);
       setCreateOpen(false);
 
@@ -172,7 +184,7 @@ export default function UsersPage() {
 
       // Find role ID from role name
       const selectedRole = rolesData.find(
-        r => r.name.toLowerCase() === editForm.role.toLowerCase()
+        (r) => r.name.toLowerCase() === editForm.role.toLowerCase()
       );
 
       // Prepare data for API
@@ -180,16 +192,14 @@ export default function UsersPage() {
         name: editForm.name,
         email: editForm.email,
         phone: editForm.phone || null,
-        role: selectedRole ? (selectedRole._id || selectedRole.id) : null,
+        role: selectedRole ? selectedRole._id || selectedRole.id : null,
         ...(isSuperAdmin && { host: editForm.host }), // Only superadmin can modify host status
       };
 
       const result = await updateUser(userId, userData);
 
       setUsersData((prev) =>
-        prev.map((u) =>
-          (u.id || u._id) === userId ? { ...u, ...result } : u
-        )
+        prev.map((u) => ((u.id || u._id) === userId ? { ...u, ...result } : u))
       );
       setSelectedUser(null);
     } catch (err) {
@@ -222,9 +232,8 @@ export default function UsersPage() {
 
   const rows = usersData.map((user, index) => {
     const userId = user.id || user._id || `user-${index}`;
-    const roleName = typeof user.role === 'object' 
-      ? user.role?.name 
-      : user.role;
+    const roleName =
+      typeof user.role === "object" ? user.role?.name : user.role;
 
     return {
       id: userId,
@@ -301,21 +310,14 @@ export default function UsersPage() {
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-            {isSuperAdmin ? "Superadmin" : isHost ? "Host" : "Admin"}
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold text-slate-900">
-            {isSuperAdmin ? "User Management" : isHost ? "Team Management" : "User Management"}
-          </h1>
-          <p className="text-sm text-slate-500">
-            {isSuperAdmin 
-              ? "Manage hosts and all users across the system." 
-              : isHost 
-              ? "Invite team members, assign roles, and manage your team."
-              : "Invite teammates, assign roles, and control permissions."}
-          </p>
-        </div>
+        <h1 className="mt-2 text-3xl font-semibold text-slate-900">
+          {isSuperAdmin
+            ? "User Management"
+            : isHost
+            ? "Team Management"
+            : "User Management"}
+        </h1>
+
         <button
           className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
           onClick={() => {
@@ -355,31 +357,41 @@ export default function UsersPage() {
           </div>
         )}
         <div className="space-y-4">
-          <FormField 
-            label="Full name" 
+          <FormField
+            label="Full name"
             value={editForm.name}
             onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
             placeholder="Enter full name"
           />
-          <FormField 
-            label="Email" 
+          <FormField
+            label="Email"
             type="email"
             value={editForm.email}
-            onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+            onChange={(e) =>
+              setEditForm({ ...editForm, email: e.target.value })
+            }
             placeholder="Enter email"
           />
-          <FormField 
-            label="Phone (optional)" 
+          <FormField
+            label="Phone (optional)"
             value={editForm.phone}
-            onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+            onChange={(e) =>
+              setEditForm({ ...editForm, phone: e.target.value })
+            }
             placeholder="Enter phone number"
           />
           <FormField
             label="Role"
             as="select"
-            value={editForm.role.charAt(0).toUpperCase() + editForm.role.slice(1)}
-            onChange={(e) => setEditForm({ ...editForm, role: e.target.value.toLowerCase() })}
-            options={rolesData.map(r => r.name.charAt(0).toUpperCase() + r.name.slice(1))}
+            value={
+              editForm.role.charAt(0).toUpperCase() + editForm.role.slice(1)
+            }
+            onChange={(e) =>
+              setEditForm({ ...editForm, role: e.target.value.toLowerCase() })
+            }
+            options={rolesData.map(
+              (r) => r.name.charAt(0).toUpperCase() + r.name.slice(1)
+            )}
           />
           {isSuperAdmin && (
             <div className="flex items-center gap-2">
@@ -387,10 +399,15 @@ export default function UsersPage() {
                 type="checkbox"
                 id="edit-host-checkbox"
                 checked={editForm.host}
-                onChange={(e) => setEditForm({ ...editForm, host: e.target.checked })}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, host: e.target.checked })
+                }
                 className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
               />
-              <label htmlFor="edit-host-checkbox" className="text-sm font-medium text-slate-700">
+              <label
+                htmlFor="edit-host-checkbox"
+                className="text-sm font-medium text-slate-700"
+              >
                 Host (Can manage properties and team members)
               </label>
             </div>
@@ -415,38 +432,61 @@ export default function UsersPage() {
           </div>
         )}
         <div className="space-y-4">
-          <FormField 
-            label="Full name" 
+          <FormField
+            label="Full name"
             value={createForm.name}
-            onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+            onChange={(e) =>
+              setCreateForm({ ...createForm, name: e.target.value })
+            }
             placeholder="Enter full name"
           />
-          <FormField 
-            label="Email" 
+          <FormField
+            label="Email"
             type="email"
             value={createForm.email}
-            onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+            onChange={(e) =>
+              setCreateForm({ ...createForm, email: e.target.value })
+            }
             placeholder="Enter email"
           />
-          <FormField 
-            label="Phone (optional)" 
+          <FormField
+            label="Phone (optional)"
             value={createForm.phone}
-            onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
+            onChange={(e) =>
+              setCreateForm({ ...createForm, phone: e.target.value })
+            }
             placeholder="Enter phone number"
           />
-          <FormField 
-            label="Password" 
+          <FormField
+            label="Password"
             type="password"
             value={createForm.password}
-            onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+            onChange={(e) =>
+              setCreateForm({ ...createForm, password: e.target.value })
+            }
             placeholder="Enter password (min 6 characters)"
           />
           <FormField
             label="Role"
             as="select"
-            value={createForm.role ? createForm.role.charAt(0).toUpperCase() + createForm.role.slice(1) : (rolesData.length > 0 ? rolesData[0].name.charAt(0).toUpperCase() + rolesData[0].name.slice(1) : "")}
-            onChange={(e) => setCreateForm({ ...createForm, role: e.target.value.toLowerCase() })}
-            options={rolesData.map(r => r.name.charAt(0).toUpperCase() + r.name.slice(1))}
+            value={
+              createForm.role
+                ? createForm.role.charAt(0).toUpperCase() +
+                  createForm.role.slice(1)
+                : rolesData.length > 0
+                ? rolesData[0].name.charAt(0).toUpperCase() +
+                  rolesData[0].name.slice(1)
+                : ""
+            }
+            onChange={(e) =>
+              setCreateForm({
+                ...createForm,
+                role: e.target.value.toLowerCase(),
+              })
+            }
+            options={rolesData.map(
+              (r) => r.name.charAt(0).toUpperCase() + r.name.slice(1)
+            )}
           />
           {isSuperAdmin && (
             <div className="flex items-center gap-2">
@@ -454,10 +494,15 @@ export default function UsersPage() {
                 type="checkbox"
                 id="create-host-checkbox"
                 checked={createForm.host}
-                onChange={(e) => setCreateForm({ ...createForm, host: e.target.checked })}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, host: e.target.checked })
+                }
                 className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
               />
-              <label htmlFor="create-host-checkbox" className="text-sm font-medium text-slate-700">
+              <label
+                htmlFor="create-host-checkbox"
+                className="text-sm font-medium text-slate-700"
+              >
                 Host (Can manage properties and team members)
               </label>
             </div>
@@ -467,7 +512,9 @@ export default function UsersPage() {
 
       <Modal
         title="Delete user"
-        description={`Are you sure you want to delete ${userPendingDelete?.name || "this user"}?`}
+        description={`Are you sure you want to delete ${
+          userPendingDelete?.name || "this user"
+        }?`}
         isOpen={Boolean(userPendingDelete)}
         onClose={() => setUserPendingDelete(null)}
         primaryActionLabel="Delete"
@@ -480,4 +527,3 @@ export default function UsersPage() {
     </div>
   );
 }
- 

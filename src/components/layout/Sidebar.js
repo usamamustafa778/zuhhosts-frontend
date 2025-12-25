@@ -18,7 +18,6 @@ const groupBySection = (items = []) =>
   }, {});
 
 export default function Sidebar({
-  role,
   collapsed,
   isVisible,
   isDisabled = false,
@@ -30,7 +29,7 @@ export default function Sidebar({
   
   const groupedMenus = useMemo(() => {
     // Determine which menu to show based on user type
-    let menuKey = role;
+    let menuKey = "Admin"; // Default fallback
     
     if (isSuperAdmin) {
       menuKey = "superadmin";
@@ -38,11 +37,11 @@ export default function Sidebar({
       menuKey = "host";
     } else if (userType === "team_member") {
       // For team members, use their role
-      menuKey = user?.role?.name || user?.role || role || "staff";
+      menuKey = user?.role?.name || user?.role || "staff";
     }
     
     // Get menu items and filter by permissions
-    const navItems = roleMenus[menuKey] || roleMenus[role] || roleMenus.Admin;
+    const navItems = roleMenus[menuKey] || roleMenus.Admin;
     
     // Filter items based on user permissions
     const filteredItems = navItems.filter((item) => {
@@ -57,7 +56,7 @@ export default function Sidebar({
     });
     
     return groupBySection(filteredItems);
-  }, [role, user, userType, isSuperAdmin, isHost, permissions]);
+  }, [user, userType, isSuperAdmin, isHost, permissions]);
   const [collapsedSections, setCollapsedSections] = useState(new Set());
 
   const handleSectionToggle = (section) => {

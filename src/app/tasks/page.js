@@ -3,13 +3,13 @@
 import { useState, useEffect } from "react";
 import KanbanBoard from "@/components/modules/KanbanBoard";
 import Modal from "@/components/common/Modal";
-import { 
-  getAllTasks, 
-  createTask, 
-  updateTask, 
+import {
+  getAllTasks,
+  createTask,
+  updateTask,
   deleteTask,
   getAllProperties,
-  getAllUsers
+  getAllUsers,
 } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
 
@@ -22,14 +22,14 @@ export default function TasksPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filterStatus, setFilterStatus] = useState("");
-  
+
   // Form state
   const [formData, setFormData] = useState({
     property_id: "",
     title: "",
     description: "",
     assigned_to: "",
-    status: "pending"
+    status: "pending",
   });
 
   useEffect(() => {
@@ -41,16 +41,16 @@ export default function TasksPage() {
     try {
       setIsLoading(true);
       setError(null);
-      
+
       // Build query params for filtering
       const params = filterStatus ? `?status=${filterStatus}` : "";
-      
+
       const [tasksData, propertiesData, usersData] = await Promise.all([
         getAllTasks(params),
         getAllProperties(),
-        getAllUsers()
+        getAllUsers(),
       ]);
-      
+
       setTasks(Array.isArray(tasksData) ? tasksData : []);
       setProperties(Array.isArray(propertiesData) ? propertiesData : []);
       setUsers(Array.isArray(usersData) ? usersData : []);
@@ -67,7 +67,7 @@ export default function TasksPage() {
       setError(null);
       const updatedTask = await updateTask(taskId, { status: newStatus });
       setTasks((prev) =>
-        prev.map((t) => (t.id || t._id) === taskId ? updatedTask : t)
+        prev.map((t) => ((t.id || t._id) === taskId ? updatedTask : t))
       );
     } catch (err) {
       setError(err.message || "Failed to update task");
@@ -81,7 +81,7 @@ export default function TasksPage() {
   const handleCreateTask = async (e) => {
     e.preventDefault();
     console.log("🚀 Creating task", formData);
-    
+
     try {
       setError(null);
       const newTask = await createTask(formData);
@@ -92,7 +92,7 @@ export default function TasksPage() {
         title: "",
         description: "",
         assigned_to: "",
-        status: "pending"
+        status: "pending",
       });
       console.log("✅ Task created successfully:", newTask);
     } catch (err) {
@@ -103,14 +103,16 @@ export default function TasksPage() {
 
   const handleDeleteTask = async (taskId) => {
     if (!confirm("Are you sure you want to delete this task?")) return;
-    
+
     try {
       setError(null);
       await deleteTask(taskId);
-      setTasks((prev) => prev.filter((t) => {
-        const id = t.id || t._id;
-        return id !== taskId;
-      }));
+      setTasks((prev) =>
+        prev.filter((t) => {
+          const id = t.id || t._id;
+          return id !== taskId;
+        })
+      );
     } catch (err) {
       setError(err.message || "Failed to delete task");
     }
@@ -119,7 +121,7 @@ export default function TasksPage() {
   // Transform API task data to Kanban format
   const kanbanTasks = tasks.map((task) => {
     const taskId = task.id || task._id;
-    
+
     // Map API status to Kanban column names
     let column = "Pending";
     if (task.status === "in_progress") column = "In Progress";
@@ -134,7 +136,7 @@ export default function TasksPage() {
       description: task.description || "",
       status: task.status,
       column: column,
-      createdAt: task.createdAt
+      createdAt: task.createdAt,
     };
   });
 
@@ -163,17 +165,10 @@ export default function TasksPage() {
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-            Tasks
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold text-slate-900">
-            Task Management
-          </h1>
-          <p className="text-sm text-slate-500">
-            Coordinate housekeeping, maintenance, and property workflows.
-          </p>
-        </div>
+        <h1 className="mt-2 text-3xl font-semibold text-slate-900">
+          Task Management
+        </h1>
+
         <div className="flex gap-2">
           <select
             className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
@@ -208,15 +203,19 @@ export default function TasksPage() {
             title: "",
             description: "",
             assigned_to: "",
-            status: "pending"
+            status: "pending",
           });
         }}
         primaryActionLabel="Create task"
         onPrimaryAction={() => {
-          document.getElementById('create-task-form')?.requestSubmit();
+          document.getElementById("create-task-form")?.requestSubmit();
         }}
       >
-        <form id="create-task-form" onSubmit={handleCreateTask} className="space-y-4">
+        <form
+          id="create-task-form"
+          onSubmit={handleCreateTask}
+          className="space-y-4"
+        >
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Property <span className="text-rose-500">*</span>
@@ -224,12 +223,17 @@ export default function TasksPage() {
             <select
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={formData.property_id}
-              onChange={(e) => setFormData({ ...formData, property_id: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, property_id: e.target.value })
+              }
               required
             >
               <option value="">Select a property</option>
               {properties.map((property) => (
-                <option key={property.id || property._id} value={property.id || property._id}>
+                <option
+                  key={property.id || property._id}
+                  value={property.id || property._id}
+                >
                   {property.title || property.name}
                 </option>
               ))}
@@ -244,7 +248,9 @@ export default function TasksPage() {
               type="text"
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, title: e.target.value })
+              }
               placeholder="Task title"
               minLength={3}
               maxLength={100}
@@ -260,7 +266,9 @@ export default function TasksPage() {
             <textarea
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
               placeholder="Detailed task description..."
               rows={4}
               minLength={5}
@@ -276,7 +284,9 @@ export default function TasksPage() {
             <select
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={formData.assigned_to}
-              onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, assigned_to: e.target.value })
+              }
               required
             >
               <option value="">Select a team member</option>
@@ -295,7 +305,9 @@ export default function TasksPage() {
             <select
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, status: e.target.value })
+              }
             >
               <option value="pending">Pending</option>
               <option value="in_progress">In Progress</option>
@@ -308,4 +320,3 @@ export default function TasksPage() {
     </div>
   );
 }
-

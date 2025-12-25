@@ -24,7 +24,7 @@ export default function GuestsPage() {
     email: "",
     phone: "",
     idCard: null,
-    profilePicture: null
+    profilePicture: null,
   });
 
   // Form state for edit modal
@@ -33,19 +33,19 @@ export default function GuestsPage() {
     email: "",
     phone: "",
     idCard: null,
-    profilePicture: null
+    profilePicture: null,
   });
 
   // Preview URLs for create modal
   const [createPreviews, setCreatePreviews] = useState({
     idCard: null,
-    profilePicture: null
+    profilePicture: null,
   });
 
   // Preview URLs for edit modal
   const [editPreviews, setEditPreviews] = useState({
     idCard: null,
-    profilePicture: null
+    profilePicture: null,
   });
 
   // Booking history state
@@ -58,19 +58,19 @@ export default function GuestsPage() {
     loadGuests();
   }, [isAuthenticated]);
 
-    const loadGuests = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const data = await getAllGuests();
-        setGuestsData(Array.isArray(data) ? data : []);
-      } catch (err) {
-        setError(err.message || "Failed to load guests");
-        console.error("Error loading guests:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const loadGuests = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const data = await getAllGuests();
+      setGuestsData(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err.message || "Failed to load guests");
+      console.error("Error loading guests:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     return guestsData.filter(
@@ -81,20 +81,23 @@ export default function GuestsPage() {
     );
   }, [query, guestsData]);
 
-  const paginated = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+  const paginated = filtered.slice(
+    page * PAGE_SIZE,
+    page * PAGE_SIZE + PAGE_SIZE
+  );
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
 
   const handleCreateGuest = async (e) => {
     e.preventDefault();
     console.log("🚀 Create guest form submitted", createForm);
-    
+
     try {
       setError(null);
-      
+
       // Check if files are being uploaded
       const hasFiles = createForm.idCard || createForm.profilePicture;
       console.log("📁 Has files:", hasFiles);
-      
+
       let newGuest;
       if (hasFiles) {
         // Use FormData for file uploads
@@ -102,34 +105,37 @@ export default function GuestsPage() {
         formData.append("name", createForm.name);
         formData.append("email", createForm.email);
         formData.append("phone", createForm.phone);
-        
+
         if (createForm.idCard) {
           formData.append("idCard", createForm.idCard);
         }
         if (createForm.profilePicture) {
           formData.append("profilePicture", createForm.profilePicture);
         }
-        
+
         // Call API with FormData
-        const token = typeof window !== "undefined" ? localStorage.getItem("luxeboard.authToken") : null;
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("luxeboard.authToken")
+            : null;
         console.log("📤 Sending FormData to API...", { hasToken: !!token });
-        
+
         const response = await fetch("http://localhost:5001/api/guests", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${token}`
+            Authorization: `Bearer ${token}`,
           },
-          body: formData
+          body: formData,
         });
-        
+
         console.log("📥 API Response:", response.status, response.statusText);
-        
+
         if (!response.ok) {
           const errorData = await response.json();
           console.error("❌ API Error:", errorData);
           throw new Error(errorData.error || "Failed to create guest");
         }
-        
+
         newGuest = await response.json();
         console.log("✅ Guest created successfully:", newGuest);
       } else {
@@ -138,14 +144,20 @@ export default function GuestsPage() {
         newGuest = await createGuest({
           name: createForm.name,
           email: createForm.email,
-          phone: createForm.phone
+          phone: createForm.phone,
         });
         console.log("✅ Guest created successfully:", newGuest);
       }
-      
+
       setGuestsData((prev) => [newGuest, ...prev]);
       setCreateOpen(false);
-      setCreateForm({ name: "", email: "", phone: "", idCard: null, profilePicture: null });
+      setCreateForm({
+        name: "",
+        email: "",
+        phone: "",
+        idCard: null,
+        profilePicture: null,
+      });
       cleanupCreatePreviews();
       console.log("✅ Modal closed and form reset");
     } catch (err) {
@@ -157,41 +169,48 @@ export default function GuestsPage() {
   const handleUpdateGuest = async (e) => {
     e.preventDefault();
     if (!selectedGuest) return;
-    
+
     try {
       setError(null);
       const guestId = selectedGuest.id || selectedGuest._id;
-      
+
       // Check if files are being uploaded
       const hasFiles = editForm.idCard || editForm.profilePicture;
-      
+
       let updatedGuest;
       if (hasFiles) {
         // Use FormData for file uploads
         const formData = new FormData();
-        
+
         // Only append fields that have values
         if (editForm.name) formData.append("name", editForm.name);
         if (editForm.email) formData.append("email", editForm.email);
         if (editForm.phone) formData.append("phone", editForm.phone);
         if (editForm.idCard) formData.append("idCard", editForm.idCard);
-        if (editForm.profilePicture) formData.append("profilePicture", editForm.profilePicture);
-        
+        if (editForm.profilePicture)
+          formData.append("profilePicture", editForm.profilePicture);
+
         // Call API with FormData
-        const token = typeof window !== "undefined" ? localStorage.getItem("luxeboard.authToken") : null;
-        const response = await fetch(`http://localhost:5001/api/guests/${guestId}`, {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`
-          },
-          body: formData
-        });
-        
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("luxeboard.authToken")
+            : null;
+        const response = await fetch(
+          `http://localhost:5001/api/guests/${guestId}`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            body: formData,
+          }
+        );
+
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || "Failed to update guest");
         }
-        
+
         updatedGuest = await response.json();
       } else {
         // Use regular JSON API call
@@ -199,10 +218,10 @@ export default function GuestsPage() {
         if (editForm.name) updateData.name = editForm.name;
         if (editForm.email) updateData.email = editForm.email;
         if (editForm.phone) updateData.phone = editForm.phone;
-        
+
         updatedGuest = await updateGuest(guestId, updateData);
       }
-      
+
       setGuestsData((prev) =>
         prev.map((guest) => {
           const id = guest.id || guest._id;
@@ -210,7 +229,13 @@ export default function GuestsPage() {
         })
       );
       setSelectedGuest(null);
-      setEditForm({ name: "", email: "", phone: "", idCard: null, profilePicture: null });
+      setEditForm({
+        name: "",
+        email: "",
+        phone: "",
+        idCard: null,
+        profilePicture: null,
+      });
       cleanupEditPreviews();
     } catch (err) {
       setError(err.message || "Failed to update guest");
@@ -218,15 +243,22 @@ export default function GuestsPage() {
   };
 
   const handleDeleteGuest = async (guestId) => {
-    if (!confirm("Are you sure you want to delete this guest? This may impact related bookings.")) return;
-    
+    if (
+      !confirm(
+        "Are you sure you want to delete this guest? This may impact related bookings."
+      )
+    )
+      return;
+
     try {
       setError(null);
       await deleteGuest(guestId);
-      setGuestsData((prev) => prev.filter((guest) => {
-        const id = guest.id || guest._id;
-        return id !== guestId;
-      }));
+      setGuestsData((prev) =>
+        prev.filter((guest) => {
+          const id = guest.id || guest._id;
+          return id !== guestId;
+        })
+      );
     } catch (err) {
       setError(err.message || "Failed to delete guest");
     }
@@ -239,7 +271,7 @@ export default function GuestsPage() {
       email: guest.email || "",
       phone: guest.phone || "",
       idCard: null,
-      profilePicture: null
+      profilePicture: null,
     });
     // Reset previews
     setEditPreviews({ idCard: null, profilePicture: null });
@@ -249,7 +281,7 @@ export default function GuestsPage() {
   const createPreviewUrl = (file) => {
     if (!file) return null;
     // Only create preview for images, not PDFs
-    if (file.type.startsWith('image/')) {
+    if (file.type.startsWith("image/")) {
       return URL.createObjectURL(file);
     }
     return null;
@@ -258,37 +290,39 @@ export default function GuestsPage() {
   // Handle file selection for create form
   const handleCreateFileChange = (fieldName, file) => {
     setCreateForm({ ...createForm, [fieldName]: file });
-    
+
     // Create preview URL
     const previewUrl = createPreviewUrl(file);
-    setCreatePreviews(prev => ({
+    setCreatePreviews((prev) => ({
       ...prev,
-      [fieldName]: previewUrl
+      [fieldName]: previewUrl,
     }));
   };
 
   // Handle file selection for edit form
   const handleEditFileChange = (fieldName, file) => {
     setEditForm({ ...editForm, [fieldName]: file });
-    
+
     // Create preview URL
     const previewUrl = createPreviewUrl(file);
-    setEditPreviews(prev => ({
+    setEditPreviews((prev) => ({
       ...prev,
-      [fieldName]: previewUrl
+      [fieldName]: previewUrl,
     }));
   };
 
   // Cleanup preview URLs when modal closes
   const cleanupCreatePreviews = () => {
     if (createPreviews.idCard) URL.revokeObjectURL(createPreviews.idCard);
-    if (createPreviews.profilePicture) URL.revokeObjectURL(createPreviews.profilePicture);
+    if (createPreviews.profilePicture)
+      URL.revokeObjectURL(createPreviews.profilePicture);
     setCreatePreviews({ idCard: null, profilePicture: null });
   };
 
   const cleanupEditPreviews = () => {
     if (editPreviews.idCard) URL.revokeObjectURL(editPreviews.idCard);
-    if (editPreviews.profilePicture) URL.revokeObjectURL(editPreviews.profilePicture);
+    if (editPreviews.profilePicture)
+      URL.revokeObjectURL(editPreviews.profilePicture);
     setEditPreviews({ idCard: null, profilePicture: null });
   };
 
@@ -297,19 +331,25 @@ export default function GuestsPage() {
       setIsLoadingHistory(true);
       setError(null);
       const guestId = guest.id || guest._id;
-      
-      const token = typeof window !== "undefined" ? localStorage.getItem("luxeboard.authToken") : null;
-      const response = await fetch(`http://localhost:5001/api/guests/${guestId}/bookings`, {
-        headers: {
-          Authorization: `Bearer ${token}`
+
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("luxeboard.authToken")
+          : null;
+      const response = await fetch(
+        `http://localhost:5001/api/guests/${guestId}/bookings`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      });
-      
+      );
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to fetch booking history");
       }
-      
+
       const data = await response.json();
       setBookingHistoryGuest(guest);
       setBookingHistoryData(data);
@@ -345,13 +385,10 @@ export default function GuestsPage() {
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-            Guests
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold text-slate-900">Guest directory</h1>
-          <p className="text-sm text-slate-500">Search, filter, and manage guest contacts.</p>
-        </div>
+        <h1 className="mt-2 text-3xl font-semibold text-slate-900">
+          Guest directory
+        </h1>
+
         <button
           className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
           onClick={() => setCreateOpen(true)}
@@ -380,7 +417,9 @@ export default function GuestsPage() {
           </button>
           <button
             disabled={page + 1 >= totalPages}
-            onClick={() => setPage((prev) => Math.min(prev + 1, totalPages - 1))}
+            onClick={() =>
+              setPage((prev) => Math.min(prev + 1, totalPages - 1))
+            }
             className="rounded-full border border-slate-200 px-4 py-2 text-slate-600 disabled:opacity-30"
           >
             Next
@@ -389,32 +428,47 @@ export default function GuestsPage() {
       </div>
 
       <DataTable
-        headers={["#", "Profile Pic", "Name", "Email", "Phone", "ID Card", "Created", "Actions"]}
+        headers={[
+          "#",
+          "Profile Pic",
+          "Name",
+          "Email",
+          "Phone",
+          "ID Card",
+          "Created",
+          "Actions",
+        ]}
         rows={paginated.map((guest, index) => {
           const guestId = guest.id || guest._id || `guest-${index}`;
-          const createdDate = guest.createdAt 
-            ? new Date(guest.createdAt).toLocaleDateString() 
+          const createdDate = guest.createdAt
+            ? new Date(guest.createdAt).toLocaleDateString()
             : "N/A";
-          const profilePicUrl = guest.profilePicture 
+          const profilePicUrl = guest.profilePicture
             ? `http://localhost:5001${guest.profilePicture}`
             : null;
-          const idCardUrl = guest.idCard 
+          const idCardUrl = guest.idCard
             ? `http://localhost:5001${guest.idCard}`
             : null;
-          
+
           // Calculate serial number based on current page
           const serialNumber = page * PAGE_SIZE + index + 1;
-          
+
           return {
             id: guestId,
             cells: [
-              <span key={`serial-${guestId}`} className="text-sm font-medium text-slate-500">
+              <span
+                key={`serial-${guestId}`}
+                className="text-sm font-medium text-slate-500"
+              >
                 {serialNumber}
               </span>,
-              <div key={`photo-${guestId}`} className="flex items-center justify-center">
+              <div
+                key={`photo-${guestId}`}
+                className="flex items-center justify-center"
+              >
                 {profilePicUrl ? (
-                  <img 
-                    src={profilePicUrl} 
+                  <img
+                    src={profilePicUrl}
                     alt={guest.name}
                     className="h-12 w-12 rounded-full object-cover border-2 border-slate-200"
                     title="View Profile Picture"
@@ -426,8 +480,12 @@ export default function GuestsPage() {
                 )}
               </div>,
               <div key={`name-${guestId}`}>
-                <div className="font-semibold text-slate-900">{guest.name || "N/A"}</div>
-                <div className="text-xs text-slate-400">ID: {guestId.slice(-8)}</div>
+                <div className="font-semibold text-slate-900">
+                  {guest.name || "N/A"}
+                </div>
+                <div className="text-xs text-slate-400">
+                  ID: {guestId.slice(-8)}
+                </div>
               </div>,
               <div key={`email-${guestId}`} className="text-sm text-slate-600">
                 {guest.email || "N/A"}
@@ -444,8 +502,18 @@ export default function GuestsPage() {
                     className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline"
                     title="View ID Card"
                   >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                      />
                     </svg>
                     View
                   </a>
@@ -453,7 +521,10 @@ export default function GuestsPage() {
                   <span className="text-xs text-slate-400">No ID</span>
                 )}
               </div>,
-              <span key={`created-${guestId}`} className="text-xs text-slate-500">
+              <span
+                key={`created-${guestId}`}
+                className="text-xs text-slate-500"
+              >
                 {createdDate}
               </span>,
               <div key={`actions-${guestId}`} className="flex gap-2">
@@ -464,12 +535,12 @@ export default function GuestsPage() {
                 >
                   History
                 </button>
-              <button
-                className="text-sm text-slate-500 underline-offset-2 hover:text-slate-900 hover:underline"
+                <button
+                  className="text-sm text-slate-500 underline-offset-2 hover:text-slate-900 hover:underline"
                   onClick={() => openEditModal(guest)}
                   title="Edit Guest"
-              >
-                Edit
+                >
+                  Edit
                 </button>
                 <button
                   className="text-sm text-rose-500 underline-offset-2 hover:text-rose-900 hover:underline"
@@ -495,44 +566,55 @@ export default function GuestsPage() {
         isOpen={Boolean(selectedGuest)}
         onClose={() => {
           setSelectedGuest(null);
-          setEditForm({ name: "", email: "", phone: "", idCard: null, profilePicture: null });
+          setEditForm({
+            name: "",
+            email: "",
+            phone: "",
+            idCard: null,
+            profilePicture: null,
+          });
           cleanupEditPreviews();
         }}
         primaryActionLabel="Update guest"
         onPrimaryAction={() => {
           // Trigger form submission
-          document.getElementById('edit-guest-form')?.requestSubmit();
+          document.getElementById("edit-guest-form")?.requestSubmit();
         }}
       >
-        <form id="edit-guest-form" onSubmit={handleUpdateGuest} className="space-y-4">
+        <form
+          id="edit-guest-form"
+          onSubmit={handleUpdateGuest}
+          className="space-y-4"
+        >
           {/* Current Files Display */}
-          {selectedGuest && (selectedGuest.profilePicture || selectedGuest.idCard) && (
-            <div className="flex gap-4 p-3 bg-slate-50 rounded-lg">
-              {selectedGuest.profilePicture && (
-                <div className="text-center">
-                  <img 
-                    src={`http://localhost:5001${selectedGuest.profilePicture}`}
-                    alt="Current Profile"
-                    className="h-20 w-20 rounded-full object-cover border-2 border-slate-200 mb-1"
-                  />
-                  <p className="text-xs text-slate-500">Current Photo</p>
-                </div>
-              )}
-              {selectedGuest.idCard && (
-                <div className="text-center">
-                  <a 
-                    href={`http://localhost:5001${selectedGuest.idCard}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:underline"
-                  >
-                    View ID Card
-                  </a>
-                  <p className="text-xs text-slate-500 mt-1">Current ID</p>
-                </div>
-              )}
-            </div>
-          )}
+          {selectedGuest &&
+            (selectedGuest.profilePicture || selectedGuest.idCard) && (
+              <div className="flex gap-4 p-3 bg-slate-50 rounded-lg">
+                {selectedGuest.profilePicture && (
+                  <div className="text-center">
+                    <img
+                      src={`http://localhost:5001${selectedGuest.profilePicture}`}
+                      alt="Current Profile"
+                      className="h-20 w-20 rounded-full object-cover border-2 border-slate-200 mb-1"
+                    />
+                    <p className="text-xs text-slate-500">Current Photo</p>
+                  </div>
+                )}
+                {selectedGuest.idCard && (
+                  <div className="text-center">
+                    <a
+                      href={`http://localhost:5001${selectedGuest.idCard}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:underline"
+                    >
+                      View ID Card
+                    </a>
+                    <p className="text-xs text-slate-500 mt-1">Current ID</p>
+                  </div>
+                )}
+              </div>
+            )}
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -542,7 +624,9 @@ export default function GuestsPage() {
               type="text"
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={editForm.name}
-              onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+              onChange={(e) =>
+                setEditForm({ ...editForm, name: e.target.value })
+              }
               placeholder="Guest full name"
               minLength={2}
               required
@@ -557,7 +641,9 @@ export default function GuestsPage() {
               type="email"
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={editForm.email}
-              onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+              onChange={(e) =>
+                setEditForm({ ...editForm, email: e.target.value })
+              }
               placeholder="guest@email.com"
               required
             />
@@ -571,7 +657,9 @@ export default function GuestsPage() {
               type="tel"
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={editForm.phone}
-              onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+              onChange={(e) =>
+                setEditForm({ ...editForm, phone: e.target.value })
+              }
               placeholder="+1 555 000 0000"
               required
             />
@@ -586,22 +674,32 @@ export default function GuestsPage() {
                 type="file"
                 accept="image/*,.pdf"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                onChange={(e) => handleEditFileChange('idCard', e.target.files[0])}
+                onChange={(e) =>
+                  handleEditFileChange("idCard", e.target.files[0])
+                }
               />
-              <p className="mt-1 text-xs text-slate-500">JPEG, PNG, GIF, PDF (max 5MB)</p>
+              <p className="mt-1 text-xs text-slate-500">
+                JPEG, PNG, GIF, PDF (max 5MB)
+              </p>
               {editPreviews.idCard && (
                 <div className="mt-2">
-                  <img 
-                    src={editPreviews.idCard} 
+                  <img
+                    src={editPreviews.idCard}
                     alt="ID Card Preview"
                     className="w-full h-32 object-contain border border-slate-200 rounded-lg bg-slate-50"
                   />
-                  <p className="mt-1 text-xs text-green-600">✓ New ID card selected</p>
+                  <p className="mt-1 text-xs text-green-600">
+                    ✓ New ID card selected
+                  </p>
                 </div>
               )}
-              {editForm.idCard && !editPreviews.idCard && editForm.idCard.type === 'application/pdf' && (
-                <p className="mt-2 text-xs text-green-600">✓ PDF file selected: {editForm.idCard.name}</p>
-              )}
+              {editForm.idCard &&
+                !editPreviews.idCard &&
+                editForm.idCard.type === "application/pdf" && (
+                  <p className="mt-2 text-xs text-green-600">
+                    ✓ PDF file selected: {editForm.idCard.name}
+                  </p>
+                )}
             </div>
 
             <div>
@@ -612,17 +710,23 @@ export default function GuestsPage() {
                 type="file"
                 accept="image/*"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                onChange={(e) => handleEditFileChange('profilePicture', e.target.files[0])}
+                onChange={(e) =>
+                  handleEditFileChange("profilePicture", e.target.files[0])
+                }
               />
-              <p className="mt-1 text-xs text-slate-500">JPEG, PNG, GIF (max 5MB)</p>
+              <p className="mt-1 text-xs text-slate-500">
+                JPEG, PNG, GIF (max 5MB)
+              </p>
               {editPreviews.profilePicture && (
                 <div className="mt-2">
-                  <img 
-                    src={editPreviews.profilePicture} 
+                  <img
+                    src={editPreviews.profilePicture}
                     alt="Profile Picture Preview"
                     className="w-24 h-24 object-cover border-2 border-slate-200 rounded-full mx-auto bg-slate-50"
                   />
-                  <p className="mt-1 text-xs text-green-600 text-center">✓ New photo selected</p>
+                  <p className="mt-1 text-xs text-green-600 text-center">
+                    ✓ New photo selected
+                  </p>
                 </div>
               )}
             </div>
@@ -636,16 +740,26 @@ export default function GuestsPage() {
         isOpen={isCreateOpen}
         onClose={() => {
           setCreateOpen(false);
-          setCreateForm({ name: "", email: "", phone: "", idCard: null, profilePicture: null });
+          setCreateForm({
+            name: "",
+            email: "",
+            phone: "",
+            idCard: null,
+            profilePicture: null,
+          });
           cleanupCreatePreviews();
         }}
         primaryActionLabel="Create guest"
         onPrimaryAction={() => {
           // Trigger form submission
-          document.getElementById('create-guest-form')?.requestSubmit();
+          document.getElementById("create-guest-form")?.requestSubmit();
         }}
       >
-        <form id="create-guest-form" onSubmit={handleCreateGuest} className="space-y-4">
+        <form
+          id="create-guest-form"
+          onSubmit={handleCreateGuest}
+          className="space-y-4"
+        >
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Full Name <span className="text-rose-500">*</span>
@@ -654,7 +768,9 @@ export default function GuestsPage() {
               type="text"
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={createForm.name}
-              onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+              onChange={(e) =>
+                setCreateForm({ ...createForm, name: e.target.value })
+              }
               placeholder="Guest full name"
               minLength={2}
               required
@@ -670,11 +786,15 @@ export default function GuestsPage() {
               type="email"
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={createForm.email}
-              onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+              onChange={(e) =>
+                setCreateForm({ ...createForm, email: e.target.value })
+              }
               placeholder="guest@email.com"
               required
             />
-            <p className="mt-1 text-xs text-slate-500">Must be unique per host</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Must be unique per host
+            </p>
           </div>
 
           <div>
@@ -685,7 +805,9 @@ export default function GuestsPage() {
               type="tel"
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={createForm.phone}
-              onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
+              onChange={(e) =>
+                setCreateForm({ ...createForm, phone: e.target.value })
+              }
               placeholder="+1 555 000 0000"
               required
             />
@@ -700,22 +822,32 @@ export default function GuestsPage() {
                 type="file"
                 accept="image/*,.pdf"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                onChange={(e) => handleCreateFileChange('idCard', e.target.files[0])}
+                onChange={(e) =>
+                  handleCreateFileChange("idCard", e.target.files[0])
+                }
               />
-              <p className="mt-1 text-xs text-slate-500">JPEG, PNG, GIF, PDF (max 5MB)</p>
+              <p className="mt-1 text-xs text-slate-500">
+                JPEG, PNG, GIF, PDF (max 5MB)
+              </p>
               {createPreviews.idCard && (
                 <div className="mt-2">
-                  <img 
-                    src={createPreviews.idCard} 
+                  <img
+                    src={createPreviews.idCard}
                     alt="ID Card Preview"
                     className="w-full h-32 object-contain border border-slate-200 rounded-lg bg-slate-50"
                   />
-                  <p className="mt-1 text-xs text-green-600">✓ ID card ready to upload</p>
+                  <p className="mt-1 text-xs text-green-600">
+                    ✓ ID card ready to upload
+                  </p>
                 </div>
               )}
-              {createForm.idCard && !createPreviews.idCard && createForm.idCard.type === 'application/pdf' && (
-                <p className="mt-2 text-xs text-green-600">✓ PDF file selected: {createForm.idCard.name}</p>
-              )}
+              {createForm.idCard &&
+                !createPreviews.idCard &&
+                createForm.idCard.type === "application/pdf" && (
+                  <p className="mt-2 text-xs text-green-600">
+                    ✓ PDF file selected: {createForm.idCard.name}
+                  </p>
+                )}
             </div>
 
             <div>
@@ -726,17 +858,23 @@ export default function GuestsPage() {
                 type="file"
                 accept="image/*"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                onChange={(e) => handleCreateFileChange('profilePicture', e.target.files[0])}
+                onChange={(e) =>
+                  handleCreateFileChange("profilePicture", e.target.files[0])
+                }
               />
-              <p className="mt-1 text-xs text-slate-500">JPEG, PNG, GIF (max 5MB)</p>
+              <p className="mt-1 text-xs text-slate-500">
+                JPEG, PNG, GIF (max 5MB)
+              </p>
               {createPreviews.profilePicture && (
                 <div className="mt-2">
-                  <img 
-                    src={createPreviews.profilePicture} 
+                  <img
+                    src={createPreviews.profilePicture}
                     alt="Profile Picture Preview"
                     className="w-24 h-24 object-cover border-2 border-slate-200 rounded-full mx-auto bg-slate-50"
                   />
-                  <p className="mt-1 text-xs text-green-600 text-center">✓ Photo ready to upload</p>
+                  <p className="mt-1 text-xs text-green-600 text-center">
+                    ✓ Photo ready to upload
+                  </p>
                 </div>
               )}
             </div>
@@ -746,7 +884,11 @@ export default function GuestsPage() {
 
       {/* Booking History Modal */}
       <Modal
-        title={bookingHistoryGuest ? `${bookingHistoryGuest.name}'s Booking History` : "Booking History"}
+        title={
+          bookingHistoryGuest
+            ? `${bookingHistoryGuest.name}'s Booking History`
+            : "Booking History"
+        }
         description="Complete booking history and statistics."
         isOpen={Boolean(bookingHistoryGuest)}
         onClose={() => {
@@ -756,22 +898,30 @@ export default function GuestsPage() {
         size="large"
       >
         {isLoadingHistory ? (
-          <div className="text-center py-8 text-slate-500">Loading booking history...</div>
+          <div className="text-center py-8 text-slate-500">
+            Loading booking history...
+          </div>
         ) : bookingHistoryData ? (
           <div className="space-y-6">
             {/* Guest Info */}
             <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
               {bookingHistoryData.guest.profilePicture && (
-                <img 
+                <img
                   src={`http://localhost:5001${bookingHistoryData.guest.profilePicture}`}
                   alt={bookingHistoryData.guest.name}
                   className="h-16 w-16 rounded-full object-cover border-2 border-slate-200"
                 />
               )}
               <div>
-                <h3 className="font-semibold text-slate-900">{bookingHistoryData.guest.name}</h3>
-                <p className="text-sm text-slate-600">{bookingHistoryData.guest.email}</p>
-                <p className="text-sm text-slate-600">{bookingHistoryData.guest.phone}</p>
+                <h3 className="font-semibold text-slate-900">
+                  {bookingHistoryData.guest.name}
+                </h3>
+                <p className="text-sm text-slate-600">
+                  {bookingHistoryData.guest.email}
+                </p>
+                <p className="text-sm text-slate-600">
+                  {bookingHistoryData.guest.phone}
+                </p>
               </div>
             </div>
 
@@ -799,9 +949,13 @@ export default function GuestsPage() {
                 </div>
                 <div className="bg-orange-50 p-3 rounded-lg">
                   <div className="text-2xl font-bold text-orange-900">
-                    {bookingHistoryData.statistics.averageStayDuration.toFixed(1)}
+                    {bookingHistoryData.statistics.averageStayDuration.toFixed(
+                      1
+                    )}
                   </div>
-                  <div className="text-xs text-orange-600">Avg Stay (nights)</div>
+                  <div className="text-xs text-orange-600">
+                    Avg Stay (nights)
+                  </div>
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-4 mt-4">
@@ -832,12 +986,14 @@ export default function GuestsPage() {
                 Bookings ({bookingHistoryData.bookings.length})
               </h4>
               {bookingHistoryData.bookings.length === 0 ? (
-                <p className="text-center text-slate-500 py-4">No bookings found</p>
+                <p className="text-center text-slate-500 py-4">
+                  No bookings found
+                </p>
               ) : (
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {bookingHistoryData.bookings.map((booking) => (
-                    <div 
-                      key={booking.id || booking._id} 
+                    <div
+                      key={booking.id || booking._id}
                       className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50"
                     >
                       <div className="flex justify-between items-start">
@@ -850,7 +1006,9 @@ export default function GuestsPage() {
                           </p>
                         </div>
                         <div className="text-right">
-                          <div className="font-semibold text-slate-900">${booking.amount}</div>
+                          <div className="font-semibold text-slate-900">
+                            ${booking.amount}
+                          </div>
                           <div className="text-xs text-slate-500">
                             ID: {(booking.id || booking._id).slice(-8)}
                           </div>
@@ -877,4 +1035,3 @@ export default function GuestsPage() {
     </div>
   );
 }
-
