@@ -1,0 +1,17 @@
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Disallow dashboard and admin pages
+Disallow: /dashboard
+Disallow: /profile
+Disallow: /bookings
+Disallow: /properties
+Disallow: /guests
+Disallow: /payments
+Disallow: /tasks
+Disallow: /users
+
+# Sitemap location
+Sitemap: https://zuhahosts.com/sitemap.xml
+
