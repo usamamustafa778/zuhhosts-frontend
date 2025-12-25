@@ -237,6 +237,22 @@ export async function deleteBooking(id) {
   return handleResponse(res, "Failed to delete booking");
 }
 
+export async function updateBookingStatus(id, status) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/bookings/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+  return handleResponse(res, "Failed to update booking status");
+}
+
+export async function updateBookingPaymentStatus(id, paymentStatus) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/bookings/${id}/payment-status`, {
+    method: "PATCH",
+    body: JSON.stringify({ payment_status: paymentStatus }),
+  });
+  return handleResponse(res, "Failed to update payment status");
+}
+
 export async function getAllPayments() {
   console.log("🔵 API Call: getAllPayments", `${API_BASE_URL}/payments`);
   const res = await fetchWithAuth(`${API_BASE_URL}/payments`);

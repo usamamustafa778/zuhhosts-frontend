@@ -313,7 +313,23 @@ export default function PropertiesPage() {
             Manage units, track occupancy, and keep photos fresh.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {/* Mobile Filters Button */}
+          <button
+            className="md:hidden rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-2"
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            Filters
+            {Object.values(filters).some(val => val !== "") && (
+              <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-slate-900 rounded-full">
+                {Object.values(filters).filter(val => val !== "").length}
+              </span>
+            )}
+          </button>
+          
           <div className="flex rounded-full border border-slate-200 p-1">
             <button
               className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
@@ -340,31 +356,41 @@ export default function PropertiesPage() {
               </svg>
             </button>
           </div>
+          {/* Mobile: Add button */}
           <button
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+            className="sm:hidden rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+            onClick={() => setCreateOpen(true)}
+          >
+            Add
+          </button>
+          
+          {/* Desktop: Add property and Import buttons */}
+          <button
+            className="hidden sm:inline-block rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
             onClick={() => setCreateOpen(true)}
           >
             Add property
           </button>
-          <button className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+          <button className="hidden sm:inline-block rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
             Import Property
           </button>
         </div>
       </div>
 
       {/* Filters Section */}
-      <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900">Filters</h3>
-          <button
-            className="text-sm text-slate-600 hover:text-slate-900 underline"
-            onClick={clearFilters}
-          >
-            Clear all
-          </button>
-        </div>
+      <div className={`rounded-3xl border border-slate-100 bg-white shadow-sm transition-all ${showFilters || 'hidden md:block'}`}>
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-slate-900">Filters</h3>
+            <button
+              className="text-sm text-slate-600 hover:text-slate-900 underline"
+              onClick={clearFilters}
+            >
+              Clear all
+            </button>
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           {/* Search */}
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">
@@ -463,11 +489,12 @@ export default function PropertiesPage() {
           </div>
         </div>
 
-        {/* Results count */}
-        <div className="mt-4 pt-4 border-t border-slate-100">
-          <p className="text-sm text-slate-600">
-            Showing <span className="font-semibold text-slate-900">{filteredProperties.length}</span> of {propertiesData.length} properties
-          </p>
+          {/* Results count */}
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <p className="text-sm text-slate-600">
+              Showing <span className="font-semibold text-slate-900">{filteredProperties.length}</span> of {propertiesData.length} properties
+            </p>
+          </div>
         </div>
       </div>
 
