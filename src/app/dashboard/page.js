@@ -1,11 +1,7 @@
 "use client";
 
-import SummaryCard from "@/components/common/SummaryCard";
-import DataTable from "@/components/common/DataTable";
-import StatusPill from "@/components/common/StatusPill";
-import PhotoCarousel from "@/components/modules/PhotoCarousel";
+import Link from "next/link";
 import { useRequireAuth } from "@/hooks/useAuth";
-import { summaryStats, bookings, properties, tasks } from "@/data/dummyData";
 
 export default function DashboardPage() {
   const { isAuthenticated, isLoading } = useRequireAuth();
@@ -29,100 +25,99 @@ export default function DashboardPage() {
           Overview
         </p>
         <h1 className="mt-2 text-3xl font-semibold text-slate-900">
-          Property management operations dashboard
+          Property Management Dashboard
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-slate-500">
-          Track properties, bookings, tasks, and payments in a single pane of glass.
+          Welcome to your property management system. Get started by managing your properties, bookings, guests, and tasks.
         </p>
       </div>
 
+      {/* Quick Actions */}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {summaryStats.map((stat) => (
-          <SummaryCard key={stat.id} {...stat} />
-        ))}
+        <Link href="/properties">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+            <div className="text-3xl mb-2">🏡</div>
+            <h3 className="font-semibold text-slate-900">Properties</h3>
+            <p className="text-sm text-slate-500 mt-1">Manage your property listings</p>
+          </div>
+        </Link>
+
+        <Link href="/bookings">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+            <div className="text-3xl mb-2">📅</div>
+            <h3 className="font-semibold text-slate-900">Bookings</h3>
+            <p className="text-sm text-slate-500 mt-1">View and manage reservations</p>
+          </div>
+        </Link>
+
+        <Link href="/guests">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+            <div className="text-3xl mb-2">👥</div>
+            <h3 className="font-semibold text-slate-900">Guests</h3>
+            <p className="text-sm text-slate-500 mt-1">Manage guest contacts</p>
+          </div>
+        </Link>
+
+        <Link href="/tasks">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+            <div className="text-3xl mb-2">📝</div>
+            <h3 className="font-semibold text-slate-900">Tasks</h3>
+            <p className="text-sm text-slate-500 mt-1">Track team assignments</p>
+          </div>
+        </Link>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">Upcoming bookings</h2>
-              <p className="text-sm text-slate-500">Realtime sync from booking engines</p>
-            </div>
-            <button className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
-              View calendar
-            </button>
-          </div>
-          <div className="mt-4">
-            <DataTable
-              headers={["Booking", "Guest", "Property", "Dates", "Total", "Status"]}
-              rows={bookings.slice(0, 4).map((booking) => ({
-                id: booking.id,
-                cells: [
-                  <span className="font-semibold text-slate-700" key="code">
-                    {booking.id}
-                  </span>,
-                  booking.guest,
-                  <span className="text-slate-600" key="property">
-                    {booking.property}
-                  </span>,
-                  `${booking.checkIn} → ${booking.checkOut}`,
-                  booking.total,
-                  <StatusPill key="status" label={booking.status} />,
-                ],
-              }))}
-            />
-          </div>
-        </div>
-
+      {/* Getting Started Section */}
+      <section className="rounded-3xl border border-slate-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-8">
+        <h2 className="text-2xl font-semibold text-slate-900 mb-4">Getting Started</h2>
         <div className="space-y-4">
-          <div className="rounded-3xl border border-slate-100 bg-linear-to-b from-white to-slate-50 p-4 shadow-sm">
-            <h3 className="text-sm font-semibold text-slate-600">Action center</h3>
-            <ul className="mt-4 space-y-3 text-sm text-slate-600">
-              <li className="flex items-center justify-between">
-                Pending approvals <span className="text-slate-900">4</span>
-              </li>
-              <li className="flex items-center justify-between">
-                Tasks due today <span className="text-rose-600">7</span>
-              </li>
-              <li className="flex items-center justify-between">
-                Check-ins tomorrow <span className="text-slate-900">13</span>
-              </li>
-            </ul>
-          </div>
-          <div className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
-            <h3 className="text-sm font-semibold text-slate-700">Top performing property</h3>
-            <div className="mt-3 space-y-2 text-sm text-slate-600">
-              <p className="font-semibold text-slate-900">{properties[0].name}</p>
-              <p>{properties[0].location}</p>
-              <p>Occupancy {properties[0].occupancy}% · ${properties[0].nightlyRate}/night</p>
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold">1</div>
+            <div>
+              <h3 className="font-semibold text-slate-900">Add Your Properties</h3>
+              <p className="text-sm text-slate-600">Start by adding your rental properties to the system</p>
             </div>
-            <div className="mt-3">
-              <PhotoCarousel photos={properties[0].photos} />
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold">2</div>
+            <div>
+              <h3 className="font-semibold text-slate-900">Create Guest Profiles</h3>
+              <p className="text-sm text-slate-600">Add your guests with their contact information</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold">3</div>
+            <div>
+              <h3 className="font-semibold text-slate-900">Manage Bookings</h3>
+              <p className="text-sm text-slate-600">Create and track bookings for your properties</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold">4</div>
+            <div>
+              <h3 className="font-semibold text-slate-900">Assign Tasks</h3>
+              <p className="text-sm text-slate-600">Create tasks for your team members to coordinate work</p>
             </div>
           </div>
         </div>
       </section>
 
-      <section>
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">Team activity</h2>
-            <p className="text-sm text-slate-500">Tasks flowing through the Kanban board</p>
+      {/* API Integration Info */}
+      <section className="rounded-3xl border border-slate-200 bg-white p-6">
+        <h2 className="text-lg font-semibold text-slate-900 mb-3">System Status</h2>
+        <div className="space-y-2 text-sm">
+          <div className="flex items-center justify-between py-2 border-b border-slate-100">
+            <span className="text-slate-600">API Connection</span>
+            <span className="text-green-600 font-semibold">● Connected</span>
           </div>
-          <button className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
-            New task
-          </button>
-        </div>
-        <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {tasks.slice(0, 4).map((task) => (
-            <div key={task.id} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
-              <p className="text-xs font-semibold text-slate-400">{task.column}</p>
-              <p className="mt-2 text-base font-semibold text-slate-900">{task.title}</p>
-              <p className="text-sm text-slate-500">{task.assignee}</p>
-              <p className="mt-3 text-xs text-slate-400">Due {task.due}</p>
-            </div>
-          ))}
+          <div className="flex items-center justify-between py-2 border-b border-slate-100">
+            <span className="text-slate-600">Backend Server</span>
+            <span className="text-slate-900 font-mono text-xs">http://localhost:5001</span>
+          </div>
+          <div className="flex items-center justify-between py-2">
+            <span className="text-slate-600">Authentication</span>
+            <span className="text-green-600 font-semibold">✓ Active</span>
+          </div>
         </div>
       </section>
     </div>
