@@ -391,9 +391,10 @@ export async function addSubPermission(id, data) {
   return handleResponse(res, "Failed to add sub-permission");
 }
 
-export async function getAllTasks() {
-  console.log("🔵 API Call: getAllTasks", `${API_BASE_URL}/tasks`);
-  const res = await fetchWithAuth(`${API_BASE_URL}/tasks`);
+export async function getAllTasks(queryParams = "") {
+  const url = `${API_BASE_URL}/tasks${queryParams}`;
+  console.log("🔵 API Call: getAllTasks", url);
+  const res = await fetchWithAuth(url);
   console.log("🔵 API Response:", res.status, res.statusText);
   return handleResponse(res, "Failed to fetch tasks");
 }

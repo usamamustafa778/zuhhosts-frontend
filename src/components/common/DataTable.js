@@ -7,9 +7,9 @@ export default function DataTable({ headers = [], rows = [], emptyLabel = "No da
         <table className="min-w-full divide-y divide-slate-100">
           <thead className="bg-slate-50/60">
             <tr>
-              {headers.map((header) => (
+              {headers.map((header, index) => (
                 <th
-                  key={header}
+                  key={`header-${index}-${header}`}
                   scope="col"
                   className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500"
                 >

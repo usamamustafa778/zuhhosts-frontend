@@ -3,97 +3,138 @@
 import { useState, useEffect } from "react";
 import KanbanBoard from "@/components/modules/KanbanBoard";
 import Modal from "@/components/common/Modal";
-import FormField from "@/components/common/FormField";
-import { getAllTasks, createTask, updateTask } from "@/lib/api";
+import { 
+  getAllTasks, 
+  createTask, 
+  updateTask, 
+  deleteTask,
+  getAllProperties,
+  getAllUsers
+} from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
 
 export default function TasksPage() {
   const { isAuthenticated, isLoading: authLoading } = useRequireAuth();
   const [tasks, setTasks] = useState([]);
+  const [properties, setProperties] = useState([]);
+  const [users, setUsers] = useState([]);
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [filterStatus, setFilterStatus] = useState("");
+  
+  // Form state
   const [formData, setFormData] = useState({
+    property_id: "",
     title: "",
-    assignee: "",
-    status: "To Do",
-    dueDate: "",
-    priority: "Medium",
+    description: "",
+    assigned_to: "",
+    status: "pending"
   });
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    const loadTasks = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const data = await getAllTasks();
-        setTasks(Array.isArray(data) ? data : []);
-      } catch (err) {
-        setError(err.message || "Failed to load tasks");
-        console.error("Error loading tasks:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    loadData();
+  }, [isAuthenticated, filterStatus]);
 
-    loadTasks();
-  }, [isAuthenticated]);
-
-  const handleComplete = async (taskId) => {
+  const loadData = async () => {
     try {
-      const task = tasks.find((t) => (t.id || t._id) === taskId);
-      if (task) {
-        const updatedTask = await updateTask(taskId, { ...task, status: "Done" });
-        setTasks((prev) =>
-          prev.map((t) => (t.id || t._id) === taskId ? updatedTask : t)
-        );
-      }
+      setIsLoading(true);
+      setError(null);
+      
+      // Build query params for filtering
+      const params = filterStatus ? `?status=${filterStatus}` : "";
+      
+      const [tasksData, propertiesData, usersData] = await Promise.all([
+        getAllTasks(params),
+        getAllProperties(),
+        getAllUsers()
+      ]);
+      
+      setTasks(Array.isArray(tasksData) ? tasksData : []);
+      setProperties(Array.isArray(propertiesData) ? propertiesData : []);
+      setUsers(Array.isArray(usersData) ? usersData : []);
+    } catch (err) {
+      setError(err.message || "Failed to load data");
+      console.error("Error loading data:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleStatusChange = async (taskId, newStatus) => {
+    try {
+      setError(null);
+      const updatedTask = await updateTask(taskId, { status: newStatus });
+      setTasks((prev) =>
+        prev.map((t) => (t.id || t._id) === taskId ? updatedTask : t)
+      );
     } catch (err) {
       setError(err.message || "Failed to update task");
     }
   };
 
-  const handleCreateTask = async () => {
+  const handleComplete = async (taskId) => {
+    await handleStatusChange(taskId, "completed");
+  };
+
+  const handleCreateTask = async (e) => {
+    e.preventDefault();
+    console.log("🚀 Creating task", formData);
+    
     try {
-      const taskData = {
-        title: formData.title,
-        assignee: formData.assignee,
-        status: formData.status,
-        dueDate: formData.dueDate,
-        priority: formData.priority,
-      };
-      const newTask = await createTask(taskData);
-      setTasks((prev) => [...prev, newTask]);
+      setError(null);
+      const newTask = await createTask(formData);
+      setTasks((prev) => [newTask, ...prev]);
       setCreateOpen(false);
       setFormData({
+        property_id: "",
         title: "",
-        assignee: "",
-        status: "To Do",
-        dueDate: "",
-        priority: "Medium",
+        description: "",
+        assigned_to: "",
+        status: "pending"
       });
+      console.log("✅ Task created successfully:", newTask);
     } catch (err) {
+      console.error("❌ Error creating task:", err);
       setError(err.message || "Failed to create task");
+    }
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    if (!confirm("Are you sure you want to delete this task?")) return;
+    
+    try {
+      setError(null);
+      await deleteTask(taskId);
+      setTasks((prev) => prev.filter((t) => {
+        const id = t.id || t._id;
+        return id !== taskId;
+      }));
+    } catch (err) {
+      setError(err.message || "Failed to delete task");
     }
   };
 
   // Transform API task data to Kanban format
   const kanbanTasks = tasks.map((task) => {
     const taskId = task.id || task._id;
-    // Map status to column names
-    let column = "To Do";
-    if (task.status === "In Progress" || task.status === "in-progress") column = "In Progress";
-    else if (task.status === "Review" || task.status === "review") column = "Review";
-    else if (task.status === "Done" || task.status === "done" || task.status === "completed") column = "Done";
+    
+    // Map API status to Kanban column names
+    let column = "Pending";
+    if (task.status === "in_progress") column = "In Progress";
+    else if (task.status === "completed") column = "Completed";
+    else if (task.status === "cancelled") column = "Cancelled";
 
     return {
       id: taskId,
-      title: task.title || task.name || "Untitled Task",
-      assignee: task.assignee || task.assignedTo || "Unassigned",
-      due: task.dueDate || task.due || "No date",
-      priority: task.priority || "Medium",
+      title: task.title || "Untitled Task",
+      assignee: task.assigned_to?.name || "Unassigned",
+      property: task.property_id?.title || "No property",
+      description: task.description || "",
+      status: task.status,
       column: column,
+      createdAt: task.createdAt
     };
   });
 
@@ -113,94 +154,156 @@ export default function TasksPage() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="rounded-3xl border border-rose-100 bg-rose-50/80 p-8 text-center text-rose-600">
-        {error}
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-8">
+      {error && (
+        <div className="rounded-2xl border border-rose-100 bg-rose-50/80 p-4 text-sm text-rose-600">
+          {error}
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
             Tasks
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-slate-900">
-            Kanban board
+            Task Management
           </h1>
           <p className="text-sm text-slate-500">
-            Coordinate housekeeping, maintenance, and concierge workflows.
+            Coordinate housekeeping, maintenance, and property workflows.
           </p>
         </div>
-        <button
-          className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
-          onClick={() => setCreateOpen(true)}
-        >
-          New task
-        </button>
+        <div className="flex gap-2">
+          <select
+            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+          >
+            <option value="">All Tasks</option>
+            <option value="pending">Pending</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <button
+            className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+            onClick={() => setCreateOpen(true)}
+          >
+            New task
+          </button>
+        </div>
       </div>
 
       <KanbanBoard tasks={kanbanTasks} onComplete={handleComplete} />
 
       <Modal
         title="Create task"
-        description="Send instant tasks to staff or partners."
+        description="Assign tasks to team members for property management."
         isOpen={isCreateOpen}
         onClose={() => {
           setCreateOpen(false);
           setFormData({
+            property_id: "",
             title: "",
-            assignee: "",
-            status: "To Do",
-            dueDate: "",
-            priority: "Medium",
+            description: "",
+            assigned_to: "",
+            status: "pending"
           });
         }}
         primaryActionLabel="Create task"
-        primaryAction={handleCreateTask}
+        onPrimaryAction={() => {
+          document.getElementById('create-task-form')?.requestSubmit();
+        }}
       >
-        <div className="space-y-4">
-          <FormField 
-            name="title" 
-            label="Title" 
-            placeholder="Task title"
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-          />
-          <FormField 
-            name="assignee" 
-            label="Assignee" 
-            placeholder="Team member"
-            value={formData.assignee}
-            onChange={(e) => setFormData({ ...formData, assignee: e.target.value })}
-          />
-          <FormField
-            name="status"
-            label="Status"
-            as="select"
-            value={formData.status}
-            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-            options={["To Do", "In Progress", "Review", "Done"]}
-          />
-          <FormField 
-            name="dueDate" 
-            label="Due date" 
-            type="date"
-            value={formData.dueDate}
-            onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-          />
-          <FormField
-            name="priority"
-            label="Priority"
-            as="select"
-            value={formData.priority}
-            onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-            options={["Low", "Medium", "High"]}
-          />
-        </div>
+        <form id="create-task-form" onSubmit={handleCreateTask} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Property <span className="text-rose-500">*</span>
+            </label>
+            <select
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              value={formData.property_id}
+              onChange={(e) => setFormData({ ...formData, property_id: e.target.value })}
+              required
+            >
+              <option value="">Select a property</option>
+              {properties.map((property) => (
+                <option key={property.id || property._id} value={property.id || property._id}>
+                  {property.title || property.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Title <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              placeholder="Task title"
+              minLength={3}
+              maxLength={100}
+              required
+            />
+            <p className="mt-1 text-xs text-slate-500">3-100 characters</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Description <span className="text-rose-500">*</span>
+            </label>
+            <textarea
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Detailed task description..."
+              rows={4}
+              minLength={5}
+              required
+            />
+            <p className="mt-1 text-xs text-slate-500">Minimum 5 characters</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Assign To <span className="text-rose-500">*</span>
+            </label>
+            <select
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              value={formData.assigned_to}
+              onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
+              required
+            >
+              <option value="">Select a team member</option>
+              {users.map((user) => (
+                <option key={user.id || user._id} value={user.id || user._id}>
+                  {user.name} ({user.email})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Status
+            </label>
+            <select
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              value={formData.status}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+            >
+              <option value="pending">Pending</option>
+              <option value="in_progress">In Progress</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+        </form>
       </Modal>
     </div>
   );
