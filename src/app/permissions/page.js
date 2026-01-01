@@ -199,8 +199,8 @@ const SubPermissionBuilder = ({ subPermissions, onChange }) => {
 };
 
 export default function PermissionsPage() {
-  const { role } = useDashboard();
-  const { isAuthenticated, isLoading: authLoading } = useRequireAuth();
+  useDashboard(); // Ensure we're in dashboard context
+  const { isAuthenticated, isLoading: authLoading, user, isSuperAdmin } = useRequireAuth();
   const [selectedPermission, setSelectedPermission] = useState(null);
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [isAddSubPermOpen, setAddSubPermOpen] = useState(false);
@@ -231,7 +231,14 @@ export default function PermissionsPage() {
   });
 
   useEffect(() => {
-    if (role !== "Admin" || !isAuthenticated) {
+    // Only load permissions if user is authenticated and is superadmin
+    if (!isAuthenticated) {
+      return;
+    }
+
+    // Check if user is superadmin
+    const userIsSuperadmin = user?.role === "superadmin" || user?.role?.name === "superadmin";
+    if (!userIsSuperadmin) {
       return;
     }
 
@@ -265,7 +272,7 @@ export default function PermissionsPage() {
     return () => {
       isMounted = false;
     };
-  }, [role, isAuthenticated]);
+  }, [isAuthenticated, user]);
 
   // Update edit form when selectedPermission changes
   useEffect(() => {
@@ -415,11 +422,13 @@ export default function PermissionsPage() {
     );
   }
 
-  if (role !== "Admin") {
+  // Check if user is superadmin
+  const userIsSuperadmin = user?.role === "superadmin" || user?.role?.name === "superadmin";
+  
+  if (!userIsSuperadmin) {
     return (
       <div className="rounded-3xl border border-rose-100 bg-rose-50/80 p-8 text-center text-rose-600">
-        This module is limited to Admins. Switch to Admin via the top bar to
-        manage permissions.
+        Access denied. This module is only accessible to superadmin users.
       </div>
     );
   }

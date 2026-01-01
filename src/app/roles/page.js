@@ -510,8 +510,8 @@ const PermissionsSidebar = ({
 };
 
 export default function RolesPage() {
-  const { role } = useDashboard();
-  const { isAuthenticated, isLoading: authLoading } = useRequireAuth();
+  useDashboard(); // Ensure we're in dashboard context
+  const { isAuthenticated, isLoading: authLoading, user, isSuperAdmin } = useRequireAuth();
   const [selectedRole, setSelectedRole] = useState(null);
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [rolesData, setRolesData] = useState([]);
@@ -531,7 +531,14 @@ export default function RolesPage() {
   });
 
   useEffect(() => {
-    if (role !== "Admin" || !isAuthenticated) {
+    // Only load roles if user is authenticated and is superadmin
+    if (!isAuthenticated) {
+      return;
+    }
+
+    // Check if user is superadmin
+    const userIsSuperadmin = user?.role === "superadmin" || user?.role?.name === "superadmin";
+    if (!userIsSuperadmin) {
       return;
     }
 
@@ -563,7 +570,7 @@ export default function RolesPage() {
     return () => {
       isMounted = false;
     };
-  }, [role, isAuthenticated]);
+  }, [isAuthenticated, user]);
 
   // Load permissions when sidebar is opened
   useEffect(() => {
@@ -736,11 +743,13 @@ export default function RolesPage() {
     );
   }
 
-  if (role !== "Admin") {
+  // Check if user is superadmin
+  const userIsSuperadmin = user?.role === "superadmin" || user?.role?.name === "superadmin";
+  
+  if (!userIsSuperadmin) {
     return (
       <div className="rounded-3xl border border-rose-100 bg-rose-50/80 p-8 text-center text-rose-600">
-        This module is limited to Admins. Switch to Admin via the top bar to
-        manage roles.
+        Access denied. This module is only accessible to superadmin users.
       </div>
     );
   }

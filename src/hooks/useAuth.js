@@ -117,7 +117,7 @@ export function useAuth() {
 
 export function useRequireAuth() {
   const router = useRouter();
-  const { token, isAuthenticated, isLoading } = useAuth();
+  const { token, user, isAuthenticated, isLoading, isSuperAdmin } = useAuth();
 
   useEffect(() => {
     if (!isLoading && !token) {
@@ -125,6 +125,6 @@ export function useRequireAuth() {
     }
   }, [token, isLoading, router]);
 
-  return { isAuthenticated, isLoading };
+  return { isAuthenticated, isLoading, user, isSuperAdmin };
 }
 

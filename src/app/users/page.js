@@ -14,6 +14,7 @@ import {
   updateUser,
 } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
+import { Eye, EyeOff } from "lucide-react";
 
 const formatPermissions = (permissions) =>
   (permissions ?? [])
@@ -23,12 +24,13 @@ const formatPermissions = (permissions) =>
     .filter(Boolean);
 
 export default function UsersPage() {
-  const { role } = useDashboard();
+  useDashboard(); // Ensure we're in dashboard context
   const {
     isAuthenticated,
     isLoading: authLoading,
     isSuperAdmin,
     isHost,
+    user,
   } = useAuth();
   const [selectedUser, setSelectedUser] = useState(null);
   const [isCreateOpen, setCreateOpen] = useState(false);
@@ -39,6 +41,7 @@ export default function UsersPage() {
   const [isDeletingId, setIsDeletingId] = useState(null);
   const [userPendingDelete, setUserPendingDelete] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Form states for create
   const [createForm, setCreateForm] = useState({
@@ -60,8 +63,8 @@ export default function UsersPage() {
   });
 
   useEffect(() => {
-    // Allow access for superadmin, host, and Admin role
-    if (!isAuthenticated || !(isSuperAdmin || isHost || role === "Admin")) {
+    // Allow access for superadmin and host
+    if (!isAuthenticated || !(isSuperAdmin || isHost)) {
       return;
     }
 
@@ -102,7 +105,7 @@ export default function UsersPage() {
     return () => {
       isMounted = false;
     };
-  }, [role, isAuthenticated, isSuperAdmin, isHost]);
+  }, [isAuthenticated, isSuperAdmin, isHost]);
 
   // Initialize create form role when roles are loaded
   useEffect(() => {
@@ -282,8 +285,8 @@ export default function UsersPage() {
     );
   }
 
-  // Check access - allow superadmin, host, or Admin role
-  if (!isSuperAdmin && !isHost && role !== "Admin") {
+  // Check access - allow superadmin or host
+  if (!isSuperAdmin && !isHost) {
     return (
       <div className="rounded-3xl border border-rose-100 bg-rose-50/80 p-8 text-center text-rose-600">
         Access denied. Only hosts and administrators can manage users.
@@ -457,15 +460,32 @@ export default function UsersPage() {
             }
             placeholder="Enter phone number"
           />
-          <FormField
-            label="Password"
-            type="password"
-            value={createForm.password}
-            onChange={(e) =>
-              setCreateForm({ ...createForm, password: e.target.value })
-            }
-            placeholder="Enter password (min 6 characters)"
-          />
+          <div className="space-y-1 text-sm text-slate-600">
+            <span className="font-semibold text-sm">Password</span>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={createForm.password}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, password: e.target.value })
+                }
+                placeholder="Enter password (min 6 characters)"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 pr-10 text-sm text-slate-700 focus:border-slate-400 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 transition-colors"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+          </div>
           <FormField
             label="Role"
             as="select"

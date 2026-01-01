@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 export default function HostsPage() {
   const router = useRouter();
-  const { role } = useDashboard();
+  useDashboard(); // Ensure we're in dashboard context
   const { isSuperAdmin, isLoading: authLoading } = useAuth();
   const [hostsData, setHostsData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
