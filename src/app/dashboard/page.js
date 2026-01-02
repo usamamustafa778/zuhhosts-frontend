@@ -14,7 +14,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [todaysBookings, setTodaysBookings] = useState([]);
   const [upcomingBookings, setUpcomingBookings] = useState([]);
-  const [activeView, setActiveView] = useState('today'); // 'today' or 'upcoming'
+  const [activeView, setActiveView] = useState("today"); // 'today' or 'upcoming'
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && user) {
@@ -31,19 +31,22 @@ export default function DashboardPage() {
 
   const fetchHostStats = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/hosts/${user.id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/hosts/${user.id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
         setStats(data.host?.stats || {});
       }
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error("Error fetching stats:", error);
     } finally {
       setLoading(false);
     }
@@ -51,29 +54,29 @@ export default function DashboardPage() {
 
   const fetchTodaysBookings = async () => {
     try {
-      const bookings = await getAllBookings('?period=today');
+      const bookings = await getAllBookings("?period=today");
       setTodaysBookings(Array.isArray(bookings) ? bookings : []);
     } catch (error) {
-      console.error('Error fetching today\'s bookings:', error);
+      console.error("Error fetching today's bookings:", error);
       setTodaysBookings([]);
     }
   };
 
   const fetchUpcomingBookings = async () => {
     try {
-      const bookings = await getAllBookings('?period=upcoming');
+      const bookings = await getAllBookings("?period=upcoming");
       setUpcomingBookings(Array.isArray(bookings) ? bookings : []);
     } catch (error) {
-      console.error('Error fetching upcoming bookings:', error);
+      console.error("Error fetching upcoming bookings:", error);
       setUpcomingBookings([]);
     }
   };
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
   };
 
   if (isLoading || (isHost && loading)) {
@@ -95,63 +98,84 @@ export default function DashboardPage() {
   if (isHost) {
     return (
       <div className="mx-auto max-w-4xl space-y-12 py-4">
-        {/* Today/Upcoming Toggle */}
-        <div className="flex justify-center gap-4">
-          <button 
-            onClick={() => setActiveView('today')}
-            className={`rounded-full px-6 py-2.5 text-sm font-medium transition ${
-              activeView === 'today' 
-                ? 'bg-slate-900 text-white' 
-                : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
-            }`}
-          >
-            Today
-          </button>
+        {/* Today/Upcoming Toggle with Add Booking Button */}
+        <div className="flex items-center justify-center gap-2">
+          <div className="flex gap-4">
+            <button
+              onClick={() => setActiveView("today")}
+              className={`rounded-full px-4 py-2.5 text-sm font-medium transition ${
+                activeView === "today"
+                  ? "bg-slate-900 text-white"
+                  : "bg-slate-100 text-slate-900 hover:bg-slate-200"
+              }`}
+            >
+              Today
+            </button>
+            <button
+              onClick={() => setActiveView("upcoming")}
+              className={`rounded-full px-4 py-2.5 text-sm font-medium transition ${
+                activeView === "upcoming"
+                  ? "bg-slate-900 text-white"
+                  : "bg-slate-100 text-slate-900 hover:bg-slate-200"
+              }`}
+            >
+              Upcoming
+            </button>
+          </div>
+
           <button
-            onClick={() => setActiveView('upcoming')}
-            className={`rounded-full px-6 py-2.5 text-sm font-medium transition ${
-              activeView === 'upcoming' 
-                ? 'bg-slate-900 text-white' 
-                : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
-            }`}
+            onClick={() => router.push("/bookings")}
+            className="rounded-full border whitespace-nowrap border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
-            Upcoming
+            + Add booking
           </button>
         </div>
 
         {/* Reservation Count */}
         <div className="text-center">
           <h1 className="text-4xl font-semibold text-slate-900">
-            {activeView === 'today' ? (
-              <>You have {todaysBookings.length} {todaysBookings.length === 1 ? 'reservation' : 'reservations'}</>
+            {activeView === "today" ? (
+              <>
+                You have {todaysBookings.length}{" "}
+                {todaysBookings.length === 1 ? "reservation" : "reservations"}
+              </>
             ) : (
-              <>You have {upcomingBookings.length} upcoming {upcomingBookings.length === 1 ? 'reservation' : 'reservations'}</>
+              <>
+                You have {upcomingBookings.length} upcoming{" "}
+                {upcomingBookings.length === 1 ? "reservation" : "reservations"}
+              </>
             )}
           </h1>
         </div>
 
         {/* Today's Reservations */}
-        {activeView === 'today' && (
-          todaysBookings.length > 0 ? (
+        {activeView === "today" &&
+          (todaysBookings.length > 0 ? (
             <div className="space-y-6">
               {todaysBookings.map((booking, index) => (
                 <div
                   key={booking.id || index}
                   className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm transition hover:shadow-md"
                 >
-                  <p className="text-center text-sm font-medium text-slate-600">All day</p>
+                  <p className="text-center text-sm font-medium text-slate-600">
+                    All day
+                  </p>
                   <div className="mt-8 flex flex-col items-center">
                     <div className="flex h-24 w-24 items-center justify-center rounded-full bg-slate-900 text-4xl font-bold text-white">
-                      {booking.guest_id?.name?.[0]?.toUpperCase() || 'G'}
+                      {booking.guest_id?.name?.[0]?.toUpperCase() || "G"}
                     </div>
                     <h2 className="mt-6 text-center text-2xl font-semibold text-slate-900">
-                      {booking.guest_id?.name || 'Guest'} stays for one more day
+                      {booking.guest_id?.name || "Guest"} stays for one more day
                     </h2>
                     {booking.property_id?.title && (
-                      <p className="mt-2 text-center text-slate-600">{booking.property_id.title}</p>
+                      <p className="mt-2 text-center text-slate-600">
+                        {booking.property_id.title}
+                      </p>
                     )}
                     {booking.amount && (
-                      <p className="mt-1 text-sm text-slate-500">${booking.amount}</p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        ${booking.amount}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -160,21 +184,24 @@ export default function DashboardPage() {
           ) : (
             <div className="rounded-3xl border border-slate-200 bg-white p-16 text-center shadow-sm">
               <div className="text-6xl">📅</div>
-              <h2 className="mt-6 text-2xl font-semibold text-slate-900">No reservations today</h2>
-              <p className="mt-2 text-slate-600">Check your upcoming bookings or add a new reservation</p>
+              <h2 className="mt-6 text-2xl font-semibold text-slate-900">
+                No reservations today
+              </h2>
+              <p className="mt-2 text-slate-600">
+                Check your upcoming bookings or add a new reservation
+              </p>
               <button
-                onClick={() => router.push('/bookings')}
+                onClick={() => router.push("/bookings")}
                 className="mt-6 rounded-full bg-slate-900 px-6 py-3 text-sm font-medium text-white hover:bg-slate-800"
               >
                 View all bookings
               </button>
             </div>
-          )
-        )}
+          ))}
 
         {/* Upcoming Reservations */}
-        {activeView === 'upcoming' && (
-          upcomingBookings.length > 0 ? (
+        {activeView === "upcoming" &&
+          (upcomingBookings.length > 0 ? (
             <div className="space-y-6">
               {upcomingBookings.map((booking, index) => (
                 <div
@@ -182,24 +209,28 @@ export default function DashboardPage() {
                   className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm transition hover:shadow-md"
                 >
                   <p className="text-center text-sm font-medium text-slate-600">
-                    {new Date(booking.start_date).toLocaleDateString('en-US', { 
-                      weekday: 'short', 
-                      month: 'short', 
-                      day: 'numeric' 
+                    {new Date(booking.start_date).toLocaleDateString("en-US", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
                     })}
                   </p>
                   <div className="mt-8 flex flex-col items-center">
                     <div className="flex h-24 w-24 items-center justify-center rounded-full bg-slate-900 text-4xl font-bold text-white">
-                      {booking.guest_id?.name?.[0]?.toUpperCase() || 'G'}
+                      {booking.guest_id?.name?.[0]?.toUpperCase() || "G"}
                     </div>
                     <h2 className="mt-6 text-center text-2xl font-semibold text-slate-900">
-                      {booking.guest_id?.name || 'Guest'} checks in
+                      {booking.guest_id?.name || "Guest"} checks in
                     </h2>
                     {booking.property_id?.title && (
-                      <p className="mt-2 text-center text-slate-600">{booking.property_id.title}</p>
+                      <p className="mt-2 text-center text-slate-600">
+                        {booking.property_id.title}
+                      </p>
                     )}
                     {booking.amount && (
-                      <p className="mt-1 text-sm text-slate-500">${booking.amount}</p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        ${booking.amount}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -208,26 +239,25 @@ export default function DashboardPage() {
           ) : (
             <div className="rounded-3xl border border-slate-200 bg-white p-16 text-center shadow-sm">
               <div className="text-6xl">🗓️</div>
-              <h2 className="mt-6 text-2xl font-semibold text-slate-900">No upcoming reservations</h2>
-              <p className="mt-2 text-slate-600">You're all caught up! Add a new booking to get started</p>
-              <button
-                onClick={() => router.push('/bookings')}
-                className="mt-6 rounded-full bg-slate-900 px-6 py-3 text-sm font-medium text-white hover:bg-slate-800"
-              >
-                Add booking
-              </button>
+              <h2 className="mt-6 text-2xl font-semibold text-slate-900">
+                No upcoming reservations
+              </h2>
+              <p className="mt-2 text-slate-600">
+                You're all caught up! Check back later for future bookings
+              </p>
             </div>
-          )
-        )}
+          ))}
 
         {/* Your Follow-ups */}
         <div className="space-y-6">
-          <h2 className="text-3xl font-semibold text-slate-900">Your follow-ups</h2>
-          
+          <h2 className="text-3xl font-semibold text-slate-900">
+            Your follow-ups
+          </h2>
+
           <div className="grid gap-4 sm:grid-cols-2">
             {/* Quick action cards */}
             <button
-              onClick={() => router.push('/properties')}
+              onClick={() => router.push("/properties")}
               className="rounded-3xl border border-slate-200 bg-white p-6 text-left transition hover:shadow-md"
             >
               <div className="flex items-start justify-between">
@@ -244,7 +274,7 @@ export default function DashboardPage() {
             </button>
 
             <button
-              onClick={() => router.push('/tasks')}
+              onClick={() => router.push("/tasks")}
               className="rounded-3xl border border-slate-200 bg-white p-6 text-left transition hover:shadow-md"
             >
               <div className="flex items-start justify-between">
@@ -261,7 +291,7 @@ export default function DashboardPage() {
             </button>
 
             <button
-              onClick={() => router.push('/payments')}
+              onClick={() => router.push("/payments")}
               className="rounded-3xl border border-slate-200 bg-white p-6 text-left transition hover:shadow-md"
             >
               <div className="flex items-start justify-between">
@@ -296,7 +326,8 @@ export default function DashboardPage() {
           Property Management Dashboard
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-slate-500">
-          Welcome to your property management system. Get started by managing your properties, bookings, guests, and tasks.
+          Welcome to your property management system. Get started by managing
+          your properties, bookings, guests, and tasks.
         </p>
       </div>
 
@@ -306,7 +337,9 @@ export default function DashboardPage() {
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
             <div className="text-3xl mb-2">🏡</div>
             <h3 className="font-semibold text-slate-900">Properties</h3>
-            <p className="text-sm text-slate-500 mt-1">Manage your property listings</p>
+            <p className="text-sm text-slate-500 mt-1">
+              Manage your property listings
+            </p>
           </div>
         </Link>
 
@@ -314,7 +347,9 @@ export default function DashboardPage() {
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
             <div className="text-3xl mb-2">📅</div>
             <h3 className="font-semibold text-slate-900">Bookings</h3>
-            <p className="text-sm text-slate-500 mt-1">View and manage reservations</p>
+            <p className="text-sm text-slate-500 mt-1">
+              View and manage reservations
+            </p>
           </div>
         </Link>
 
@@ -330,41 +365,65 @@ export default function DashboardPage() {
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
             <div className="text-3xl mb-2">📝</div>
             <h3 className="font-semibold text-slate-900">Tasks</h3>
-            <p className="text-sm text-slate-500 mt-1">Track team assignments</p>
+            <p className="text-sm text-slate-500 mt-1">
+              Track team assignments
+            </p>
           </div>
         </Link>
       </section>
 
       {/* Getting Started Section */}
       <section className="rounded-3xl border border-slate-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-8">
-        <h2 className="text-2xl font-semibold text-slate-900 mb-4">Getting Started</h2>
+        <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+          Getting Started
+        </h2>
         <div className="space-y-4">
           <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold">1</div>
+            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold">
+              1
+            </div>
             <div>
-              <h3 className="font-semibold text-slate-900">Add Your Properties</h3>
-              <p className="text-sm text-slate-600">Start by adding your rental properties to the system</p>
+              <h3 className="font-semibold text-slate-900">
+                Add Your Properties
+              </h3>
+              <p className="text-sm text-slate-600">
+                Start by adding your rental properties to the system
+              </p>
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold">2</div>
+            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold">
+              2
+            </div>
             <div>
-              <h3 className="font-semibold text-slate-900">Create Guest Profiles</h3>
-              <p className="text-sm text-slate-600">Add your guests with their contact information</p>
+              <h3 className="font-semibold text-slate-900">
+                Create Guest Profiles
+              </h3>
+              <p className="text-sm text-slate-600">
+                Add your guests with their contact information
+              </p>
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold">3</div>
+            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold">
+              3
+            </div>
             <div>
               <h3 className="font-semibold text-slate-900">Manage Bookings</h3>
-              <p className="text-sm text-slate-600">Create and track bookings for your properties</p>
+              <p className="text-sm text-slate-600">
+                Create and track bookings for your properties
+              </p>
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold">4</div>
+            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold">
+              4
+            </div>
             <div>
               <h3 className="font-semibold text-slate-900">Assign Tasks</h3>
-              <p className="text-sm text-slate-600">Create tasks for your team members to coordinate work</p>
+              <p className="text-sm text-slate-600">
+                Create tasks for your team members to coordinate work
+              </p>
             </div>
           </div>
         </div>
@@ -372,7 +431,9 @@ export default function DashboardPage() {
 
       {/* API Integration Info */}
       <section className="rounded-3xl border border-slate-200 bg-white p-6">
-        <h2 className="text-lg font-semibold text-slate-900 mb-3">System Status</h2>
+        <h2 className="text-lg font-semibold text-slate-900 mb-3">
+          System Status
+        </h2>
         <div className="space-y-2 text-sm">
           <div className="flex items-center justify-between py-2 border-b border-slate-100">
             <span className="text-slate-600">API Connection</span>
@@ -380,7 +441,9 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center justify-between py-2 border-b border-slate-100">
             <span className="text-slate-600">Backend Server</span>
-            <span className="text-slate-900 font-mono text-xs">{process.env.NEXT_PUBLIC_API_BASE_URL || 'Not configured'}</span>
+            <span className="text-slate-900 font-mono text-xs">
+              {process.env.NEXT_PUBLIC_API_BASE_URL || "Not configured"}
+            </span>
           </div>
           <div className="flex items-center justify-between py-2">
             <span className="text-slate-600">Authentication</span>
@@ -391,4 +454,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
