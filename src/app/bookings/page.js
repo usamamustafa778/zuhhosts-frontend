@@ -149,6 +149,8 @@ export default function BookingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filterPeriod, setFilterPeriod] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterPaymentStatus, setFilterPaymentStatus] = useState("");
   const [createForm, setCreateForm] = useState(INITIAL_FORM_STATE);
   const [editForm, setEditForm] = useState(INITIAL_FORM_STATE);
   const [isCreatingNewGuest, setIsCreatingNewGuest] = useState(false);
@@ -164,7 +166,7 @@ export default function BookingsPage() {
   useEffect(() => {
     if (!isAuthenticated) return;
     loadData();
-  }, [isAuthenticated, filterPeriod]);
+  }, [isAuthenticated, filterPeriod, filterStatus, filterPaymentStatus]);
 
   useEffect(() => {
     if (createForm.property_id && createForm.start_date && createForm.end_date) {
@@ -199,7 +201,14 @@ export default function BookingsPage() {
       setIsLoading(true);
       setError(null);
 
-      const params = filterPeriod ? `?period=${filterPeriod}` : "";
+      // Build query parameters
+      const queryParams = [];
+      if (filterPeriod) queryParams.push(`period=${filterPeriod}`);
+      if (filterStatus) queryParams.push(`status=${filterStatus}`);
+      if (filterPaymentStatus) queryParams.push(`payment_status=${filterPaymentStatus}`);
+      
+      const params = queryParams.length > 0 ? `?${queryParams.join('&')}` : "";
+      
       const [bookings, properties, guests] = await Promise.all([
         getAllBookings(params),
         getAllProperties(),
@@ -587,38 +596,96 @@ export default function BookingsPage() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="mt-2 text-3xl font-semibold text-slate-900">Bookings</h1>
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="mt-2 text-3xl font-semibold text-slate-900">Bookings</h1>
 
-        <div className="flex gap-2">
-          <button
-            className="rounded-full bg-white border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:shadow-sm cursor-pointer"
-            onClick={() => setCreateOpen(true)}
-          >
-            Add booking
-          </button>
+          <div className="flex gap-2">
+            <button
+              className="rounded-full bg-white border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:shadow-sm cursor-pointer"
+              onClick={() => setCreateOpen(true)}
+            >
+              Add booking
+            </button>
 
+            <button
+              onClick={() => setIsCalendarOpen(true)}
+              className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              <Calendar className="h-4 w-4" />
+              Calendar
+            </button>
+
+            <button className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
+              Export CSV
+            </button>
+          </div>
+        </div>
+
+        {/* Filters Section */}
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+          <span className="text-sm font-medium text-slate-700">Filters:</span>
+          
+          {/* Period Filter */}
           <select
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={filterPeriod}
             onChange={(e) => setFilterPeriod(e.target.value)}
           >
-            <option value="">All</option>
+            <option value="">All Periods</option>
             <option value="today">Today</option>
+            <option value="current">Current</option>
             <option value="upcoming">Upcoming</option>
+            <option value="past">Past</option>
           </select>
 
-          <button
-            onClick={() => setIsCalendarOpen(true)}
-            className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+          {/* Status Filter */}
+          <select
+            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
           >
-            <Calendar className="h-4 w-4" />
-            Calendar
-          </button>
+            <option value="">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="checked-in">Checked In</option>
+            <option value="checked-out">Checked Out</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
 
-          <button className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
-            Export CSV
-          </button>
+          {/* Payment Status Filter */}
+          <select
+            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={filterPaymentStatus}
+            onChange={(e) => setFilterPaymentStatus(e.target.value)}
+          >
+            <option value="">All Payment Status</option>
+            <option value="unpaid">Unpaid</option>
+            <option value="partially-paid">Partially Paid</option>
+            <option value="paid">Paid</option>
+            <option value="refunded">Refunded</option>
+          </select>
+
+          {/* Clear Filters Button */}
+          {(filterPeriod || filterStatus || filterPaymentStatus) && (
+            <button
+              onClick={() => {
+                setFilterPeriod("");
+                setFilterStatus("");
+                setFilterPaymentStatus("");
+              }}
+              className="rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200"
+            >
+              Clear Filters
+            </button>
+          )}
+
+          {/* Active Filter Count */}
+          {(filterPeriod || filterStatus || filterPaymentStatus) && (
+            <span className="ml-auto text-sm text-slate-600">
+              {bookingsData.length} result{bookingsData.length !== 1 ? 's' : ''}
+            </span>
+          )}
         </div>
       </div>
 
