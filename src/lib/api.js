@@ -215,17 +215,53 @@ export async function getBookingById(id) {
 }
 
 export async function createBooking(data) {
-  const res = await fetchWithAuth(`${API_BASE_URL}/bookings`, {
+  // Check if data contains files (FormData scenario)
+  const isFormData = data instanceof FormData;
+  
+  const token = getToken();
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const headers = {
+    Authorization: `Bearer ${token}`,
+  };
+
+  // Only add Content-Type for JSON, let browser set it for FormData
+  if (!isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const res = await fetch(`${API_BASE_URL}/bookings`, {
     method: "POST",
-    body: JSON.stringify(data),
+    headers,
+    body: isFormData ? data : JSON.stringify(data),
   });
   return handleResponse(res, "Failed to create booking");
 }
 
 export async function updateBooking(id, data) {
-  const res = await fetchWithAuth(`${API_BASE_URL}/bookings/${id}`, {
+  // Check if data contains files (FormData scenario)
+  const isFormData = data instanceof FormData;
+  
+  const token = getToken();
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const headers = {
+    Authorization: `Bearer ${token}`,
+  };
+
+  // Only add Content-Type for JSON, let browser set it for FormData
+  if (!isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const res = await fetch(`${API_BASE_URL}/bookings/${id}`, {
     method: "PUT",
-    body: JSON.stringify(data),
+    headers,
+    body: isFormData ? data : JSON.stringify(data),
   });
   return handleResponse(res, "Failed to update booking");
 }
@@ -689,6 +725,23 @@ export async function getSuperadminStatistics() {
   return handleResponse(res, "Failed to fetch superadmin statistics");
 }
 
+/**
+ * Get all hosts (Superadmin only)
+ * 
+ * BACKEND REQUIREMENT: When a superadmin is impersonating a host, the backend
+ * should still allow access to this endpoint by checking the 'originalRole' or
+ * 'impersonatedBy' field in the JWT token. This allows seamless switching between
+ * hosts without stopping impersonation.
+ * 
+ * Expected token structure during impersonation:
+ * {
+ *   userId: "host_id",
+ *   role: "host",
+ *   impersonatedBy: "superadmin_id",
+ *   originalRole: "superadmin",
+ *   isImpersonating: true
+ * }
+ */
 export async function getAllHosts() {
   const token =
     typeof window !== "undefined"
@@ -901,14 +954,26 @@ export async function getHostsList() {
     throw new Error("No authentication token found");
   }
 
-  const res = await fetch(`${API_BASE_URL}/users/hosts/list`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  return handleResponse(res, "Failed to fetch hosts list");
+  try {
+    const res = await fetch(`${API_BASE_URL}/users/hosts/list`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    
+    // If endpoint doesn't exist (404) or forbidden (403), return empty array gracefully
+    if (res.status === 404 || res.status === 403) {
+      return [];
+    }
+    
+    return handleResponse(res, "Failed to fetch hosts list");
+  } catch (error) {
+    // Network error or other issues - return empty array
+    console.log('ℹ️ Hosts list endpoint not available');
+    return [];
+  }
 }
 
 // Helper function to determine user type

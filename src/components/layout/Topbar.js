@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import { getHostsList, impersonateHost, stopImpersonation } from "@/lib/api";
+import { getAllHosts, impersonateHost, stopImpersonation } from "@/lib/api";
 
 export default function Topbar({ onMenuToggle }) {
   const router = useRouter();
@@ -26,10 +26,11 @@ export default function Topbar({ onMenuToggle }) {
   const hostSwitcherRef = useRef(null);
 
   // Check if currently impersonating a host
-  const isImpersonating = user?.impersonatedBy || (isSuperAdmin && selectedHostId);
+  const isImpersonating = user?.impersonatedBy || user?.isImpersonating || (isSuperAdmin && selectedHostId);
   
-  // Show host switcher if superadmin OR currently impersonating
-  const showHostSwitcher = isSuperAdmin || isImpersonating;
+  // Show host switcher if original user is superadmin (even while impersonating)
+  // OR if user is currently a superadmin
+  const showHostSwitcher = isSuperAdmin || user?.originalRole === 'superadmin' || isImpersonating;
 
   useEffect(() => {
     if (!isNotificationsOpen) return;
@@ -101,7 +102,7 @@ export default function Topbar({ onMenuToggle }) {
   const fetchHosts = async () => {
     setLoadingHosts(true);
     try {
-      const response = await getHostsList();
+      const response = await getAllHosts();
       console.log('🔵 Hosts API response:', response);
       const hostsData = response.hosts || response.data || response;
       console.log('🔵 Hosts data:', hostsData);
@@ -117,7 +118,9 @@ export default function Topbar({ onMenuToggle }) {
       console.log('🔵 Normalized hosts:', normalizedHosts);
       setHosts(normalizedHosts);
     } catch (error) {
-      console.error("Failed to fetch hosts:", error);
+      // Silently handle the error - this is expected if the endpoint doesn't exist
+      // or if the user doesn't have permission
+      console.log('ℹ️ Could not fetch hosts list (this is normal if not superadmin)');
       setHosts([]);
     } finally {
       setLoadingHosts(false);
@@ -131,6 +134,8 @@ export default function Topbar({ onMenuToggle }) {
 
   const handleHostSwitch = async (hostId) => {
     console.log('🔵 handleHostSwitch called with hostId:', hostId);
+    console.log('🔵 Current user:', user);
+    console.log('🔵 Is currently impersonating:', isImpersonating);
     console.log('🔵 switchingHost state:', switchingHost);
     
     if (!hostId || switchingHost) {
@@ -149,9 +154,14 @@ export default function Topbar({ onMenuToggle }) {
       // Update auth with new token and user data
       if (data.token && data.user) {
         console.log('🔵 Updating auth with new token and user');
+        console.log('🔵 New user data:', data.user);
         login(data.token, data.user);
         setSelectedHostId(hostId);
         setIsHostSwitcherOpen(false);
+        
+        // Show success message
+        const action = isImpersonating ? 'Switched to' : 'Now viewing as';
+        alert(`✅ ${action} ${data.user.name}`);
         
         console.log('🔵 Navigating to /host/dashboard');
         router.push("/host/dashboard");
@@ -162,7 +172,18 @@ export default function Topbar({ onMenuToggle }) {
     } catch (error) {
       console.error("❌ Failed to switch host:", error);
       console.error("❌ Error details:", error.message);
-      alert(error.message || "Failed to switch to host account. Please try again.");
+      
+      // More helpful error message
+      let errorMessage = error.message || "Failed to switch to host account.";
+      
+      if (error.message?.includes('403') || error.message?.includes('Forbidden')) {
+        errorMessage = "⚠️ Backend needs updating!\n\n" +
+          "The impersonation endpoint needs to check 'originalRole' to allow " +
+          "switching between hosts.\n\n" +
+          "Please share 'BACKEND_FIX_HOST_SWITCHING.md' with your backend team.";
+      }
+      
+      alert(errorMessage);
     } finally {
       console.log('🔵 Setting switchingHost back to false');
       setSwitchingHost(false);
@@ -201,6 +222,29 @@ export default function Topbar({ onMenuToggle }) {
 
   return (
     <header className="sticky top-0 z-20 bg-white/95 backdrop-blur supports-backdrop-filter:bg-white/80">
+      {/* Impersonation Banner */}
+      {isImpersonating && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 lg:px-8">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="font-semibold text-amber-900">👁️ Viewing as:</span>
+              <span className="text-amber-800">{user?.name || user?.email}</span>
+              {user?.originalEmail && (
+                <span className="text-amber-600 text-xs">
+                  (You: {user.originalEmail})
+                </span>
+              )}
+            </div>
+            <button
+              onClick={handleStopImpersonation}
+              disabled={switchingHost}
+              className="rounded-full bg-amber-900 px-3 py-1 text-xs font-medium text-white hover:bg-amber-800 transition-colors disabled:opacity-50"
+            >
+              {switchingHost ? "Switching..." : "⬅️ Exit View"}
+            </button>
+          </div>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 px-4 py-3 lg:px-8">
         <div className="flex items-center gap-3 lg:hidden">
           <button

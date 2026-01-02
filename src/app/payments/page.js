@@ -5,6 +5,7 @@ import DataTable from "@/components/common/DataTable";
 import StatusPill from "@/components/common/StatusPill";
 import Modal from "@/components/common/Modal";
 import FormField from "@/components/common/FormField";
+import PageLoader from "@/components/common/PageLoader";
 import { getAllPayments, createPayment } from "@/lib/api";
 import { getAllGuests } from "@/lib/api";
 import { getAllProperties } from "@/lib/api";
@@ -82,19 +83,11 @@ export default function PaymentsPage() {
   };
 
   if (authLoading || !isAuthenticated) {
-    return (
-      <div className="rounded-3xl border border-slate-100 bg-white p-8 text-center text-slate-600">
-        Checking your access…
-      </div>
-    );
+    return <PageLoader message="Checking your access..." />;
   }
 
   if (isLoading) {
-    return (
-      <div className="rounded-3xl border border-slate-100 bg-white p-8 text-center text-slate-600">
-        Loading payments…
-      </div>
-    );
+    return <PageLoader message="Loading payments..." />;
   }
 
   if (error) {

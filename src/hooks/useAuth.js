@@ -68,6 +68,13 @@ export function useAuth() {
   // Determine user type
   const getUserType = () => {
     if (!user) return null;
+    
+    // Check if original user is superadmin (during impersonation)
+    if (user.originalRole === "superadmin") {
+      return "superadmin";
+    }
+    
+    // Check current role
     if (user.role === "superadmin" || user.role?.name === "superadmin") {
       return "superadmin";
     }
@@ -86,8 +93,10 @@ export function useAuth() {
   const getUserPermissions = () => {
     if (!user) return [];
     
-    // Superadmin has all permissions
-    if (user.role === "superadmin" || user.role?.name === "superadmin") {
+    // Superadmin has all permissions (including when impersonating)
+    if (user.role === "superadmin" || 
+        user.role?.name === "superadmin" || 
+        user.originalRole === "superadmin") {
       return ["all"];
     }
     
@@ -100,6 +109,9 @@ export function useAuth() {
     return user.permissions || [];
   };
 
+  // Check if currently impersonating
+  const isImpersonating = Boolean(user?.isImpersonating);
+
   return { 
     token, 
     user, 
@@ -110,6 +122,7 @@ export function useAuth() {
     isSuperAdmin: userType === "superadmin",
     isHost: userType === "host",
     isTeamMember: userType === "team_member",
+    isImpersonating,
     login, 
     logout 
   };

@@ -1,10 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { UserPlus, X, Calendar } from "lucide-react";
+import { UserPlus, X, Calendar, Eye } from "lucide-react";
+import toast from "react-hot-toast";
 import DataTable from "@/components/common/DataTable";
 import Modal from "@/components/common/Modal";
 import BookingCalendar from "@/components/modules/BookingCalendar";
+import FileUpload from "@/components/common/FileUpload";
+import IdCardGallery from "@/components/common/IdCardGallery";
+import PageLoader from "@/components/common/PageLoader";
 import {
   getAllBookings,
   createBooking,
@@ -26,16 +30,42 @@ const INITIAL_FORM_STATE = {
   amount: "",
   discount: "0",
   payment_status: "unpaid",
+  numberOfGuests: "1",
 };
 
 const getBookingId = (booking) => booking.id || booking._id;
 
 const formatDate = (dateString) => {
-  return dateString ? new Date(dateString).toLocaleDateString() : "N/A";
+  if (!dateString) return "N/A";
+  
+  const date = new Date(dateString);
+  const options = { weekday: 'short', month: 'short', day: 'numeric' };
+  
+  // Format: "Tue, Jan 1" or "Sat, Jan 5"
+  return date.toLocaleDateString('en-US', options);
 };
 
 const formatDateForInput = (dateString) => {
   return dateString ? dateString.split("T")[0] : "";
+};
+
+const formatErrorMessage = (error) => {
+  if (!error) return "An error occurred";
+  
+  const message = error.message || error.toString();
+  
+  // Extract the actual validation message if it follows the pattern "Validation failed: field: message"
+  const validationMatch = message.match(/Validation failed: .+?: (.+)/);
+  if (validationMatch) {
+    return validationMatch[1];
+  }
+  
+  // If it's just "Validation failed: message" without field
+  if (message.startsWith("Validation failed: ")) {
+    return message.replace("Validation failed: ", "");
+  }
+  
+  return message;
 };
 
 const calculatePeriod = (startDate, endDate) => {
@@ -127,6 +157,9 @@ export default function BookingsPage() {
     phone: "",
   });
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [createIdCardFiles, setCreateIdCardFiles] = useState([]);
+  const [editIdCardFiles, setEditIdCardFiles] = useState([]);
+  const [viewBooking, setViewBooking] = useState(null);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -188,31 +221,76 @@ export default function BookingsPage() {
       e.preventDefault();
     }
     
+    const toastId = toast.loading("Creating booking...");
+    
     try {
       setError(null);
       let guestId = createForm.guest_id;
 
       if (isCreatingNewGuest) {
         if (!newGuestForm.name || !newGuestForm.phone) {
-          setError("Please fill in guest name and phone number");
+          const errorMsg = "Please fill in guest name and phone number";
+          setError(errorMsg);
+          toast.error(errorMsg, { id: toastId });
           return;
         }
         const newGuest = await createGuest(newGuestForm);
         guestId = newGuest.id || newGuest._id;
         setGuestsData((prev) => [...prev, newGuest]);
       } else if (!guestId) {
-        setError("Please select a guest");
+        const errorMsg = "Please select a guest";
+        setError(errorMsg);
+        toast.error(errorMsg, { id: toastId });
         return;
       }
 
-      const newBooking = await createBooking({ ...createForm, guest_id: guestId });
-      setBookingsData((prev) => [...prev, newBooking]);
+      // Validate numberOfGuests
+      const numberOfGuests = parseInt(createForm.numberOfGuests) || 1;
+      if (numberOfGuests < 1) {
+        const errorMsg = "Number of guests must be at least 1";
+        setError(errorMsg);
+        toast.error(errorMsg, { id: toastId });
+        return;
+      }
+
+      // If files are present, use FormData, otherwise use JSON
+      if (createIdCardFiles.length > 0) {
+        const formData = new FormData();
+        formData.append('property_id', createForm.property_id);
+        formData.append('guest_id', guestId);
+        formData.append('start_date', createForm.start_date);
+        formData.append('end_date', createForm.end_date);
+        formData.append('amount', createForm.amount);
+        formData.append('discount', createForm.discount || '0');
+        formData.append('payment_status', createForm.payment_status || 'unpaid');
+        formData.append('numberOfGuests', numberOfGuests.toString());
+
+        // Append all ID card files
+        createIdCardFiles.forEach(file => {
+          formData.append('guestIdCards', file);
+        });
+
+        const newBooking = await createBooking(formData);
+        setBookingsData((prev) => [...prev, newBooking]);
+      } else {
+        const newBooking = await createBooking({ 
+          ...createForm, 
+          guest_id: guestId,
+          numberOfGuests
+        });
+        setBookingsData((prev) => [...prev, newBooking]);
+      }
+
+      toast.success("Booking created successfully!", { id: toastId });
       setCreateOpen(false);
       setCreateForm(INITIAL_FORM_STATE);
+      setCreateIdCardFiles([]);
       setIsCreatingNewGuest(false);
       setNewGuestForm({ name: "", phone: "" });
     } catch (err) {
-      setError(err.message || "Failed to create booking");
+      const errorMsg = formatErrorMessage(err);
+      setError(errorMsg);
+      toast.error(errorMsg, { id: toastId });
     }
   };
 
@@ -223,24 +301,71 @@ export default function BookingsPage() {
     
     if (!selectedBooking) return;
 
+    const toastId = toast.loading("Updating booking...");
+
     try {
       setError(null);
       const bookingId = getBookingId(selectedBooking);
-      const updatedBooking = await updateBooking(bookingId, editForm);
-      setBookingsData((prev) =>
-        prev.map((booking) =>
-          getBookingId(booking) === bookingId ? updatedBooking : booking
-        )
-      );
+
+      // Validate numberOfGuests
+      const numberOfGuests = parseInt(editForm.numberOfGuests) || 1;
+      if (numberOfGuests < 1) {
+        const errorMsg = "Number of guests must be at least 1";
+        setError(errorMsg);
+        toast.error(errorMsg, { id: toastId });
+        return;
+      }
+
+      // If files are present, use FormData, otherwise use JSON
+      if (editIdCardFiles.length > 0) {
+        const formData = new FormData();
+        formData.append('property_id', editForm.property_id);
+        formData.append('guest_id', editForm.guest_id);
+        formData.append('start_date', editForm.start_date);
+        formData.append('end_date', editForm.end_date);
+        formData.append('amount', editForm.amount);
+        formData.append('discount', editForm.discount || '0');
+        formData.append('payment_status', editForm.payment_status || 'unpaid');
+        formData.append('numberOfGuests', numberOfGuests.toString());
+
+        // Append all ID card files (replaces existing ones)
+        editIdCardFiles.forEach(file => {
+          formData.append('guestIdCards', file);
+        });
+
+        const updatedBooking = await updateBooking(bookingId, formData);
+        setBookingsData((prev) =>
+          prev.map((booking) =>
+            getBookingId(booking) === bookingId ? updatedBooking : booking
+          )
+        );
+      } else {
+        const updatedBooking = await updateBooking(bookingId, { 
+          ...editForm,
+          numberOfGuests
+        });
+        setBookingsData((prev) =>
+          prev.map((booking) =>
+            getBookingId(booking) === bookingId ? updatedBooking : booking
+          )
+        );
+      }
+
+      toast.success("Booking updated successfully!", { id: toastId });
       setSelectedBooking(null);
       setEditForm(INITIAL_FORM_STATE);
+      setEditIdCardFiles([]);
     } catch (err) {
-      setError(err.message || "Failed to update booking");
+      const errorMsg = formatErrorMessage(err);
+      setError(errorMsg);
+      toast.error(errorMsg, { id: toastId });
     }
   };
 
   const handleDeleteBooking = async (bookingId) => {
     if (!confirm("Are you sure you want to delete this booking?")) return;
+
+    const toastId = toast.loading("Deleting booking...");
 
     try {
       setError(null);
@@ -248,12 +373,17 @@ export default function BookingsPage() {
       setBookingsData((prev) =>
         prev.filter((booking) => getBookingId(booking) !== bookingId)
       );
+      toast.success("Booking deleted successfully!", { id: toastId });
     } catch (err) {
-      setError(err.message || "Failed to delete booking");
+      const errorMsg = formatErrorMessage(err);
+      setError(errorMsg);
+      toast.error(errorMsg, { id: toastId });
     }
   };
 
   const handleStatusChange = async (bookingId, newStatus) => {
+    const toastId = toast.loading("Updating status...");
+
     try {
       setError(null);
       await updateBookingStatus(bookingId, newStatus);
@@ -264,12 +394,17 @@ export default function BookingsPage() {
             : booking
         )
       );
+      toast.success("Booking status updated!", { id: toastId });
     } catch (err) {
-      setError(err.message || "Failed to update booking status");
+      const errorMsg = formatErrorMessage(err);
+      setError(errorMsg);
+      toast.error(errorMsg, { id: toastId });
     }
   };
 
   const handlePaymentStatusChange = async (bookingId, newPaymentStatus) => {
+    const toastId = toast.loading("Updating payment status...");
+
     try {
       setError(null);
       await updateBookingPaymentStatus(bookingId, newPaymentStatus);
@@ -280,8 +415,11 @@ export default function BookingsPage() {
             : booking
         )
       );
+      toast.success("Payment status updated!", { id: toastId });
     } catch (err) {
-      setError(err.message || "Failed to update payment status");
+      const errorMsg = formatErrorMessage(err);
+      setError(errorMsg);
+      toast.error(errorMsg, { id: toastId });
     }
   };
 
@@ -295,35 +433,39 @@ export default function BookingsPage() {
       amount: booking.amount || "",
       discount: booking.discount || "0",
       payment_status: booking.payment_status || "unpaid",
+      numberOfGuests: booking.numberOfGuests || "1",
     });
+    setEditIdCardFiles([]);
   };
 
   const closeEditModal = () => {
     setSelectedBooking(null);
     setEditForm(INITIAL_FORM_STATE);
+    setEditIdCardFiles([]);
   };
 
   const closeCreateModal = () => {
     setCreateOpen(false);
     setCreateForm(INITIAL_FORM_STATE);
+    setCreateIdCardFiles([]);
     setIsCreatingNewGuest(false);
     setNewGuestForm({ name: "", phone: "" });
   };
 
+  const openViewModal = (booking) => {
+    setViewBooking(booking);
+  };
+
+  const closeViewModal = () => {
+    setViewBooking(null);
+  };
+
   if (authLoading || !isAuthenticated) {
-    return (
-      <div className="rounded-3xl border border-slate-100 bg-white p-8 text-center text-slate-600">
-        Checking your access…
-      </div>
-    );
+    return <PageLoader message="Checking your access..." />;
   }
 
   if (isLoading) {
-    return (
-      <div className="rounded-3xl border border-slate-100 bg-white p-8 text-center text-slate-600">
-        Loading bookings…
-      </div>
-    );
+    return <PageLoader message="Loading bookings..." />;
   }
 
   const bookingCalendar = generateCalendarData(bookingsData);
@@ -335,6 +477,8 @@ export default function BookingsPage() {
     const startDate = formatDate(booking.start_date);
     const endDate = formatDate(booking.end_date);
     const period = calculatePeriod(booking.start_date, booking.end_date);
+    const numberOfGuests = booking.numberOfGuests || 1;
+    const idCardsCount = booking.guestIdCards?.length || 0;
 
     return {
       id: bookingId,
@@ -359,6 +503,21 @@ export default function BookingsPage() {
         </div>,
         <div key={`period-${bookingId}`} className="text-sm text-slate-500 italic">
           {period}
+        </div>,
+        <div key={`guests-${bookingId}`} className="text-sm text-slate-700">
+          {numberOfGuests} {numberOfGuests === 1 ? 'guest' : 'guests'}
+        </div>,
+        <div key={`idcards-${bookingId}`} className="text-sm text-slate-700">
+          {idCardsCount > 0 ? (
+            <button
+              onClick={() => openViewModal(booking)}
+              className="text-blue-600 hover:text-blue-800 underline-offset-2 hover:underline"
+            >
+              {idCardsCount} ID card{idCardsCount !== 1 ? 's' : ''}
+            </button>
+          ) : (
+            <span className="text-slate-400 italic">None</span>
+          )}
         </div>,
         <div key={`status-${bookingId}`}>
           <select
@@ -396,6 +555,13 @@ export default function BookingsPage() {
           ${booking.amount || 0}
         </span>,
         <div key={`actions-${bookingId}`} className="flex gap-2">
+          <button
+            className="text-sm text-blue-500 underline-offset-2 hover:text-blue-900 hover:underline"
+            onClick={() => openViewModal(booking)}
+            title="View details"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
           <button
             className="text-sm text-slate-500 underline-offset-2 hover:text-slate-900 hover:underline"
             onClick={() => openEditModal(booking)}
@@ -457,7 +623,7 @@ export default function BookingsPage() {
       </div>
 
       <DataTable
-        headers={["#", "Guest", "Property", "Check In", "Check Out", "Period", "Status", "Payment", "Amount", ""]}
+        headers={["#", "Guest", "Property", "Check In", "Check Out", "Period", "Guests", "ID Cards", "Status", "Payment", "Amount", ""]}
         rows={tableRows}
       />
 
@@ -470,25 +636,45 @@ export default function BookingsPage() {
         onPrimaryAction={handleUpdateBooking}
       >
         <form className="space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Guest
-            </label>
-            <select
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              value={editForm.guest_id}
-              onChange={(e) =>
-                setEditForm({ ...editForm, guest_id: e.target.value })
-              }
-              required
-            >
-              <option value="">Select a guest</option>
-              {guestsData.map((guest) => (
-                <option key={getBookingId(guest)} value={getBookingId(guest)}>
-                  {guest.name} ({guest.email})
-                </option>
-              ))}
-            </select>
+          <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Guest
+              </label>
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={editForm.guest_id}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, guest_id: e.target.value })
+                }
+                required
+              >
+                <option value="">Select a guest</option>
+                {guestsData.map((guest) => (
+                  <option key={getBookingId(guest)} value={getBookingId(guest)}>
+                    {guest.name} ({guest.email})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700">
+                # Guests
+              </label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={editForm.numberOfGuests}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, numberOfGuests: e.target.value })
+                }
+                placeholder="1"
+                required
+              />
+            </div>
           </div>
 
           <div>
@@ -546,7 +732,7 @@ export default function BookingsPage() {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
                 Amount (USD)
@@ -581,116 +767,159 @@ export default function BookingsPage() {
                 placeholder="0"
               />
             </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Payment Status
+              </label>
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={editForm.payment_status}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, payment_status: e.target.value })
+                }
+                required
+              >
+                <option value="unpaid">Unpaid</option>
+                <option value="partially-paid">Partially Paid</option>
+                <option value="paid">Paid</option>
+                <option value="refunded">Refunded</option>
+              </select>
+            </div>
           </div>
 
+          {selectedBooking?.guestIdCards?.length > 0 && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="text-sm font-medium text-slate-700 mb-2">
+                Current ID Cards: {selectedBooking.guestIdCards.length}
+              </p>
+              <IdCardGallery idCards={selectedBooking.guestIdCards} />
+            </div>
+          )}
+
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Payment Status
-            </label>
-            <select
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              value={editForm.payment_status}
-              onChange={(e) =>
-                setEditForm({ ...editForm, payment_status: e.target.value })
-              }
-              required
-            >
-              <option value="unpaid">Unpaid</option>
-              <option value="partially-paid">Partially Paid</option>
-              <option value="paid">Paid</option>
-              <option value="refunded">Refunded</option>
-            </select>
+            <FileUpload
+              label="Update Guest ID Cards (Optional)"
+              files={editIdCardFiles}
+              onChange={setEditIdCardFiles}
+              maxFiles={10}
+              maxSizeMB={5}
+              helpText="Upload new ID cards to replace existing ones. JPG, PNG, GIF, PDF accepted."
+            />
+            {editIdCardFiles.length > 0 && (
+              <p className="mt-2 text-xs text-amber-600 font-medium">
+                ⚠️ Uploading new ID cards will replace all existing ones
+              </p>
+            )}
           </div>
         </form>
       </Modal>
 
       <Modal
         title="Add booking"
-        description="Fast-create booking requests from phone or walk-ins."
         isOpen={isCreateOpen}
         onClose={closeCreateModal}
         primaryActionLabel="Create booking"
         onPrimaryAction={handleCreateBooking}
       >
         <form className="space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Guest
-            </label>
-            
-            {!isCreatingNewGuest ? (
-              <>
-                <select
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  value={createForm.guest_id}
-                  onChange={(e) =>
-                    setCreateForm({ ...createForm, guest_id: e.target.value })
-                  }
-                >
-                  <option value="">Select a guest</option>
-                  {guestsData.map((guest) => (
-                    <option key={getBookingId(guest)} value={getBookingId(guest)}>
-                      {guest.name} ({guest.email})
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => setIsCreatingNewGuest(true)}
-                  className="mt-2 flex items-center gap-1.5 text-sm text-rose-600 hover:text-rose-700 font-medium"
-                >
-                  <UserPlus className="h-4 w-4" />
-                  Create new guest
-                </button>
-              </>
-            ) : (
-              <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-700">New Guest</span>
+          <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Guest
+              </label>
+              
+              {!isCreatingNewGuest ? (
+                <>
+                  <select
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    value={createForm.guest_id}
+                    onChange={(e) =>
+                      setCreateForm({ ...createForm, guest_id: e.target.value })
+                    }
+                  >
+                    <option value="">Select a guest</option>
+                    {guestsData.map((guest) => (
+                      <option key={getBookingId(guest)} value={getBookingId(guest)}>
+                        {guest.name} ({guest.email})
+                      </option>
+                    ))}
+                  </select>
                   <button
                     type="button"
-                    onClick={() => {
-                      setIsCreatingNewGuest(false);
-                      setNewGuestForm({ name: "", phone: "" });
-                    }}
-                    className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
+                    onClick={() => setIsCreatingNewGuest(true)}
+                    className="mt-2 flex items-center gap-1.5 text-sm text-rose-600 hover:text-rose-700 font-medium"
                   >
-                    <X className="h-3 w-3" />
-                    Cancel
+                    <UserPlus className="h-4 w-4" />
+                    Create new guest
                   </button>
+                </>
+              ) : (
+                <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-700">New Guest</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCreatingNewGuest(false);
+                        setNewGuestForm({ name: "", phone: "" });
+                      }}
+                      className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
+                    >
+                      <X className="h-3 w-3" />
+                      Cancel
+                    </button>
+                  </div>
+                  
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-600">
+                      Guest Name *
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
+                      value={newGuestForm.name}
+                      onChange={(e) =>
+                        setNewGuestForm({ ...newGuestForm, name: e.target.value })
+                      }
+                      placeholder="John Doe"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-600">
+                      Phone Number *
+                    </label>
+                    <input
+                      type="tel"
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
+                      value={newGuestForm.phone}
+                      onChange={(e) =>
+                        setNewGuestForm({ ...newGuestForm, phone: e.target.value })
+                      }
+                      placeholder="+1 (555) 123-4567"
+                    />
+                  </div>
                 </div>
-                
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">
-                    Guest Name *
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
-                    value={newGuestForm.name}
-                    onChange={(e) =>
-                      setNewGuestForm({ ...newGuestForm, name: e.target.value })
-                    }
-                    placeholder="John Doe"
-                  />
-                </div>
-                
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">
-                    Phone Number *
-                  </label>
-                  <input
-                    type="tel"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
-                    value={newGuestForm.phone}
-                    onChange={(e) =>
-                      setNewGuestForm({ ...newGuestForm, phone: e.target.value })
-                    }
-                    placeholder="+1 (555) 123-4567"
-                  />
-                </div>
-              </div>
-            )}
+              )}
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700">
+                # Guests
+              </label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={createForm.numberOfGuests}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, numberOfGuests: e.target.value })
+                }
+                placeholder="1"
+                required
+              />
+            </div>
           </div>
 
           <div>
@@ -748,7 +977,7 @@ export default function BookingsPage() {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
                 Amount (USD)
@@ -783,27 +1012,150 @@ export default function BookingsPage() {
                 placeholder="0"
               />
             </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Payment Status
+              </label>
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={createForm.payment_status}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, payment_status: e.target.value })
+                }
+                required
+              >
+                <option value="unpaid">Unpaid</option>
+                <option value="partially-paid">Partially Paid</option>
+                <option value="paid">Paid</option>
+                <option value="refunded">Refunded</option>
+              </select>
+            </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Payment Status
-            </label>
-            <select
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              value={createForm.payment_status}
-              onChange={(e) =>
-                setCreateForm({ ...createForm, payment_status: e.target.value })
-              }
-              required
-            >
-              <option value="unpaid">Unpaid</option>
-              <option value="partially-paid">Partially Paid</option>
-              <option value="paid">Paid</option>
-              <option value="refunded">Refunded</option>
-            </select>
+            <FileUpload
+              label="Guest ID Cards (Optional)"
+              files={createIdCardFiles}
+              onChange={setCreateIdCardFiles}
+              maxFiles={10}
+              maxSizeMB={5}
+              helpText="Upload up to 10 ID cards. JPG, PNG, GIF, PDF accepted. Max 5MB each."
+            />
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        title="Booking Details"
+        description="View comprehensive booking information"
+        isOpen={Boolean(viewBooking)}
+        onClose={closeViewModal}
+        size="large"
+      >
+        {viewBooking && (
+          <div className="space-y-6">
+            {/* Guest & Property Info */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <h4 className="text-sm font-semibold text-slate-700 mb-2">Guest Information</h4>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+                  <div>
+                    <span className="text-xs text-slate-500">Name:</span>
+                    <p className="text-sm font-medium text-slate-800">{viewBooking.guest_id?.name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-500">Email:</span>
+                    <p className="text-sm text-slate-700">{viewBooking.guest_id?.email || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-500">Phone:</span>
+                    <p className="text-sm text-slate-700">{viewBooking.guest_id?.phone || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-semibold text-slate-700 mb-2">Property Information</h4>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+                  <div>
+                    <span className="text-xs text-slate-500">Property:</span>
+                    <p className="text-sm font-medium text-slate-800">{viewBooking.property_id?.title || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-500">Location:</span>
+                    <p className="text-sm text-slate-700">{viewBooking.property_id?.location || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Booking Details */}
+            <div>
+              <h4 className="text-sm font-semibold text-slate-700 mb-2">Booking Details</h4>
+              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <span className="text-xs text-slate-500">Check In</span>
+                  <p className="text-sm font-medium text-slate-800">{formatDate(viewBooking.start_date)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <span className="text-xs text-slate-500">Check Out</span>
+                  <p className="text-sm font-medium text-slate-800">{formatDate(viewBooking.end_date)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <span className="text-xs text-slate-500">Duration</span>
+                  <p className="text-sm font-medium text-slate-800">{calculatePeriod(viewBooking.start_date, viewBooking.end_date)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <span className="text-xs text-slate-500">Number of Guests</span>
+                  <p className="text-sm font-medium text-slate-800">{viewBooking.numberOfGuests || 1} {(viewBooking.numberOfGuests || 1) === 1 ? 'guest' : 'guests'}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <span className="text-xs text-slate-500">Amount</span>
+                  <p className="text-sm font-medium text-slate-800">${viewBooking.amount || 0}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <span className="text-xs text-slate-500">Discount</span>
+                  <p className="text-sm font-medium text-slate-800">{viewBooking.discount || 0}%</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Status Info */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <span className="text-xs text-slate-500 block mb-1">Booking Status</span>
+                <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(viewBooking.status || "pending")}`}>
+                  {viewBooking.status || 'pending'}
+                </span>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <span className="text-xs text-slate-500 block mb-1">Payment Status</span>
+                <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${getPaymentStatusColor(viewBooking.payment_status || "unpaid")}`}>
+                  {viewBooking.payment_status || 'unpaid'}
+                </span>
+              </div>
+            </div>
+
+            {/* ID Cards Gallery */}
+            <div>
+              <h4 className="text-sm font-semibold text-slate-700 mb-3">Guest ID Cards</h4>
+              <IdCardGallery idCards={viewBooking.guestIdCards || []} />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4 border-t border-slate-200">
+              <button
+                onClick={() => {
+                  closeViewModal();
+                  openEditModal(viewBooking);
+                }}
+                className="flex-1 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+              >
+                Edit Booking
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       <Modal

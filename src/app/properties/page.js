@@ -7,6 +7,7 @@ import DataTable from "@/components/common/DataTable";
 import Modal from "@/components/common/Modal";
 import FormField from "@/components/common/FormField";
 import StatusPill from "@/components/common/StatusPill";
+import PageLoader from "@/components/common/PageLoader";
 import {
   getAllProperties,
   createProperty,
@@ -300,19 +301,11 @@ export default function PropertiesPage() {
   }, [propertiesData, filters]);
 
   if (authLoading || !isAuthenticated) {
-    return (
-      <div className="rounded-3xl border border-slate-100 bg-white p-8 text-center text-slate-600">
-        Checking your access…
-      </div>
-    );
+    return <PageLoader message="Checking your access..." />;
   }
 
   if (isLoading) {
-    return (
-      <div className="rounded-3xl border border-slate-100 bg-white p-8 text-center text-slate-600">
-        Loading properties…
-      </div>
-    );
+    return <PageLoader message="Loading properties..." />;
   }
 
   if (error) {

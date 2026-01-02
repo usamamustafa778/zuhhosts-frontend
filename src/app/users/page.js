@@ -5,6 +5,7 @@ import DataTable from "@/components/common/DataTable";
 import StatusPill from "@/components/common/StatusPill";
 import Modal from "@/components/common/Modal";
 import FormField from "@/components/common/FormField";
+import PageLoader from "@/components/common/PageLoader";
 import { useDashboard } from "@/components/layout/DashboardShell";
 import {
   getAllUsers,
@@ -278,11 +279,7 @@ export default function UsersPage() {
   });
 
   if (authLoading || !isAuthenticated) {
-    return (
-      <div className="rounded-3xl border border-slate-100 bg-white p-8 text-center text-slate-600">
-        Checking your access…
-      </div>
-    );
+    return <PageLoader message="Checking your access..." />;
   }
 
   // Check access - allow superadmin or host
@@ -295,11 +292,7 @@ export default function UsersPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="rounded-3xl border border-slate-100 bg-white p-8 text-center text-slate-600">
-        Loading users…
-      </div>
-    );
+    return <PageLoader message="Loading users..." />;
   }
 
   if (error) {

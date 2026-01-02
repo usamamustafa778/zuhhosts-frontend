@@ -11,7 +11,7 @@ export default function DataTable({ headers = [], rows = [], emptyLabel = "No da
                 <th
                   key={`header-${index}-${header}`}
                   scope="col"
-                  className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500"
+                  className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500"
                 >
                   {header}
                 </th>
