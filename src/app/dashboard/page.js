@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Head from "next/head";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth, useRequireAuth } from "@/hooks/useAuth";
@@ -97,13 +98,18 @@ export default function DashboardPage() {
   // Show modern dashboard for hosts
   if (isHost) {
     return (
-      <div className="mx-auto max-w-4xl space-y-12 py-4">
+      <>
+        <Head>
+          <title>Dashboard | Zuha Host</title>
+          <meta name="description" content="Your property management dashboard. View bookings, earnings, and manage your listings." />
+        </Head>
+        <div className="mx-auto max-w-4xl space-y-6 lg:space-y-12 py-0 lg:py-4">
         {/* Today/Upcoming Toggle with Add Booking Button */}
         <div className="flex items-center justify-center gap-2">
-          <div className="flex gap-4">
+          <div className="flex gap-2 lg:gap-4">
             <button
               onClick={() => setActiveView("today")}
-              className={`rounded-full px-4 py-2.5 text-sm font-medium transition ${
+              className={`rounded-full px-4 lg:px-6 py-2 lg:py-2.5 text-sm font-medium transition ${
                 activeView === "today"
                   ? "bg-slate-900 text-white"
                   : "bg-slate-100 text-slate-900 hover:bg-slate-200"
@@ -113,7 +119,7 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={() => setActiveView("upcoming")}
-              className={`rounded-full px-4 py-2.5 text-sm font-medium transition ${
+              className={`rounded-full px-4 lg:px-6 py-2 lg:py-2.5 text-sm font-medium transition ${
                 activeView === "upcoming"
                   ? "bg-slate-900 text-white"
                   : "bg-slate-100 text-slate-900 hover:bg-slate-200"
@@ -125,55 +131,104 @@ export default function DashboardPage() {
 
           <button
             onClick={() => router.push("/bookings")}
-            className="rounded-full border whitespace-nowrap border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-full border whitespace-nowrap border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
-            + Add booking
+            + Add
           </button>
         </div>
 
         {/* Reservation Count */}
         <div className="text-center">
-          <h1 className="text-4xl font-semibold text-slate-900">
+          <h2 className="text-2xl lg:text-4xl font-semibold text-slate-900">
             {activeView === "today" ? (
               <>
-                You have {todaysBookings.length}{" "}
+                {todaysBookings.length}{" "}
                 {todaysBookings.length === 1 ? "reservation" : "reservations"}
               </>
             ) : (
               <>
-                You have {upcomingBookings.length} upcoming{" "}
+                {upcomingBookings.length} upcoming{" "}
                 {upcomingBookings.length === 1 ? "reservation" : "reservations"}
               </>
             )}
-          </h1>
+          </h2>
         </div>
 
         {/* Today's Reservations */}
         {activeView === "today" &&
           (todaysBookings.length > 0 ? (
-            <div className="space-y-6">
+            <div className="space-y-4 lg:space-y-6">
               {todaysBookings.map((booking, index) => (
                 <div
                   key={booking.id || index}
-                  className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm transition hover:shadow-md"
+                  className="rounded-2xl lg:rounded-3xl border border-slate-200 bg-white p-6 lg:p-8 shadow-sm transition hover:shadow-md"
                 >
-                  <p className="text-center text-sm font-medium text-slate-600">
-                    All day
+                  <p className="text-center text-xs lg:text-sm font-medium text-slate-600">
+                    {(() => {
+                      const startDate = new Date(booking.start_date);
+                      const today = new Date();
+                      startDate.setHours(0, 0, 0, 0);
+                      today.setHours(0, 0, 0, 0);
+                      
+                      if (startDate.getTime() === today.getTime()) {
+                        // Show check-in time if available, otherwise show "All day"
+                        return booking.check_in_time || "4:00 PM";
+                      }
+                      return "All day";
+                    })()}
                   </p>
-                  <div className="mt-8 flex flex-col items-center">
-                    <div className="flex h-24 w-24 items-center justify-center rounded-full bg-slate-900 text-4xl font-bold text-white">
-                      {booking.guest_id?.name?.[0]?.toUpperCase() || "G"}
+                  <div className="mt-6 lg:mt-8 flex flex-col items-center">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-16 w-16 lg:h-24 lg:w-24 items-center justify-center rounded-full bg-slate-900 text-2xl lg:text-4xl font-bold text-white">
+                        {booking.guest_id?.name?.[0]?.toUpperCase() || "G"}
+                      </div>
+                      {(() => {
+                        const numberOfGuests = booking.numberOfGuests || 1;
+                        const startDate = new Date(booking.start_date);
+                        const today = new Date();
+                        startDate.setHours(0, 0, 0, 0);
+                        today.setHours(0, 0, 0, 0);
+                        
+                        // If check-in is today and there are multiple guests, show +N indicator
+                        if (startDate.getTime() === today.getTime() && numberOfGuests > 1) {
+                          return (
+                            <div className="flex h-16 w-16 lg:h-24 lg:w-24 items-center justify-center rounded-full bg-slate-200 text-2xl lg:text-3xl font-bold text-slate-900">
+                              +{numberOfGuests - 1}
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
-                    <h2 className="mt-6 text-center text-2xl font-semibold text-slate-900">
-                      {booking.guest_id?.name || "Guest"} stays for one more day
+                    <h2 className="mt-4 lg:mt-6 text-center text-xl lg:text-2xl font-semibold text-slate-900">
+                      {(() => {
+                        const guestName = booking.guest_id?.name || "Guest";
+                        const numberOfGuests = booking.numberOfGuests || 1;
+                        const startDate = new Date(booking.start_date);
+                        const today = new Date();
+                        startDate.setHours(0, 0, 0, 0);
+                        today.setHours(0, 0, 0, 0);
+                        
+                        // If check-in is today, show "group of X checks in"
+                        if (startDate.getTime() === today.getTime()) {
+                          if (numberOfGuests > 1) {
+                            return `${guestName.split(" ")[0]}'s group of ${numberOfGuests} checks in`;
+                          } else {
+                            return `${guestName} checks in`;
+                          }
+                        }
+                        
+                        // Otherwise, show "stays for one more day" (ongoing stay)
+                        return `${guestName} stays for one more day`;
+                      })()}
                     </h2>
                     {booking.property_id?.title && (
-                      <p className="mt-2 text-center text-slate-600">
+                      <p className="mt-2 text-center text-sm lg:text-base text-slate-600">
                         {booking.property_id.title}
                       </p>
                     )}
                     {booking.amount && (
-                      <p className="mt-1 text-sm text-slate-500">
+                      <p className="mt-1 text-xs lg:text-sm text-slate-500">
                         ${booking.amount}
                       </p>
                     )}
@@ -182,17 +237,17 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <div className="rounded-3xl border border-slate-200 bg-white p-16 text-center shadow-sm">
-              <div className="text-6xl">📅</div>
-              <h2 className="mt-6 text-2xl font-semibold text-slate-900">
+            <div className="rounded-2xl lg:rounded-3xl border border-slate-200 bg-white p-12 lg:p-16 text-center shadow-sm">
+              <div className="text-4xl lg:text-6xl">📅</div>
+              <h2 className="mt-4 lg:mt-6 text-xl lg:text-2xl font-semibold text-slate-900">
                 No reservations today
               </h2>
-              <p className="mt-2 text-slate-600">
+              <p className="mt-2 text-sm lg:text-base text-slate-600">
                 Check your upcoming bookings or add a new reservation
               </p>
               <button
                 onClick={() => router.push("/bookings")}
-                className="mt-6 rounded-full bg-slate-900 px-6 py-3 text-sm font-medium text-white hover:bg-slate-800"
+                className="mt-4 lg:mt-6 rounded-full bg-slate-900 px-6 py-3 text-sm font-medium text-white hover:bg-slate-800"
               >
                 View all bookings
               </button>
@@ -202,33 +257,33 @@ export default function DashboardPage() {
         {/* Upcoming Reservations */}
         {activeView === "upcoming" &&
           (upcomingBookings.length > 0 ? (
-            <div className="space-y-6">
+            <div className="space-y-4 lg:space-y-6">
               {upcomingBookings.map((booking, index) => (
                 <div
                   key={booking.id || index}
-                  className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm transition hover:shadow-md"
+                  className="rounded-2xl lg:rounded-3xl border border-slate-200 bg-white p-6 lg:p-8 shadow-sm transition hover:shadow-md"
                 >
-                  <p className="text-center text-sm font-medium text-slate-600">
+                  <p className="text-center text-xs lg:text-sm font-medium text-slate-600">
                     {new Date(booking.start_date).toLocaleDateString("en-US", {
                       weekday: "short",
                       month: "short",
                       day: "numeric",
                     })}
                   </p>
-                  <div className="mt-8 flex flex-col items-center">
-                    <div className="flex h-24 w-24 items-center justify-center rounded-full bg-slate-900 text-4xl font-bold text-white">
+                  <div className="mt-6 lg:mt-8 flex flex-col items-center">
+                    <div className="flex h-16 w-16 lg:h-24 lg:w-24 items-center justify-center rounded-full bg-slate-900 text-2xl lg:text-4xl font-bold text-white">
                       {booking.guest_id?.name?.[0]?.toUpperCase() || "G"}
                     </div>
-                    <h2 className="mt-6 text-center text-2xl font-semibold text-slate-900">
+                    <h2 className="mt-4 lg:mt-6 text-center text-xl lg:text-2xl font-semibold text-slate-900">
                       {booking.guest_id?.name || "Guest"} checks in
                     </h2>
                     {booking.property_id?.title && (
-                      <p className="mt-2 text-center text-slate-600">
+                      <p className="mt-2 text-center text-sm lg:text-base text-slate-600">
                         {booking.property_id.title}
                       </p>
                     )}
                     {booking.amount && (
-                      <p className="mt-1 text-sm text-slate-500">
+                      <p className="mt-1 text-xs lg:text-sm text-slate-500">
                         ${booking.amount}
                       </p>
                     )}
@@ -237,51 +292,34 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <div className="rounded-3xl border border-slate-200 bg-white p-16 text-center shadow-sm">
-              <div className="text-6xl">🗓️</div>
-              <h2 className="mt-6 text-2xl font-semibold text-slate-900">
+            <div className="rounded-2xl lg:rounded-3xl border border-slate-200 bg-white p-12 lg:p-16 text-center shadow-sm">
+              <div className="text-4xl lg:text-6xl">🗓️</div>
+              <h2 className="mt-4 lg:mt-6 text-xl lg:text-2xl font-semibold text-slate-900">
                 No upcoming reservations
               </h2>
-              <p className="mt-2 text-slate-600">
+              <p className="mt-2 text-sm lg:text-base text-slate-600">
                 You're all caught up! Check back later for future bookings
               </p>
             </div>
           ))}
 
         {/* Your Follow-ups */}
-        <div className="space-y-6">
-          <h2 className="text-3xl font-semibold text-slate-900">
+        <div className="space-y-4 lg:space-y-6">
+          <h2 className="text-2xl lg:text-3xl font-semibold text-slate-900">
             Your follow-ups
           </h2>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 lg:gap-4">
             {/* Quick action cards */}
             <button
-              onClick={() => router.push("/properties")}
-              className="rounded-3xl border border-slate-200 bg-white p-6 text-left transition hover:shadow-md"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-1 text-slate-900">
-                    <span>🏠</span>
-                    <h3 className="font-semibold">Manage properties</h3>
-                  </div>
-                  <p className="mt-2 text-sm text-slate-600">
-                    {stats?.properties || 0} active listings
-                  </p>
-                </div>
-              </div>
-            </button>
-
-            <button
               onClick={() => router.push("/tasks")}
-              className="rounded-3xl border border-slate-200 bg-white p-6 text-left transition hover:shadow-md"
+              className="rounded-2xl lg:rounded-3xl border border-slate-200 bg-white p-5 lg:p-6 text-left transition hover:shadow-md"
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <div className="flex items-center gap-1 text-slate-900">
-                    <span>✅</span>
-                    <h3 className="font-semibold">Tasks</h3>
+                  <div className="flex items-center gap-2 text-slate-900">
+                    <span className="text-xl lg:text-2xl">✅</span>
+                    <h3 className="font-semibold text-base lg:text-lg">Tasks</h3>
                   </div>
                   <p className="mt-2 text-sm text-slate-600">
                     Review pending tasks
@@ -289,29 +327,13 @@ export default function DashboardPage() {
                 </div>
               </div>
             </button>
-
-            <button
-              onClick={() => router.push("/payments")}
-              className="rounded-3xl border border-slate-200 bg-white p-6 text-left transition hover:shadow-md"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-1 text-slate-900">
-                    <span>💰</span>
-                    <h3 className="font-semibold">Payments</h3>
-                  </div>
-                  <p className="mt-2 text-sm text-slate-600">
-                    View transactions
-                  </p>
-                </div>
-              </div>
-            </button>
           </div>
         </div>
 
-        {/* Bottom Spacing */}
-        <div className="pb-8"></div>
+        {/* Bottom Spacing for mobile nav */}
+        <div className="pb-4 lg:pb-8"></div>
       </div>
+      </>
     );
   }
 

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Head from "next/head";
+import { useRouter } from "next/navigation";
 import { UserPlus, X, Calendar, Eye } from "lucide-react";
 import toast from "react-hot-toast";
 import DataTable from "@/components/common/DataTable";
@@ -37,12 +39,12 @@ const getBookingId = (booking) => booking.id || booking._id;
 
 const formatDate = (dateString) => {
   if (!dateString) return "N/A";
-  
+
   const date = new Date(dateString);
-  const options = { weekday: 'short', month: 'short', day: 'numeric' };
-  
+  const options = { weekday: "short", month: "short", day: "numeric" };
+
   // Format: "Tue, Jan 1" or "Sat, Jan 5"
-  return date.toLocaleDateString('en-US', options);
+  return date.toLocaleDateString("en-US", options);
 };
 
 const formatDateForInput = (dateString) => {
@@ -51,31 +53,31 @@ const formatDateForInput = (dateString) => {
 
 const formatErrorMessage = (error) => {
   if (!error) return "An error occurred";
-  
+
   const message = error.message || error.toString();
-  
+
   // Extract the actual validation message if it follows the pattern "Validation failed: field: message"
   const validationMatch = message.match(/Validation failed: .+?: (.+)/);
   if (validationMatch) {
     return validationMatch[1];
   }
-  
+
   // If it's just "Validation failed: message" without field
   if (message.startsWith("Validation failed: ")) {
     return message.replace("Validation failed: ", "");
   }
-  
+
   return message;
 };
 
 const calculatePeriod = (startDate, endDate) => {
   if (!startDate || !endDate) return "N/A";
-  
+
   const start = new Date(startDate);
   const end = new Date(endDate);
   const diffTime = Math.abs(end - start);
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
+
   if (diffDays === 0) return "Same day";
   if (diffDays === 1) return "1 day";
   if (diffDays < 7) return `${diffDays} days`;
@@ -83,17 +85,19 @@ const calculatePeriod = (startDate, endDate) => {
   if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks`;
   if (diffDays < 60) return "1 month";
   if (diffDays < 365) return `${Math.floor(diffDays / 30)} months`;
-  return `${Math.floor(diffDays / 365)} year${Math.floor(diffDays / 365) > 1 ? 's' : ''}`;
+  return `${Math.floor(diffDays / 365)} year${
+    Math.floor(diffDays / 365) > 1 ? "s" : ""
+  }`;
 };
 
 const calculateNights = (startDate, endDate) => {
   if (!startDate || !endDate) return 0;
-  
+
   const start = new Date(startDate);
   const end = new Date(endDate);
   const diffTime = Math.abs(end - start);
   const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
+
   return nights || 0;
 };
 
@@ -140,6 +144,7 @@ const generateCalendarData = (bookingsData) => {
 };
 
 export default function BookingsPage() {
+  const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useRequireAuth();
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [isCreateOpen, setCreateOpen] = useState(false);
@@ -148,6 +153,14 @@ export default function BookingsPage() {
   const [guestsData, setGuestsData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [viewMode, setViewMode] = useState(() => {
+    // Default to table on desktop, cards on mobile
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768 ? "table" : "cards";
+    }
+    return "table";
+  });
+  const [showFilters, setShowFilters] = useState(false);
   const [filterPeriod, setFilterPeriod] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterPaymentStatus, setFilterPaymentStatus] = useState("");
@@ -169,32 +182,55 @@ export default function BookingsPage() {
   }, [isAuthenticated, filterPeriod, filterStatus, filterPaymentStatus]);
 
   useEffect(() => {
-    if (createForm.property_id && createForm.start_date && createForm.end_date) {
-      const property = propertiesData.find(p => (p._id || p.id) === createForm.property_id);
+    if (
+      createForm.property_id &&
+      createForm.start_date &&
+      createForm.end_date
+    ) {
+      const property = propertiesData.find(
+        (p) => (p._id || p.id) === createForm.property_id
+      );
       if (property?.price) {
-        const nights = calculateNights(createForm.start_date, createForm.end_date);
+        const nights = calculateNights(
+          createForm.start_date,
+          createForm.end_date
+        );
         const baseAmount = property.price * nights;
         const discountPercent = Number(createForm.discount) || 0;
         const discountAmount = (baseAmount * discountPercent) / 100;
         const finalAmount = baseAmount - discountAmount;
-        setCreateForm(prev => ({ ...prev, amount: finalAmount }));
+        setCreateForm((prev) => ({ ...prev, amount: finalAmount }));
       }
     }
-  }, [createForm.property_id, createForm.start_date, createForm.end_date, createForm.discount, propertiesData]);
+  }, [
+    createForm.property_id,
+    createForm.start_date,
+    createForm.end_date,
+    createForm.discount,
+    propertiesData,
+  ]);
 
   useEffect(() => {
     if (editForm.property_id && editForm.start_date && editForm.end_date) {
-      const property = propertiesData.find(p => (p._id || p.id) === editForm.property_id);
+      const property = propertiesData.find(
+        (p) => (p._id || p.id) === editForm.property_id
+      );
       if (property?.price) {
         const nights = calculateNights(editForm.start_date, editForm.end_date);
         const baseAmount = property.price * nights;
         const discountPercent = Number(editForm.discount) || 0;
         const discountAmount = (baseAmount * discountPercent) / 100;
         const finalAmount = baseAmount - discountAmount;
-        setEditForm(prev => ({ ...prev, amount: finalAmount }));
+        setEditForm((prev) => ({ ...prev, amount: finalAmount }));
       }
     }
-  }, [editForm.property_id, editForm.start_date, editForm.end_date, editForm.discount, propertiesData]);
+  }, [
+    editForm.property_id,
+    editForm.start_date,
+    editForm.end_date,
+    editForm.discount,
+    propertiesData,
+  ]);
 
   const loadData = async () => {
     try {
@@ -205,10 +241,11 @@ export default function BookingsPage() {
       const queryParams = [];
       if (filterPeriod) queryParams.push(`period=${filterPeriod}`);
       if (filterStatus) queryParams.push(`status=${filterStatus}`);
-      if (filterPaymentStatus) queryParams.push(`payment_status=${filterPaymentStatus}`);
-      
-      const params = queryParams.length > 0 ? `?${queryParams.join('&')}` : "";
-      
+      if (filterPaymentStatus)
+        queryParams.push(`payment_status=${filterPaymentStatus}`);
+
+      const params = queryParams.length > 0 ? `?${queryParams.join("&")}` : "";
+
       const [bookings, properties, guests] = await Promise.all([
         getAllBookings(params),
         getAllProperties(),
@@ -229,9 +266,9 @@ export default function BookingsPage() {
     if (e?.preventDefault) {
       e.preventDefault();
     }
-    
+
     const toastId = toast.loading("Creating booking...");
-    
+
     try {
       setError(null);
       let guestId = createForm.guest_id;
@@ -265,27 +302,30 @@ export default function BookingsPage() {
       // If files are present, use FormData, otherwise use JSON
       if (createIdCardFiles.length > 0) {
         const formData = new FormData();
-        formData.append('property_id', createForm.property_id);
-        formData.append('guest_id', guestId);
-        formData.append('start_date', createForm.start_date);
-        formData.append('end_date', createForm.end_date);
-        formData.append('amount', createForm.amount);
-        formData.append('discount', createForm.discount || '0');
-        formData.append('payment_status', createForm.payment_status || 'unpaid');
-        formData.append('numberOfGuests', numberOfGuests.toString());
+        formData.append("property_id", createForm.property_id);
+        formData.append("guest_id", guestId);
+        formData.append("start_date", createForm.start_date);
+        formData.append("end_date", createForm.end_date);
+        formData.append("amount", createForm.amount);
+        formData.append("discount", createForm.discount || "0");
+        formData.append(
+          "payment_status",
+          createForm.payment_status || "unpaid"
+        );
+        formData.append("numberOfGuests", numberOfGuests.toString());
 
         // Append all ID card files
-        createIdCardFiles.forEach(file => {
-          formData.append('guestIdCards', file);
+        createIdCardFiles.forEach((file) => {
+          formData.append("guestIdCards", file);
         });
 
         const newBooking = await createBooking(formData);
         setBookingsData((prev) => [...prev, newBooking]);
       } else {
-        const newBooking = await createBooking({ 
-          ...createForm, 
+        const newBooking = await createBooking({
+          ...createForm,
           guest_id: guestId,
-          numberOfGuests
+          numberOfGuests,
         });
         setBookingsData((prev) => [...prev, newBooking]);
       }
@@ -307,7 +347,7 @@ export default function BookingsPage() {
     if (e?.preventDefault) {
       e.preventDefault();
     }
-    
+
     if (!selectedBooking) return;
 
     const toastId = toast.loading("Updating booking...");
@@ -328,18 +368,18 @@ export default function BookingsPage() {
       // If files are present, use FormData, otherwise use JSON
       if (editIdCardFiles.length > 0) {
         const formData = new FormData();
-        formData.append('property_id', editForm.property_id);
-        formData.append('guest_id', editForm.guest_id);
-        formData.append('start_date', editForm.start_date);
-        formData.append('end_date', editForm.end_date);
-        formData.append('amount', editForm.amount);
-        formData.append('discount', editForm.discount || '0');
-        formData.append('payment_status', editForm.payment_status || 'unpaid');
-        formData.append('numberOfGuests', numberOfGuests.toString());
+        formData.append("property_id", editForm.property_id);
+        formData.append("guest_id", editForm.guest_id);
+        formData.append("start_date", editForm.start_date);
+        formData.append("end_date", editForm.end_date);
+        formData.append("amount", editForm.amount);
+        formData.append("discount", editForm.discount || "0");
+        formData.append("payment_status", editForm.payment_status || "unpaid");
+        formData.append("numberOfGuests", numberOfGuests.toString());
 
         // Append all ID card files (replaces existing ones)
-        editIdCardFiles.forEach(file => {
-          formData.append('guestIdCards', file);
+        editIdCardFiles.forEach((file) => {
+          formData.append("guestIdCards", file);
         });
 
         const updatedBooking = await updateBooking(bookingId, formData);
@@ -349,9 +389,9 @@ export default function BookingsPage() {
           )
         );
       } else {
-        const updatedBooking = await updateBooking(bookingId, { 
+        const updatedBooking = await updateBooking(bookingId, {
           ...editForm,
-          numberOfGuests
+          numberOfGuests,
         });
         setBookingsData((prev) =>
           prev.map((booking) =>
@@ -492,7 +532,10 @@ export default function BookingsPage() {
     return {
       id: bookingId,
       cells: [
-        <span key={`id-${bookingId}`} className="text-sm font-medium text-slate-700">
+        <span
+          key={`id-${bookingId}`}
+          className="text-sm font-medium text-slate-700"
+        >
           {index + 1}
         </span>,
         <div
@@ -510,11 +553,14 @@ export default function BookingsPage() {
         <div key={`checkout-${bookingId}`} className="text-sm text-slate-600">
           {endDate}
         </div>,
-        <div key={`period-${bookingId}`} className="text-sm text-slate-500 italic">
+        <div
+          key={`period-${bookingId}`}
+          className="text-sm text-slate-500 italic"
+        >
           {period}
         </div>,
         <div key={`guests-${bookingId}`} className="text-sm text-slate-700">
-          {numberOfGuests} {numberOfGuests === 1 ? 'guest' : 'guests'}
+          {numberOfGuests} {numberOfGuests === 1 ? "guest" : "guests"}
         </div>,
         <div key={`idcards-${bookingId}`} className="text-sm text-slate-700">
           {idCardsCount > 0 ? (
@@ -522,7 +568,7 @@ export default function BookingsPage() {
               onClick={() => openViewModal(booking)}
               className="text-blue-600 hover:text-blue-800 underline-offset-2 hover:underline"
             >
-              {idCardsCount} ID card{idCardsCount !== 1 ? 's' : ''}
+              {idCardsCount} ID card{idCardsCount !== 1 ? "s" : ""}
             </button>
           ) : (
             <span className="text-slate-400 italic">None</span>
@@ -549,7 +595,9 @@ export default function BookingsPage() {
               booking.payment_status || "unpaid"
             )}`}
             value={booking.payment_status || "unpaid"}
-            onChange={(e) => handlePaymentStatusChange(bookingId, e.target.value)}
+            onChange={(e) =>
+              handlePaymentStatusChange(bookingId, e.target.value)
+            }
           >
             <option value="unpaid">Unpaid</option>
             <option value="partially-paid">Partially Paid</option>
@@ -589,6 +637,11 @@ export default function BookingsPage() {
   });
 
   return (
+    <>
+      <Head>
+        <title>Bookings | Zuha Host</title>
+        <meta name="description" content="Manage all your property bookings. View, create, and update reservations for your listings." />
+      </Head>
     <div className="space-y-8">
       {error && (
         <div className="rounded-2xl border border-rose-100 bg-rose-50/80 p-4 text-sm text-rose-600">
@@ -598,37 +651,144 @@ export default function BookingsPage() {
 
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <h1 className="mt-2 text-3xl font-semibold text-slate-900">Bookings</h1>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.back()}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0 lg:hidden"
+            >
+              <svg className="w-6 h-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          <h1 className="mt-2 text-3xl font-semibold text-slate-900">
+            Bookings
+          </h1>
+          </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {/* Filters Button */}
+            <button
+              className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-2"
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                />
+              </svg>
+              Filters
+              {(filterPeriod || filterStatus || filterPaymentStatus) && (
+                <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-slate-900 rounded-full">
+                  {[filterPeriod, filterStatus, filterPaymentStatus].filter(Boolean).length}
+                </span>
+              )}
+            </button>
+
+            {/* View Mode Toggle */}
+            <div className="flex rounded-full border border-slate-200 p-1">
+              <button
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                  viewMode === "cards"
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-600 hover:bg-slate-50"
+                }`}
+                onClick={() => setViewMode("cards")}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+                  />
+                </svg>
+              </button>
+              <button
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                  viewMode === "table"
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-600 hover:bg-slate-50"
+                }`}
+                onClick={() => setViewMode("table")}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+              </button>
+            </div>
+
             <button
               className="rounded-full bg-white border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:shadow-sm cursor-pointer"
               onClick={() => setCreateOpen(true)}
             >
-              Add booking
+              Add
             </button>
 
             <button
               onClick={() => setIsCalendarOpen(true)}
-              className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+              className="hidden sm:flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
             >
               <Calendar className="h-4 w-4" />
               Calendar
             </button>
 
-            <button className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
-              Export CSV
+            <button className="hidden sm:inline-block rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
+              Export
             </button>
           </div>
         </div>
 
         {/* Filters Section */}
-        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4">
-          <span className="text-sm font-medium text-slate-700">Filters:</span>
-          
+        {showFilters && (
+          <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-slate-900">Filters</h3>
+              <button
+                className="text-sm text-slate-600 hover:text-slate-900 underline"
+                onClick={() => {
+                  setFilterPeriod("");
+                  setFilterStatus("");
+                  setFilterPaymentStatus("");
+                }}
+              >
+                Clear all
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Period Filter */}
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  Period
+                </label>
           <select
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
             value={filterPeriod}
             onChange={(e) => setFilterPeriod(e.target.value)}
           >
@@ -638,10 +798,15 @@ export default function BookingsPage() {
             <option value="upcoming">Upcoming</option>
             <option value="past">Past</option>
           </select>
+              </div>
 
           {/* Status Filter */}
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  Status
+                </label>
           <select
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
           >
@@ -652,10 +817,15 @@ export default function BookingsPage() {
             <option value="checked-out">Checked Out</option>
             <option value="cancelled">Cancelled</option>
           </select>
+              </div>
 
           {/* Payment Status Filter */}
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  Payment Status
+                </label>
           <select
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
             value={filterPaymentStatus}
             onChange={(e) => setFilterPaymentStatus(e.target.value)}
           >
@@ -665,34 +835,132 @@ export default function BookingsPage() {
             <option value="paid">Paid</option>
             <option value="refunded">Refunded</option>
           </select>
+              </div>
+            </div>
 
-          {/* Clear Filters Button */}
-          {(filterPeriod || filterStatus || filterPaymentStatus) && (
-            <button
-              onClick={() => {
-                setFilterPeriod("");
-                setFilterStatus("");
-                setFilterPaymentStatus("");
-              }}
-              className="rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200"
-            >
-              Clear Filters
-            </button>
-          )}
-
-          {/* Active Filter Count */}
-          {(filterPeriod || filterStatus || filterPaymentStatus) && (
-            <span className="ml-auto text-sm text-slate-600">
-              {bookingsData.length} result{bookingsData.length !== 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
+            {/* Results count */}
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <p className="text-sm text-slate-600">
+                Showing{" "}
+                <span className="font-semibold text-slate-900">
+                  {bookingsData.length}
+                </span>{" "}
+                booking{bookingsData.length !== 1 ? "s" : ""}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
+      {/* Cards View */}
+      {viewMode === "cards" && (
+        <div className="space-y-3 md:grid md:grid-cols-2 md:gap-3 md:space-y-0">
+          {bookingsData.map((booking, index) => {
+            const bookingId = getBookingId(booking) || `booking-${index}`;
+            const guestName = booking.guest_id?.name || "N/A";
+            const propertyTitle = booking.property_id?.title || "N/A";
+            const startDate = formatDate(booking.start_date);
+            const endDate = formatDate(booking.end_date);
+            const numberOfGuests = booking.numberOfGuests || 1;
+            const idCardsCount = booking.guestIdCards?.length || 0;
+
+            return (
+              <div
+                key={bookingId}
+                className="rounded-2xl border border-slate-200 bg-white overflow-hidden cursor-pointer active:scale-[0.98] transition-transform"
+                onClick={() => openViewModal(booking)}
+              >
+                {/* Top Section - Guest & Property */}
+                <div className="p-4 bg-gradient-to-r from-slate-50 to-white">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="shrink-0 w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center text-white text-lg font-bold">
+                        {guestName[0]?.toUpperCase() || "G"}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-slate-900 truncate">
+                          {guestName}
+                        </h3>
+                        <p className="text-sm text-slate-500 truncate">
+                          {propertyTitle}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="shrink-0 ml-3">
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-slate-900">
+                          ${booking.amount || 0}
+                        </div>
+                        <div className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${getPaymentStatusColor(
+                          booking.payment_status || "unpaid"
+                        )}`}>
+                          {booking.payment_status === "partially-paid" ? "Partial" : booking.payment_status || "unpaid"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom Section - Dates & Info */}
+                <div className="px-4 py-3 border-t border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate-400">📅</span>
+                        <span className="font-medium text-slate-700">{startDate}</span>
+                      </div>
+                      <span className="text-slate-300">→</span>
+                      <span className="font-medium text-slate-700">{endDate}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm">
+                      <div className="flex items-center gap-1">
+                        <span className="text-slate-400">👥</span>
+                        <span className="font-medium text-slate-700">{numberOfGuests}</span>
+                      </div>
+                      {idCardsCount > 0 && (
+                        <div className="flex items-center gap-1 text-blue-600">
+                          <span>📄</span>
+                          <span className="font-medium">{idCardsCount}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Status Badge */}
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                      booking.status || "pending"
+                    )}`}>
+                      {booking.status || "pending"}
+            </span>
+        </div>
+      </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Table View */}
+      {viewMode === "table" && (
       <DataTable
-        headers={["#", "Guest", "Property", "Check In", "Check Out", "Period", "Guests", "ID Cards", "Status", "Payment", "Amount", ""]}
+        headers={[
+          "#",
+          "Guest",
+          "Property",
+          "Check In",
+          "Check Out",
+          "Period",
+          "Guests",
+          "ID Cards",
+          "Status",
+          "Payment",
+          "Amount",
+          "",
+        ]}
         rows={tableRows}
       />
+      )}
 
       <Modal
         title="Edit booking"
@@ -719,7 +987,7 @@ export default function BookingsPage() {
                 <option value="">Select a guest</option>
                 {guestsData.map((guest) => (
                   <option key={getBookingId(guest)} value={getBookingId(guest)}>
-                    {guest.name} ({guest.email})
+                    {guest.name}
                   </option>
                 ))}
               </select>
@@ -894,7 +1162,7 @@ export default function BookingsPage() {
               <label className="mb-1 block text-sm font-medium text-slate-700">
                 Guest
               </label>
-              
+
               {!isCreatingNewGuest ? (
                 <>
                   <select
@@ -906,7 +1174,10 @@ export default function BookingsPage() {
                   >
                     <option value="">Select a guest</option>
                     {guestsData.map((guest) => (
-                      <option key={getBookingId(guest)} value={getBookingId(guest)}>
+                      <option
+                        key={getBookingId(guest)}
+                        value={getBookingId(guest)}
+                      >
                         {guest.name} ({guest.email})
                       </option>
                     ))}
@@ -923,7 +1194,9 @@ export default function BookingsPage() {
               ) : (
                 <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-700">New Guest</span>
+                    <span className="text-sm font-medium text-slate-700">
+                      New Guest
+                    </span>
                     <button
                       type="button"
                       onClick={() => {
@@ -936,7 +1209,7 @@ export default function BookingsPage() {
                       Cancel
                     </button>
                   </div>
-                  
+
                   <div>
                     <label className="mb-1 block text-xs font-medium text-slate-600">
                       Guest Name *
@@ -946,12 +1219,15 @@ export default function BookingsPage() {
                       className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
                       value={newGuestForm.name}
                       onChange={(e) =>
-                        setNewGuestForm({ ...newGuestForm, name: e.target.value })
+                        setNewGuestForm({
+                          ...newGuestForm,
+                          name: e.target.value,
+                        })
                       }
                       placeholder="John Doe"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="mb-1 block text-xs font-medium text-slate-600">
                       Phone Number *
@@ -961,7 +1237,10 @@ export default function BookingsPage() {
                       className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
                       value={newGuestForm.phone}
                       onChange={(e) =>
-                        setNewGuestForm({ ...newGuestForm, phone: e.target.value })
+                        setNewGuestForm({
+                          ...newGuestForm,
+                          phone: e.target.value,
+                        })
                       }
                       placeholder="+1 (555) 123-4567"
                     />
@@ -981,7 +1260,10 @@ export default function BookingsPage() {
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 value={createForm.numberOfGuests}
                 onChange={(e) =>
-                  setCreateForm({ ...createForm, numberOfGuests: e.target.value })
+                  setCreateForm({
+                    ...createForm,
+                    numberOfGuests: e.target.value,
+                  })
                 }
                 placeholder="1"
                 required
@@ -1087,7 +1369,10 @@ export default function BookingsPage() {
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 value={createForm.payment_status}
                 onChange={(e) =>
-                  setCreateForm({ ...createForm, payment_status: e.target.value })
+                  setCreateForm({
+                    ...createForm,
+                    payment_status: e.target.value,
+                  })
                 }
                 required
               >
@@ -1124,33 +1409,47 @@ export default function BookingsPage() {
             {/* Guest & Property Info */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <h4 className="text-sm font-semibold text-slate-700 mb-2">Guest Information</h4>
+                <h4 className="text-sm font-semibold text-slate-700 mb-2">
+                  Guest Information
+                </h4>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
                   <div>
                     <span className="text-xs text-slate-500">Name:</span>
-                    <p className="text-sm font-medium text-slate-800">{viewBooking.guest_id?.name || 'N/A'}</p>
+                    <p className="text-sm font-medium text-slate-800">
+                      {viewBooking.guest_id?.name || "N/A"}
+                    </p>
                   </div>
                   <div>
                     <span className="text-xs text-slate-500">Email:</span>
-                    <p className="text-sm text-slate-700">{viewBooking.guest_id?.email || 'N/A'}</p>
+                    <p className="text-sm text-slate-700">
+                      {viewBooking.guest_id?.email || "N/A"}
+                    </p>
                   </div>
                   <div>
                     <span className="text-xs text-slate-500">Phone:</span>
-                    <p className="text-sm text-slate-700">{viewBooking.guest_id?.phone || 'N/A'}</p>
+                    <p className="text-sm text-slate-700">
+                      {viewBooking.guest_id?.phone || "N/A"}
+                    </p>
                   </div>
                 </div>
               </div>
 
               <div>
-                <h4 className="text-sm font-semibold text-slate-700 mb-2">Property Information</h4>
+                <h4 className="text-sm font-semibold text-slate-700 mb-2">
+                  Property Information
+                </h4>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
                   <div>
                     <span className="text-xs text-slate-500">Property:</span>
-                    <p className="text-sm font-medium text-slate-800">{viewBooking.property_id?.title || 'N/A'}</p>
+                    <p className="text-sm font-medium text-slate-800">
+                      {viewBooking.property_id?.title || "N/A"}
+                    </p>
                   </div>
                   <div>
                     <span className="text-xs text-slate-500">Location:</span>
-                    <p className="text-sm text-slate-700">{viewBooking.property_id?.location || 'N/A'}</p>
+                    <p className="text-sm text-slate-700">
+                      {viewBooking.property_id?.location || "N/A"}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1158,54 +1457,114 @@ export default function BookingsPage() {
 
             {/* Booking Details */}
             <div>
-              <h4 className="text-sm font-semibold text-slate-700 mb-2">Booking Details</h4>
+              <h4 className="text-sm font-semibold text-slate-700 mb-2">
+                Booking Details
+              </h4>
               <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <span className="text-xs text-slate-500">Check In</span>
-                  <p className="text-sm font-medium text-slate-800">{formatDate(viewBooking.start_date)}</p>
+                  <p className="text-sm font-medium text-slate-800">
+                    {formatDate(viewBooking.start_date)}
+                  </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <span className="text-xs text-slate-500">Check Out</span>
-                  <p className="text-sm font-medium text-slate-800">{formatDate(viewBooking.end_date)}</p>
+                  <p className="text-sm font-medium text-slate-800">
+                    {formatDate(viewBooking.end_date)}
+                  </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <span className="text-xs text-slate-500">Duration</span>
-                  <p className="text-sm font-medium text-slate-800">{calculatePeriod(viewBooking.start_date, viewBooking.end_date)}</p>
+                  <p className="text-sm font-medium text-slate-800">
+                    {calculatePeriod(
+                      viewBooking.start_date,
+                      viewBooking.end_date
+                    )}
+                  </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <span className="text-xs text-slate-500">Number of Guests</span>
-                  <p className="text-sm font-medium text-slate-800">{viewBooking.numberOfGuests || 1} {(viewBooking.numberOfGuests || 1) === 1 ? 'guest' : 'guests'}</p>
+                  <span className="text-xs text-slate-500">
+                    Number of Guests
+                  </span>
+                  <p className="text-sm font-medium text-slate-800">
+                    {viewBooking.numberOfGuests || 1}{" "}
+                    {(viewBooking.numberOfGuests || 1) === 1
+                      ? "guest"
+                      : "guests"}
+                  </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <span className="text-xs text-slate-500">Amount</span>
-                  <p className="text-sm font-medium text-slate-800">${viewBooking.amount || 0}</p>
+                  <p className="text-sm font-medium text-slate-800">
+                    ${viewBooking.amount || 0}
+                  </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <span className="text-xs text-slate-500">Discount</span>
-                  <p className="text-sm font-medium text-slate-800">{viewBooking.discount || 0}%</p>
+                  <p className="text-sm font-medium text-slate-800">
+                    {viewBooking.discount || 0}%
+                  </p>
                 </div>
               </div>
             </div>
 
             {/* Status Info */}
+            <div>
+              <h4 className="text-sm font-semibold text-slate-700 mb-3">
+                Update Status
+              </h4>
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <span className="text-xs text-slate-500 block mb-1">Booking Status</span>
-                <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(viewBooking.status || "pending")}`}>
-                  {viewBooking.status || 'pending'}
-                </span>
+                <div>
+                  <label className="text-xs text-slate-500 block mb-2">
+                  Booking Status
+                  </label>
+                  <select
+                    className={`w-full rounded-lg px-4 py-3 text-sm font-medium border-0 ${getStatusColor(
+                    viewBooking.status || "pending"
+                  )}`}
+                    value={viewBooking.status || "pending"}
+                    onChange={(e) => {
+                      const bookingId = getBookingId(viewBooking);
+                      handleStatusChange(bookingId, e.target.value);
+                      setViewBooking({ ...viewBooking, status: e.target.value });
+                    }}
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="checked-in">Checked In</option>
+                    <option value="checked-out">Checked Out</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
               </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <span className="text-xs text-slate-500 block mb-1">Payment Status</span>
-                <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${getPaymentStatusColor(viewBooking.payment_status || "unpaid")}`}>
-                  {viewBooking.payment_status || 'unpaid'}
-                </span>
+                <div>
+                  <label className="text-xs text-slate-500 block mb-2">
+                  Payment Status
+                  </label>
+                  <select
+                    className={`w-full rounded-lg px-4 py-3 text-sm font-medium border-0 ${getPaymentStatusColor(
+                    viewBooking.payment_status || "unpaid"
+                  )}`}
+                    value={viewBooking.payment_status || "unpaid"}
+                    onChange={(e) => {
+                      const bookingId = getBookingId(viewBooking);
+                      handlePaymentStatusChange(bookingId, e.target.value);
+                      setViewBooking({ ...viewBooking, payment_status: e.target.value });
+                    }}
+                  >
+                    <option value="unpaid">Unpaid</option>
+                    <option value="partially-paid">Partially Paid</option>
+                    <option value="paid">Paid</option>
+                    <option value="refunded">Refunded</option>
+                  </select>
+                </div>
               </div>
             </div>
 
             {/* ID Cards Gallery */}
             <div>
-              <h4 className="text-sm font-semibold text-slate-700 mb-3">Guest ID Cards</h4>
+              <h4 className="text-sm font-semibold text-slate-700 mb-3">
+                Guest ID Cards
+              </h4>
               <IdCardGallery idCards={viewBooking.guestIdCards || []} />
             </div>
 
@@ -1216,9 +1575,19 @@ export default function BookingsPage() {
                   closeViewModal();
                   openEditModal(viewBooking);
                 }}
-                className="flex-1 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                className="flex-1 rounded-lg bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 active:bg-slate-950"
               >
                 Edit Booking
+              </button>
+              <button
+                onClick={() => {
+                  const bookingId = getBookingId(viewBooking);
+                  closeViewModal();
+                  handleDeleteBooking(bookingId);
+                }}
+                className="flex-1 rounded-lg bg-white border-2 border-rose-500 px-4 py-3 text-sm font-semibold text-rose-600 hover:bg-rose-50 active:bg-rose-100"
+              >
+                Delete Booking
               </button>
             </div>
           </div>
@@ -1236,5 +1605,6 @@ export default function BookingsPage() {
         </div>
       </Modal>
     </div>
+    </>
   );
 }

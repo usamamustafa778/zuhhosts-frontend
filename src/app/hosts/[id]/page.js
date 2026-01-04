@@ -155,7 +155,11 @@ export default function HostDetailsPage() {
         onClick={() => router.back()}
         className="flex items-center gap-2 text-slate-600 hover:text-slate-900"
       >
-        <span>←</span>
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors">
+          <svg className="w-6 h-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </span>
         <span>Back to Hosts</span>
       </button>
 

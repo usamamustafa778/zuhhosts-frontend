@@ -1,6 +1,7 @@
 "use client";
 
 import { Geist, Geist_Mono } from "next/font/google";
+import Head from "next/head";
 import "./globals.css";
 import DashboardShell from "@/components/layout/DashboardShell";
 import { usePathname } from "next/navigation";
@@ -25,10 +26,17 @@ export default function RootLayout({ children }) {
 
   return (
     <html lang="en">
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <Head>
+        <title>Zuha Host - Modern Property Management Platform</title>
+        <meta name="description" content="Zuha Host - Modern property management platform for Airbnb hosts. Manage bookings, properties, guests, and earnings all in one place." />
+        <meta name="keywords" content="property management, Airbnb host, vacation rental, booking management, property rental, host dashboard" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover" />
+        <meta name="theme-color" content="#0f172a" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Zuha Host" />
         <link rel="icon" href="/favicon.ico" />
-      </head>
+      </Head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

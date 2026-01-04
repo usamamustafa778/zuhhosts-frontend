@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { roleMenus } from "@/data/dummyData";
 import { useAuth } from "@/hooks/useAuth";
 import { hasPermission } from "@/lib/permissions";
@@ -25,7 +25,8 @@ export default function Sidebar({
   onCloseMobile,
 }) {
   const pathname = usePathname();
-  const { user, userType, isSuperAdmin, isHost, permissions } = useAuth();
+  const router = useRouter();
+  const { user, userType, isSuperAdmin, isHost, permissions, logout } = useAuth();
   
   const groupedMenus = useMemo(() => {
     // Determine which menu to show based on user type
@@ -69,6 +70,12 @@ export default function Sidebar({
       }
       return next;
     });
+  };
+
+  const handleLogout = () => {
+    logout();
+    onCloseMobile();
+    router.replace("/login");
   };
 
   return (
@@ -151,6 +158,56 @@ export default function Sidebar({
               )}
             </div>
           ))}
+        </div>
+
+        {/* Bottom Section - Earnings, Profile & Logout */}
+        <div className="border-t border-slate-200 p-4 space-y-2">
+          <Link
+            href="/earnings"
+            className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+              pathname === "/earnings"
+                ? "bg-slate-900 text-white shadow-sm"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+            onClick={(e) => {
+              if (isDisabled) {
+                e.preventDefault();
+              } else {
+                onCloseMobile();
+              }
+            }}
+          >
+            <span className="text-lg">💰</span>
+            {!collapsed && <span>Earnings</span>}
+          </Link>
+
+          <Link
+            href="/profile"
+            className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+              pathname === "/profile"
+                ? "bg-slate-900 text-white shadow-sm"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+            onClick={(e) => {
+              if (isDisabled) {
+                e.preventDefault();
+              } else {
+                onCloseMobile();
+              }
+            }}
+          >
+            <span className="text-lg">👤</span>
+            {!collapsed && <span>Profile</span>}
+          </Link>
+
+          <button
+            onClick={handleLogout}
+            disabled={isDisabled}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-50"
+          >
+            <span className="text-lg">🚪</span>
+            {!collapsed && <span>Logout</span>}
+          </button>
         </div>
       </aside>
     </>

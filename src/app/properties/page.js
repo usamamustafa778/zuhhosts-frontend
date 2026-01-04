@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import Head from "next/head";
+import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import PhotoCarousel from "@/components/modules/PhotoCarousel";
 import DataTable from "@/components/common/DataTable";
@@ -17,6 +19,7 @@ import {
 import { useRequireAuth } from "@/hooks/useAuth";
 
 export default function PropertiesPage() {
+  const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useRequireAuth();
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [isCreateOpen, setCreateOpen] = useState(false);
@@ -317,12 +320,27 @@ export default function PropertiesPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <>
+      <Head>
+        <title>Properties | Zuha Host</title>
+        <meta name="description" content="Manage your property listings. Add, edit, and monitor all your vacation rental properties." />
+      </Head>
+      <div className="space-y-8">
       <Toaster position="top-right" />
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="mt-2 text-3xl font-semibold text-slate-900">
-          Properties
-        </h1>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.back()}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0 lg:hidden"
+          >
+            <svg className="w-6 h-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <h1 className="mt-2 text-3xl font-semibold text-slate-900">
+            Properties
+          </h1>
+        </div>
 
         <div className="flex flex-wrap gap-2">
           {/* Mobile Filters Button */}
@@ -836,5 +854,6 @@ export default function PropertiesPage() {
         </div>
       </Modal>
     </div>
+    </>
   );
 }

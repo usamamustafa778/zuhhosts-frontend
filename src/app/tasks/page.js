@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Head from "next/head";
+import { useRouter } from "next/navigation";
 import KanbanBoard from "@/components/modules/KanbanBoard";
 import Modal from "@/components/common/Modal";
 import PageLoader from "@/components/common/PageLoader";
@@ -15,6 +17,7 @@ import {
 import { useRequireAuth } from "@/hooks/useAuth";
 
 export default function TasksPage() {
+  const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useRequireAuth();
   const [tasks, setTasks] = useState([]);
   const [properties, setProperties] = useState([]);
@@ -150,7 +153,12 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <>
+      <Head>
+        <title>Tasks | Zuha Host</title>
+        <meta name="description" content="Track and manage property maintenance tasks, cleaning schedules, and team assignments." />
+      </Head>
+      <div className="space-y-8">
       {error && (
         <div className="rounded-2xl border border-rose-100 bg-rose-50/80 p-4 text-sm text-rose-600">
           {error}
@@ -158,9 +166,19 @@ export default function TasksPage() {
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="mt-2 text-3xl font-semibold text-slate-900">
-          Task Management
-        </h1>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.back()}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0 lg:hidden"
+          >
+            <svg className="w-6 h-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <h1 className="mt-2 text-3xl font-semibold text-slate-900">
+            Task Management
+          </h1>
+        </div>
 
         <div className="flex gap-2">
           <select
@@ -311,5 +329,6 @@ export default function TasksPage() {
         </form>
       </Modal>
     </div>
+    </>
   );
 }

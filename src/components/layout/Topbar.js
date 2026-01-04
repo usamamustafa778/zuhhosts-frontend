@@ -221,7 +221,7 @@ export default function Topbar({ onMenuToggle }) {
   };
 
   return (
-    <header className="sticky top-0 z-20 bg-white/95 backdrop-blur supports-backdrop-filter:bg-white/80">
+    <header className="sticky top-0 z-20 bg-white shadow-sm">
       {/* Impersonation Banner */}
       {isImpersonating && (
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 lg:px-8">
@@ -245,19 +245,137 @@ export default function Topbar({ onMenuToggle }) {
           </div>
         </div>
       )}
-      <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 px-4 py-3 lg:px-8">
-        <div className="flex items-center gap-3 lg:hidden">
+      
+      {/* Mobile App Style Topbar */}
+      <div className="lg:hidden">
+        <div className="flex items-center justify-between px-4 py-4">
+          {/* Left: Menu Button */}
           <button
-            className="rounded-full border border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
+            className="flex h-10 w-10 items-center justify-center rounded-full active:bg-slate-100 transition-colors"
             onClick={onMenuToggle}
             aria-label="Open menu"
           >
-            ☰
+            <svg className="h-6 w-6 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
           </button>
-          <span className="text-sm font-semibold">Menu</span>
+
+          {/* Center: Logo/Title */}
+          <div className="flex-1 text-center">
+            <h1 className="text-lg font-bold text-slate-900">ZuhHosts</h1>
+          </div>
+
+          {/* Right: Profile & Notifications */}
+          <div className="flex items-center gap-2">
+            {/* Notifications */}
+            <div className="relative" ref={notificationsRef}>
+              <button
+                className="relative flex h-10 w-10 items-center justify-center rounded-full active:bg-slate-100 transition-colors"
+                aria-label="Notifications"
+                onClick={() => {
+                  setNotificationsOpen((prev) => !prev);
+                  if (!hasReadNotifications) {
+                    setHasReadNotifications(true);
+                  }
+                }}
+              >
+                <svg className="h-6 w-6 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                {!hasReadNotifications && notifications.length > 0 && (
+                  <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-rose-500"></span>
+                )}
+              </button>
+              {isNotificationsOpen && (
+                <div className="absolute right-0 z-30 mt-3 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white shadow-xl">
+                  <div className="border-b border-slate-100 px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-slate-900">Notifications</span>
+                      <button
+                        className="text-sm text-slate-500 hover:text-slate-700"
+                        onClick={() => setNotificationsOpen(false)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                  <div className="max-h-96 overflow-y-auto p-2">
+                    {notifications.map((item) => (
+                      <div
+                        key={item.id}
+                        className="rounded-xl px-4 py-3 hover:bg-slate-50 transition-colors"
+                      >
+                        <p className="text-sm text-slate-700">{item.title}</p>
+                      </div>
+                    ))}
+                    {notifications.length === 0 && (
+                      <p className="text-center py-8 text-sm text-slate-400">
+                        You're all caught up!
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Profile */}
+            {isAuthenticated && user && (
+              <div className="relative" ref={profileRef}>
+                <button
+                  onClick={() => setIsProfileOpen((prev) => !prev)}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-white font-semibold text-sm active:scale-95 transition-transform"
+                  aria-label="Profile menu"
+                >
+                  {user.profilePicture ? (
+                    <img
+                      src={user.profilePicture}
+                      alt={user.name || "User"}
+                      className="h-full w-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <span>{getInitials(user.name)}</span>
+                  )}
+                </button>
+                {isProfileOpen && (
+                  <div className="absolute right-0 z-30 mt-3 w-64 rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+                    <div className="px-4 py-4 border-b border-slate-100">
+                      <p className="font-semibold text-slate-900">{user.name || "User"}</p>
+                      <p className="text-sm text-slate-500 truncate">{user.email}</p>
+                    </div>
+                    <div className="py-2">
+                      <Link
+                        href="/profile"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                      >
+                        My Profile
+                      </Link>
+                      <Link
+                        href="/profile"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                      >
+                        Account Settings
+                      </Link>
+                      <button
+                        onClick={handleLogout}
+                        className="w-full text-left px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 transition-colors"
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="flex flex-1 items-center gap-3">
-          <div className="relative hidden flex-1 items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm sm:flex">
+      </div>
+
+      {/* Desktop Topbar */}
+      <div className="hidden lg:block border-b border-slate-200 px-8 py-3">
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm flex">
             <span className="text-slate-400">🔍</span>
             <input
               placeholder="Quick search (properties, guests, tasks...)"

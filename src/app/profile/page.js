@@ -1,37 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Head from "next/head";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "@/hooks/useAuth";
-import { getCurrentUser, updateProfile, changePassword } from "@/lib/api";
-import { setAuthUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/api";
 
 export default function ProfilePage() {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useRequireAuth();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  
-  // Profile form state
-  const [profileData, setProfileData] = useState({
-    name: "",
-    email: "",
-    profilePicture: null,
-  });
-  
-  // Password form state
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
-  
-  const [activeTab, setActiveTab] = useState("profile");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [imagePreview, setImagePreview] = useState(null);
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -45,123 +24,20 @@ export default function ProfilePage() {
       const response = await getCurrentUser();
       const userData = response.user;
       setUser(userData);
-      setProfileData({
-        name: userData.name || "",
-        email: userData.email || "",
-        profilePicture: userData.profilePicture || null,
-      });
-      setImagePreview(userData.profilePicture || null);
     } catch (err) {
-      setError(err.message || "Failed to load user data");
+      console.error("Failed to load user data:", err);
+      // Don't throw error, just set user to null
+      // The page can still be displayed without user data
+      setUser(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleProfileChange = (e) => {
-    const { name, value } = e.target;
-    setProfileData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith("image/")) {
-        setError("Please select an image file");
-        return;
-      }
-      
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        setError("Image size must be less than 5MB");
-        return;
-      }
-
-      // Create preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-        setProfileData((prev) => ({ ...prev, profilePicture: reader.result }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleProfileSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
-    setIsSubmitting(true);
-
-    try {
-      const response = await updateProfile(profileData);
-      setUser(response.user);
-      setAuthUser(response.user);
-      setSuccess("Profile updated successfully!");
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      setError(err.message || "Failed to update profile");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handlePasswordChange = (e) => {
-    const { name, value } = e.target;
-    setPasswordData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handlePasswordSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
-
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setError("New passwords do not match");
-      return;
-    }
-
-    if (passwordData.newPassword.length < 6) {
-      setError("Password must be at least 6 characters long");
-      return;
-    }
-
-    setIsChangingPassword(true);
-
-    try {
-      await changePassword(passwordData.currentPassword, passwordData.newPassword);
-      setSuccess("Password changed successfully!");
-      setPasswordData({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
-      });
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      setError(err.message || "Failed to change password");
-    } finally {
-      setIsChangingPassword(false);
-    }
-  };
-
-  const getInitials = (name) => {
-    if (!name) return "?";
-    const parts = name.trim().split(" ");
-    if (parts.length === 1) {
-      return parts[0].charAt(0).toUpperCase();
-    }
-    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
-  };
-
   if (isLoading || loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center rounded-3xl border border-slate-100 bg-white text-sm text-slate-500">
-        Loading profile...
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-slate-900 border-r-transparent"></div>
       </div>
     );
   }
@@ -170,210 +46,144 @@ export default function ProfilePage() {
     return null;
   }
 
+  const settingsItems = [
+    {
+      icon: (
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+      ),
+      title: "Personal information",
+      href: "/profile/personal-info",
+    },
+    {
+      icon: (
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+      ),
+      title: "Login & security",
+      href: "/profile/security",
+    },
+    {
+      icon: (
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+      ),
+      title: "Privacy",
+      href: "/profile/privacy",
+    },
+    {
+      icon: (
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+      ),
+      title: "Notifications",
+      href: "/profile/notifications",
+    },
+    {
+      icon: (
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+        </svg>
+      ),
+      title: "Payments",
+      href: "/payments",
+    },
+  ];
+
   return (
-    <div className="space-y-8">
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-400">
-          Account
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold text-slate-900">Profile Settings</h1>
-        <p className="mt-2 max-w-2xl text-sm text-slate-500">
-          Manage your account settings and preferences.
-        </p>
+    <>
+      <Head>
+        <title>Account Settings | Zuha Host</title>
+        <meta name="description" content="Manage your account settings, preferences, and personal information." />
+      </Head>
+      <div className="min-h-screen bg-white lg:bg-slate-50 -mx-4 lg:mx-0 -my-6 lg:my-0 px-4 lg:px-0 py-6 lg:py-0">
+      {/* Mobile: Back Button + Header in same row */}
+      <div className="lg:hidden mb-6">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.back()}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0"
+          >
+            <svg className="w-6 h-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <h1 className="text-2xl font-semibold text-slate-900">
+            Account settings
+          </h1>
+        </div>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-slate-200">
-        <nav className="-mb-px flex space-x-8">
-          <button
-            onClick={() => setActiveTab("profile")}
-            className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors ${
-              activeTab === "profile"
-                ? "border-slate-900 text-slate-900"
-                : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
-            }`}
-          >
-            Profile
-          </button>
-          <button
-            onClick={() => setActiveTab("password")}
-            className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors ${
-              activeTab === "password"
-                ? "border-slate-900 text-slate-900"
-                : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
-            }`}
-          >
-            Change Password
-          </button>
-        </nav>
+      {/* Desktop: Header */}
+      <div className="hidden lg:block mb-8 lg:py-8">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-3xl font-semibold text-slate-900">
+            Account settings
+          </h1>
+          <p className="mt-2 text-slate-600">
+            Manage your account preferences and settings
+          </p>
+        </div>
       </div>
 
-      {/* Messages */}
-      {error && (
-        <div className="rounded-2xl border border-rose-100 bg-rose-50/80 px-4 py-3 text-sm text-rose-600">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          {success}
-        </div>
-      )}
-
-      {/* Profile Tab */}
-      {activeTab === "profile" && (
-        <div className="rounded-3xl border border-slate-100 bg-white p-8 shadow-sm">
-          <form onSubmit={handleProfileSubmit} className="space-y-6">
-            {/* Profile Picture */}
-            <div className="flex items-center gap-6">
-              <div className="flex-shrink-0">
-                {imagePreview ? (
-                  <img
-                    src={imagePreview}
-                    alt="Profile"
-                    className="h-24 w-24 rounded-full object-cover border-2 border-slate-200"
-                  />
-                ) : (
-                  <div className="flex h-24 w-24 items-center justify-center rounded-full bg-slate-900 text-2xl font-semibold text-white border-2 border-slate-200">
-                    {getInitials(profileData.name || user?.name)}
-                  </div>
-                )}
+      <div className="lg:max-w-4xl lg:mx-auto">
+        {/* Email Confirmation Card (Optional - can be shown conditionally) */}
+        {user && !user.emailVerified && (
+          <div className="mb-6 rounded-2xl bg-slate-50 border border-slate-200 p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex gap-3 flex-1">
+                <svg className="w-6 h-6 text-slate-700 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-slate-900">Confirm your email address</h3>
+                  <p className="text-sm text-slate-600 mt-1">
+                    We'll send a code to your inbox.
+                  </p>
+                </div>
               </div>
-              <div className="flex-1">
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Profile Picture
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
-                />
-                <p className="mt-1 text-xs text-slate-500">
-                  JPG, PNG or GIF. Max size 5MB.
-                </p>
-              </div>
-            </div>
-
-            {/* Name */}
-            <div>
-              <label htmlFor="name" className="block text-sm font-semibold text-slate-700 mb-2">
-                Full Name
-              </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={profileData.name}
-                onChange={handleProfileChange}
-                required
-                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-200"
-                placeholder="Enter your full name"
-              />
-            </div>
-
-            {/* Email */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-slate-700 mb-2">
-                Email Address
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={profileData.email}
-                onChange={handleProfileChange}
-                required
-                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-200"
-                placeholder="you@example.com"
-              />
-            </div>
-
-            {/* Submit Button */}
-            <div className="flex justify-end pt-4">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="rounded-2xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-              >
-                {isSubmitting ? "Saving..." : "Save Changes"}
+              <button className="text-slate-400 hover:text-slate-600">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
-          </form>
+            <button className="mt-4 w-full rounded-lg bg-white border border-slate-200 px-4 py-3 text-sm font-medium text-slate-900 hover:bg-slate-50 active:bg-slate-100 transition-colors">
+              Confirm email
+            </button>
+          </div>
+        )}
+
+        {/* Settings List */}
+        <div className="space-y-0 lg:rounded-2xl lg:border lg:border-slate-200 lg:bg-white lg:shadow-sm border-t border-slate-200 -mx-4 lg:mx-0 lg:overflow-hidden">
+          {settingsItems.map((item, index) => (
+            <button
+              key={item.href}
+              onClick={() => router.push(item.href)}
+              className={`w-full flex items-center justify-between py-5 px-4 lg:px-6 hover:bg-slate-50 active:bg-slate-100 transition-colors ${
+                index !== settingsItems.length - 1 ? 'border-b border-slate-200' : ''
+              }`}
+            >
+              <div className="flex items-center gap-4">
+                <div className="text-slate-700">
+                  {item.icon}
+                </div>
+                <span className="text-base font-normal text-slate-900">
+                  {item.title}
+                </span>
+              </div>
+              <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          ))}
         </div>
-      )}
-
-      {/* Password Tab */}
-      {activeTab === "password" && (
-        <div className="rounded-3xl border border-slate-100 bg-white p-8 shadow-sm">
-          <form onSubmit={handlePasswordSubmit} className="space-y-6 max-w-md">
-            {/* Current Password */}
-            <div>
-              <label htmlFor="currentPassword" className="block text-sm font-semibold text-slate-700 mb-2">
-                Current Password
-              </label>
-              <input
-                type="password"
-                id="currentPassword"
-                name="currentPassword"
-                value={passwordData.currentPassword}
-                onChange={handlePasswordChange}
-                required
-                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-200"
-                placeholder="Enter current password"
-              />
-            </div>
-
-            {/* New Password */}
-            <div>
-              <label htmlFor="newPassword" className="block text-sm font-semibold text-slate-700 mb-2">
-                New Password
-              </label>
-              <input
-                type="password"
-                id="newPassword"
-                name="newPassword"
-                value={passwordData.newPassword}
-                onChange={handlePasswordChange}
-                required
-                minLength={6}
-                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-200"
-                placeholder="Enter new password (min 6 characters)"
-              />
-            </div>
-
-            {/* Confirm Password */}
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-semibold text-slate-700 mb-2">
-                Confirm New Password
-              </label>
-              <input
-                type="password"
-                id="confirmPassword"
-                name="confirmPassword"
-                value={passwordData.confirmPassword}
-                onChange={handlePasswordChange}
-                required
-                minLength={6}
-                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-200"
-                placeholder="Confirm new password"
-              />
-            </div>
-
-            {/* Submit Button */}
-            <div className="flex justify-end pt-4">
-              <button
-                type="submit"
-                disabled={isChangingPassword}
-                className="rounded-2xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-              >
-                {isChangingPassword ? "Changing..." : "Change Password"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+      </div>
     </div>
+    </>
   );
 }
-
