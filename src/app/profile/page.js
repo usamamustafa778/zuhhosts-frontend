@@ -1,16 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Head from "next/head";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { getCurrentUser } from "@/lib/api";
+import { useSEO } from "@/hooks/useSEO";
 
 export default function ProfilePage() {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useRequireAuth();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // SEO
+  useSEO({
+    title: "Account Settings | Zuha Host",
+    description: "Manage your account settings, preferences, and personal information.",
+    keywords: "account settings, profile, user settings, preferences",
+  });
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -95,12 +102,7 @@ export default function ProfilePage() {
   ];
 
   return (
-    <>
-      <Head>
-        <title>Account Settings | Zuha Host</title>
-        <meta name="description" content="Manage your account settings, preferences, and personal information." />
-      </Head>
-      <div className="min-h-screen bg-white lg:bg-slate-50 -mx-4 lg:mx-0 -my-6 lg:my-0 px-4 lg:px-0 py-6 lg:py-0">
+    <div className="min-h-screen bg-white lg:bg-slate-50 -mx-4 lg:mx-0 -my-6 lg:my-0 px-4 lg:px-0 py-6 lg:py-0">
       {/* Mobile: Back Button + Header in same row */}
       <div className="lg:hidden mb-6">
         <div className="flex items-center gap-3">
@@ -184,6 +186,5 @@ export default function ProfilePage() {
         </div>
       </div>
     </div>
-    </>
   );
 }

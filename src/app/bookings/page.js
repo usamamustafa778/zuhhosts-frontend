@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Head from "next/head";
 import { useRouter } from "next/navigation";
 import { UserPlus, X, Calendar, Eye } from "lucide-react";
 import toast from "react-hot-toast";
@@ -23,6 +22,7 @@ import {
   createGuest,
 } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
+import { useSEO } from "@/hooks/useSEO";
 
 const INITIAL_FORM_STATE = {
   property_id: "",
@@ -146,6 +146,14 @@ const generateCalendarData = (bookingsData) => {
 export default function BookingsPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useRequireAuth();
+  
+  // SEO
+  useSEO({
+    title: "Bookings | Zuha Host",
+    description: "Manage all your property bookings. View, create, and update reservations for your listings.",
+    keywords: "bookings, reservations, guest bookings, manage bookings, booking calendar",
+  });
+  
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [bookingsData, setBookingsData] = useState([]);
@@ -637,11 +645,6 @@ export default function BookingsPage() {
   });
 
   return (
-    <>
-      <Head>
-        <title>Bookings | Zuha Host</title>
-        <meta name="description" content="Manage all your property bookings. View, create, and update reservations for your listings." />
-      </Head>
     <div className="space-y-8">
       {error && (
         <div className="rounded-2xl border border-rose-100 bg-rose-50/80 p-4 text-sm text-rose-600">
@@ -1605,6 +1608,5 @@ export default function BookingsPage() {
         </div>
       </Modal>
     </div>
-    </>
   );
 }

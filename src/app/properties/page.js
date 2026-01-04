@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import Head from "next/head";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import PhotoCarousel from "@/components/modules/PhotoCarousel";
@@ -17,10 +16,18 @@ import {
   deleteProperty,
 } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
+import { useSEO } from "@/hooks/useSEO";
 
 export default function PropertiesPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useRequireAuth();
+  
+  // SEO
+  useSEO({
+    title: "Properties | Zuha Host",
+    description: "Manage your property listings. Add, edit, and monitor all your vacation rental properties.",
+    keywords: "properties, listings, vacation rentals, property management, rental properties",
+  });
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [propertiesData, setPropertiesData] = useState([]);
@@ -320,12 +327,7 @@ export default function PropertiesPage() {
   }
 
   return (
-    <>
-      <Head>
-        <title>Properties | Zuha Host</title>
-        <meta name="description" content="Manage your property listings. Add, edit, and monitor all your vacation rental properties." />
-      </Head>
-      <div className="space-y-8">
+    <div className="space-y-8">
       <Toaster position="top-right" />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -854,6 +856,5 @@ export default function PropertiesPage() {
         </div>
       </Modal>
     </div>
-    </>
   );
 }

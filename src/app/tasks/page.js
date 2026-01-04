@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Head from "next/head";
 import { useRouter } from "next/navigation";
 import KanbanBoard from "@/components/modules/KanbanBoard";
 import Modal from "@/components/common/Modal";
@@ -15,10 +14,18 @@ import {
   getAllUsers,
 } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
+import { useSEO } from "@/hooks/useSEO";
 
 export default function TasksPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useRequireAuth();
+  
+  // SEO
+  useSEO({
+    title: "Tasks | Zuha Host",
+    description: "Track and manage property maintenance tasks, cleaning schedules, and team assignments.",
+    keywords: "tasks, maintenance, cleaning schedule, task management, property tasks",
+  });
   const [tasks, setTasks] = useState([]);
   const [properties, setProperties] = useState([]);
   const [users, setUsers] = useState([]);
@@ -153,12 +160,7 @@ export default function TasksPage() {
   }
 
   return (
-    <>
-      <Head>
-        <title>Tasks | Zuha Host</title>
-        <meta name="description" content="Track and manage property maintenance tasks, cleaning schedules, and team assignments." />
-      </Head>
-      <div className="space-y-8">
+    <div className="space-y-8">
       {error && (
         <div className="rounded-2xl border border-rose-100 bg-rose-50/80 p-4 text-sm text-rose-600">
           {error}
@@ -329,6 +331,5 @@ export default function TasksPage() {
         </form>
       </Modal>
     </div>
-    </>
   );
 }

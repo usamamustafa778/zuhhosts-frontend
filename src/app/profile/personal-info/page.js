@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Head from "next/head";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { getCurrentUser, updateUser } from "@/lib/api";
+import { useSEO } from "@/hooks/useSEO";
 
 export default function PersonalInfoPage() {
   const router = useRouter();
@@ -13,6 +13,13 @@ export default function PersonalInfoPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
+
+  // SEO
+  useSEO({
+    title: "Personal Information | Zuha Host",
+    description: "Update your personal information, contact details, and profile data.",
+    keywords: "personal information, profile details, contact information, user profile",
+  });
   
   const [formData, setFormData] = useState({
     firstName: "",
@@ -95,12 +102,7 @@ export default function PersonalInfoPage() {
   }
 
   return (
-    <>
-      <Head>
-        <title>Personal Information | Zuha Host</title>
-        <meta name="description" content="Update your personal information, contact details, and profile data." />
-      </Head>
-      <div className="min-h-screen bg-white -mx-4 lg:mx-0 -my-6 lg:my-0">
+    <div className="min-h-screen bg-white -mx-4 lg:mx-0 -my-6 lg:my-0">
       {/* Mobile Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 py-3 lg:hidden">
         <div className="flex items-center gap-4">
@@ -293,7 +295,6 @@ export default function PersonalInfoPage() {
       {/* Bottom padding for mobile sticky button */}
       <div className="h-20 lg:hidden" />
     </div>
-    </>
   );
 }
 

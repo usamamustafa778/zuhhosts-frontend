@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Head from "next/head";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { getCurrentUser } from "@/lib/api";
+import { useSEO } from "@/hooks/useSEO";
 
 export default function NotificationsPage() {
   const router = useRouter();
@@ -13,6 +13,13 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
+
+  // SEO
+  useSEO({
+    title: "Notification Settings | Zuha Host",
+    description: "Customize your notification preferences for bookings, payments, and updates.",
+    keywords: "notifications, notification settings, alerts, email notifications",
+  });
   
   const [notificationSettings, setNotificationSettings] = useState({
     // Bookings
@@ -119,12 +126,7 @@ export default function NotificationsPage() {
   );
 
   return (
-    <>
-      <Head>
-        <title>Notification Settings | Zuha Host</title>
-        <meta name="description" content="Customize your notification preferences for bookings, payments, and updates." />
-      </Head>
-      <div className="min-h-screen bg-white -mx-4 lg:mx-0 -my-6 lg:my-0">
+    <div className="min-h-screen bg-white -mx-4 lg:mx-0 -my-6 lg:my-0">
       {/* Mobile Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 py-3 lg:hidden">
         <div className="flex items-center gap-4">
@@ -380,7 +382,6 @@ export default function NotificationsPage() {
       {/* Bottom padding for mobile */}
       <div className="h-8 lg:hidden" />
     </div>
-    </>
   );
 }
 

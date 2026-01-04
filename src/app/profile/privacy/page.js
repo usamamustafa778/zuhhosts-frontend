@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Head from "next/head";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { getCurrentUser } from "@/lib/api";
+import { useSEO } from "@/hooks/useSEO";
 
 export default function PrivacyPage() {
   const router = useRouter();
@@ -13,6 +13,13 @@ export default function PrivacyPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
+
+  // SEO
+  useSEO({
+    title: "Privacy Settings | Zuha Host",
+    description: "Control your privacy preferences and data sharing settings.",
+    keywords: "privacy, privacy settings, data privacy, privacy preferences",
+  });
   
   const [privacySettings, setPrivacySettings] = useState({
     profileVisibility: "public",
@@ -101,12 +108,7 @@ export default function PrivacyPage() {
   );
 
   return (
-    <>
-      <Head>
-        <title>Privacy Settings | Zuha Host</title>
-        <meta name="description" content="Control your privacy preferences and data sharing settings." />
-      </Head>
-      <div className="min-h-screen bg-white -mx-4 lg:mx-0 -my-6 lg:my-0">
+    <div className="min-h-screen bg-white -mx-4 lg:mx-0 -my-6 lg:my-0">
       {/* Mobile Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 py-3 lg:hidden">
         <div className="flex items-center gap-4">
@@ -266,7 +268,6 @@ export default function PrivacyPage() {
       {/* Bottom padding for mobile */}
       <div className="h-8 lg:hidden" />
     </div>
-    </>
   );
 }
 

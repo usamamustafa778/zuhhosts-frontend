@@ -1,13 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Head from "next/head";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "@/hooks/useAuth";
+import { useSEO } from "@/hooks/useSEO";
 
 export default function EarningsPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useRequireAuth();
+  
+  // SEO
+  useSEO({
+    title: "Earnings | Zuha Host",
+    description: "Track your rental income, view transaction history, and manage payouts.",
+    keywords: "earnings, income, revenue, payouts, transaction history, rental income",
+  });
   const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState("month"); // week, month, year, all
   
@@ -117,12 +124,7 @@ export default function EarningsPage() {
   };
 
   return (
-    <>
-      <Head>
-        <title>Earnings | Zuha Host</title>
-        <meta name="description" content="Track your rental income, view transaction history, and manage payouts." />
-      </Head>
-      <div className="min-h-screen bg-slate-50 -mx-4 lg:mx-0 -my-6 lg:my-0">
+    <div className="min-h-screen bg-slate-50 -mx-4 lg:mx-0 -my-6 lg:my-0">
       {/* Mobile Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 py-3 lg:hidden">
         <h1 className="text-lg font-semibold text-slate-900">Earnings</h1>
@@ -304,7 +306,6 @@ export default function EarningsPage() {
       {/* Bottom padding for mobile */}
       <div className="h-8" />
     </div>
-    </>
   );
 }
 

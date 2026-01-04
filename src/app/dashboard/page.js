@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Head from "next/head";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth, useRequireAuth } from "@/hooks/useAuth";
 import { getAllBookings } from "@/lib/api";
+import { useSEO } from "@/hooks/useSEO";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -16,6 +16,13 @@ export default function DashboardPage() {
   const [todaysBookings, setTodaysBookings] = useState([]);
   const [upcomingBookings, setUpcomingBookings] = useState([]);
   const [activeView, setActiveView] = useState("today"); // 'today' or 'upcoming'
+
+  // SEO
+  useSEO({
+    title: "Dashboard | Zuha Host",
+    description: "Your property management dashboard. View bookings, earnings, and manage your listings.",
+    keywords: "dashboard, overview, property management, host dashboard, bookings",
+  });
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && user) {
@@ -98,12 +105,7 @@ export default function DashboardPage() {
   // Show modern dashboard for hosts
   if (isHost) {
     return (
-      <>
-        <Head>
-          <title>Dashboard | Zuha Host</title>
-          <meta name="description" content="Your property management dashboard. View bookings, earnings, and manage your listings." />
-        </Head>
-        <div className="mx-auto max-w-4xl space-y-6 lg:space-y-12 py-0 lg:py-4">
+      <div className="mx-auto max-w-4xl space-y-6 lg:space-y-12 py-0 lg:py-4">
         {/* Today/Upcoming Toggle with Add Booking Button */}
         <div className="flex items-center justify-center gap-2">
           <div className="flex gap-2 lg:gap-4">
@@ -333,7 +335,6 @@ export default function DashboardPage() {
         {/* Bottom Spacing for mobile nav */}
         <div className="pb-4 lg:pb-8"></div>
       </div>
-      </>
     );
   }
 
