@@ -91,6 +91,7 @@ export default function Sidebar({
           isVisible ? "translate-x-0" : "-translate-x-full"
         } ${collapsed ? "lg:w-20" : "lg:w-72"} ${isDisabled ? "sidebar-disabled" : ""}`}
       >
+        {/* Header with Close Button for Mobile */}
         <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-4">
           <div className="flex items-center gap-2">
             <span className="rounded-full bg-blue-500/10 p-2 text-xl text-blue-600">
@@ -105,63 +106,80 @@ export default function Sidebar({
               </div>
             )}
           </div>
-          <button
-            className="hidden rounded-full border border-slate-200 p-1 text-slate-500 hover:bg-slate-50 lg:inline-flex"
-            onClick={onCollapseToggle}
-            aria-label="Toggle sidebar width"
-            disabled={isDisabled}
-          >
-            {collapsed ? "»" : "«"}
-          </button>
-        </div>
-        <div className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden px-2 pb-6">
-          {Object.entries(groupedMenus).map(([section, items]) => (
-            <div
-              key={section}
-              className="rounded-xl border border-transparent px-2 py-1 hover:border-slate-100"
+          <div className="flex items-center gap-2">
+            {/* Mobile Close Button */}
+            <button
+              className="lg:hidden rounded-full p-1.5 text-slate-500 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+              onClick={onCloseMobile}
+              aria-label="Close sidebar"
             >
-              <button
-                className="flex w-full items-center justify-between text-left text-xs font-semibold uppercase tracking-wider text-slate-500"
-                onClick={() => handleSectionToggle(section)}
-                disabled={isDisabled}
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            {/* Desktop Collapse Button */}
+            <button
+              className="hidden rounded-full border border-slate-200 p-1 text-slate-500 hover:bg-slate-50 lg:inline-flex"
+              onClick={onCollapseToggle}
+              aria-label="Toggle sidebar width"
+              disabled={isDisabled}
+            >
+              {collapsed ? "»" : "«"}
+            </button>
+          </div>
+        </div>
+        
+        {/* Scrollable Content Area */}
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 py-4">
+          <div className="space-y-4">
+            {Object.entries(groupedMenus).map(([section, items]) => (
+              <div
+                key={section}
+                className="rounded-xl border border-transparent px-2 py-1 hover:border-slate-100"
               >
-                <span>{section}</span>
-                <span>{collapsedSections.has(section) ? "+" : "−"}</span>
-              </button>
-              {!collapsedSections.has(section) && (
-                <nav className="mt-1 space-y-1">
-                  {items.map((item) => {
-                    const isActive = pathname === item.href;
-                    return (
-                      <Link
-                        key={item.href}
-                        href={isDisabled ? "#" : item.href}
-                        className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-                          isActive
-                            ? "bg-slate-900 text-white shadow-sm"
-                            : "text-slate-600 hover:bg-slate-100"
-                        }`}
-                        onClick={(e) => {
-                          if (isDisabled) {
-                            e.preventDefault();
-                          } else {
-                            onCloseMobile();
-                          }
-                        }}
-                      >
-                        <span className="text-lg">{item.icon}</span>
-                        {!collapsed && <span>{item.label}</span>}
-                      </Link>
-                    );
-                  })}
-                </nav>
-              )}
-            </div>
-          ))}
+                <button
+                  className="flex w-full items-center justify-between text-left text-xs font-semibold uppercase tracking-wider text-slate-500"
+                  onClick={() => handleSectionToggle(section)}
+                  disabled={isDisabled}
+                >
+                  <span>{section}</span>
+                  <span>{collapsedSections.has(section) ? "+" : "−"}</span>
+                </button>
+                {!collapsedSections.has(section) && (
+                  <nav className="mt-1 space-y-1">
+                    {items.map((item) => {
+                      const isActive = pathname === item.href;
+                      return (
+                        <Link
+                          key={item.href}
+                          href={isDisabled ? "#" : item.href}
+                          className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                            isActive
+                              ? "bg-slate-900 text-white shadow-sm"
+                              : "text-slate-600 hover:bg-slate-100"
+                          }`}
+                          onClick={(e) => {
+                            if (isDisabled) {
+                              e.preventDefault();
+                            } else {
+                              onCloseMobile();
+                            }
+                          }}
+                        >
+                          <span className="text-lg">{item.icon}</span>
+                          {!collapsed && <span>{item.label}</span>}
+                        </Link>
+                      );
+                    })}
+                  </nav>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Bottom Section - Earnings, Profile & Logout */}
-        <div className="border-t border-slate-200 p-4 space-y-2">
+        {/* Bottom Section - Earnings, Profile & Logout - Fixed at Bottom */}
+        <div className="shrink-0 border-t border-slate-200 bg-white p-4 space-y-2">
           <Link
             href="/earnings"
             className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${

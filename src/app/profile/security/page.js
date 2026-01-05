@@ -99,7 +99,7 @@ export default function SecurityPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white -mx-4 lg:mx-0 -my-6 lg:my-0">
+    <div className="min-h-screen bg-white lg:bg-slate-50 -mx-4 lg:mx-0 -my-6 lg:my-0">
       {/* Mobile Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 py-3 lg:hidden">
         <div className="flex items-center gap-4">
@@ -131,6 +131,7 @@ export default function SecurityPage() {
       </div>
 
       <div className="px-4 py-6 lg:px-6">
+        <div className="lg:max-w-4xl lg:mx-auto">
         {message && (
           <div
             className={`mb-6 rounded-lg p-4 ${
@@ -238,6 +239,7 @@ export default function SecurityPage() {
               </div>
             </div>
           </div>
+        </div>
         </div>
       </div>
 

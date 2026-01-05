@@ -327,7 +327,7 @@ export default function PropertiesPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto max-w-7xl space-y-8">
       <Toaster position="top-right" />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -345,9 +345,9 @@ export default function PropertiesPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {/* Mobile Filters Button */}
+          {/* Filters Button */}
           <button
-            className="md:hidden rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-2"
+            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-2"
             onClick={() => setShowFilters(!showFilters)}
           >
             <svg
@@ -442,17 +442,15 @@ export default function PropertiesPage() {
       </div>
 
       {/* Filters Section */}
-      <div
-        className={`rounded-3xl border border-slate-100 bg-white shadow-sm transition-all ${
-          showFilters || "hidden md:block"
-        }`}
-      >
-        <div className="p-6">
+      {showFilters && (
+        <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-slate-900">Filters</h3>
             <button
               className="text-sm text-slate-600 hover:text-slate-900 underline"
-              onClick={clearFilters}
+              onClick={() => {
+                clearFilters();
+              }}
             >
               Clear all
             </button>
@@ -570,7 +568,7 @@ export default function PropertiesPage() {
             </p>
           </div>
         </div>
-      </div>
+      )}
 
       {viewMode === "cards" && (
         <section className="grid gap-4 md:grid-cols-2">

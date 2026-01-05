@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import DataTable from "@/components/common/DataTable";
 import StatusPill from "@/components/common/StatusPill";
 import Modal from "@/components/common/Modal";
@@ -15,6 +16,7 @@ import {
   updateUser,
 } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
+import { useSEO } from "@/hooks/useSEO";
 import { Eye, EyeOff } from "lucide-react";
 
 const formatPermissions = (permissions) =>
@@ -25,6 +27,7 @@ const formatPermissions = (permissions) =>
     .filter(Boolean);
 
 export default function UsersPage() {
+  const router = useRouter();
   useDashboard(); // Ensure we're in dashboard context
   const {
     isAuthenticated,
@@ -33,6 +36,14 @@ export default function UsersPage() {
     isHost,
     user,
   } = useAuth();
+  
+  // SEO
+  useSEO({
+    title: "Users | Zuha Host",
+    description: "User management dashboard. Manage team members, permissions, and roles.",
+    keywords: "users, user management, team members, staff management",
+  });
+  
   const [selectedUser, setSelectedUser] = useState(null);
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [usersData, setUsersData] = useState([]);
@@ -43,6 +54,14 @@ export default function UsersPage() {
   const [userPendingDelete, setUserPendingDelete] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [openDropdownId, setOpenDropdownId] = useState(null);
+  const [viewMode, setViewMode] = useState(() => {
+    // Default to table on desktop, cards on mobile
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768 ? "table" : "cards";
+    }
+    return "table";
+  });
 
   // Form states for create
   const [createForm, setCreateForm] = useState({
@@ -62,6 +81,18 @@ export default function UsersPage() {
     role: "",
     host: false,
   });
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (openDropdownId && !event.target.closest('.dropdown-container')) {
+        setOpenDropdownId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openDropdownId]);
 
   useEffect(() => {
     // Allow access for superadmin and host
@@ -304,25 +335,88 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto max-w-7xl space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="mt-2 text-3xl font-semibold text-slate-900">
-          {isSuperAdmin
-            ? "User Management"
-            : isHost
-            ? "Team Management"
-            : "User Management"}
-        </h1>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.back()}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0 lg:hidden"
+          >
+            <svg className="w-6 h-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <h1 className="mt-2 text-2xl lg:text-3xl font-semibold text-slate-900">
+            {isSuperAdmin
+              ? "User Management"
+              : isHost
+              ? "Team Management"
+              : "User Management"}
+          </h1>
+        </div>
 
-        <button
-          className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-          onClick={() => {
-            setError(null);
-            setCreateOpen(true);
-          }}
-        >
-          Create user
-        </button>
+        <div className="flex gap-2">
+          {/* View Mode Switcher - Hidden on mobile */}
+          <div className="hidden md:flex rounded-full border border-slate-200 p-1">
+            <button
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                viewMode === "cards"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+              onClick={() => setViewMode("cards")}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+                />
+              </svg>
+            </button>
+            <button
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                viewMode === "table"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+              onClick={() => setViewMode("table")}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <button
+            className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+            onClick={() => {
+              setError(null);
+              setCreateOpen(true);
+            }}
+          >
+            <span className="hidden sm:inline">Create user</span>
+            <span className="sm:hidden">Add</span>
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -331,10 +425,162 @@ export default function UsersPage() {
         </div>
       )}
 
-      <DataTable
-        headers={["Name", "Email", "Role", "Status", ""]}
-        rows={rows}
-      />
+      {/* Card View (Mobile) */}
+      {viewMode === "cards" && (
+        <>
+          {usersData.length === 0 ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+                <svg className="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">No users yet</h3>
+              <p className="text-sm text-slate-600 mb-6">Get started by creating your first user</p>
+              <button
+                className="rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                onClick={() => {
+                  setError(null);
+                  setCreateOpen(true);
+                }}
+              >
+                Create user
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {usersData.map((user) => {
+                const userId = user.id || user._id;
+                const roleName = typeof user.role === "object" ? user.role?.name : user.role;
+                
+                return (
+                  <div
+                    key={userId}
+                    className="rounded-2xl border border-slate-200 bg-white p-4 hover:shadow-md transition-shadow"
+                  >
+                    {/* User Header */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3 flex-1">
+                        {/* Avatar */}
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-lg font-bold text-white">
+                          {user.name?.charAt(0)?.toUpperCase() || "U"}
+                        </div>
+                        
+                        {/* Name & Email */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-slate-900 truncate">{user.name}</h3>
+                          <p className="text-sm text-slate-600 truncate">{user.email}</p>
+                        </div>
+                      </div>
+                      
+                      {/* Actions Dropdown */}
+                      <div className="relative dropdown-container">
+                        <button
+                          onClick={() => setOpenDropdownId(openDropdownId === userId ? null : userId)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100 active:bg-slate-200 transition-colors"
+                        >
+                          <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                          </svg>
+                        </button>
+                        
+                        {/* Dropdown Menu */}
+                        {openDropdownId === userId && (
+                          <div className="absolute right-0 top-10 z-20 w-40 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+                            <button
+                              className="w-full px-4 py-2.5 text-left text-sm text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                              onClick={() => {
+                                setError(null);
+                                setSelectedUser(user);
+                                setOpenDropdownId(null);
+                              }}
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                              Edit
+                            </button>
+                            <button
+                              className="w-full px-4 py-2.5 text-left text-sm text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-2 border-t border-slate-100 disabled:opacity-50"
+                              disabled={isDeletingId === userId}
+                              onClick={() => {
+                                setUserPendingDelete(user);
+                                setOpenDropdownId(null);
+                              }}
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              {isDeletingId === userId ? "Deleting..." : "Delete"}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Role, Phone & Status */}
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs text-slate-500">Role</span>
+                        {user.host ? (
+                          <span className="rounded-full bg-green-100 px-3 py-0.5 text-xs font-semibold capitalize text-green-700 w-fit">
+                            Host
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-blue-100 px-3 py-0.5 text-xs font-semibold capitalize text-blue-700 w-fit">
+                            {roleName || "—"}
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        {user.phone && (
+                          <div className="text-right">
+                            <span className="text-xs text-slate-500 block">Phone</span>
+                            <span className="text-sm text-slate-900">{user.phone}</span>
+                          </div>
+                        )}
+                        <StatusPill label={user.status || "Active"} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Table View (Desktop) */}
+      {viewMode === "table" && (
+        <>
+          {usersData.length === 0 ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+                <svg className="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">No users yet</h3>
+              <p className="text-sm text-slate-600 mb-6">Get started by creating your first user</p>
+              <button
+                className="rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                onClick={() => {
+                  setError(null);
+                  setCreateOpen(true);
+                }}
+              >
+                Create user
+              </button>
+            </div>
+          ) : (
+            <DataTable
+              headers={["Name", "Email", "Role", "Status", ""]}
+              rows={rows}
+            />
+          )}
+        </>
+      )}
 
       <Modal
         title="Edit user"

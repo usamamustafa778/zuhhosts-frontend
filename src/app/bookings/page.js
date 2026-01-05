@@ -10,6 +10,7 @@ import BookingCalendar from "@/components/modules/BookingCalendar";
 import FileUpload from "@/components/common/FileUpload";
 import IdCardGallery from "@/components/common/IdCardGallery";
 import PageLoader from "@/components/common/PageLoader";
+import Combobox from "@/components/common/Combobox";
 import {
   getAllBookings,
   createBooking,
@@ -510,7 +511,8 @@ export default function BookingsPage() {
   };
 
   const openViewModal = (booking) => {
-    setViewBooking(booking);
+    const bookingId = getBookingId(booking);
+    router.push(`/bookings/${bookingId}`);
   };
 
   const closeViewModal = () => {
@@ -645,7 +647,7 @@ export default function BookingsPage() {
   });
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto max-w-7xl space-y-8">
       {error && (
         <div className="rounded-2xl border border-rose-100 bg-rose-50/80 p-4 text-sm text-rose-600">
           {error}
@@ -870,11 +872,13 @@ export default function BookingsPage() {
             return (
               <div
                 key={bookingId}
-                className="rounded-2xl border border-slate-200 bg-white overflow-hidden cursor-pointer active:scale-[0.98] transition-transform"
-                onClick={() => openViewModal(booking)}
+                className="rounded-2xl border border-slate-200 bg-white overflow-hidden active:scale-[0.98] transition-transform relative"
               >
                 {/* Top Section - Guest & Property */}
-                <div className="p-4 bg-gradient-to-r from-slate-50 to-white">
+                <div 
+                  className="p-4 bg-gradient-to-r from-slate-50 to-white cursor-pointer"
+                  onClick={() => openViewModal(booking)}
+                >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <div className="shrink-0 w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center text-white text-lg font-bold">
@@ -905,7 +909,10 @@ export default function BookingsPage() {
                 </div>
 
                 {/* Bottom Section - Dates & Info */}
-                <div className="px-4 py-3 border-t border-slate-100">
+                <div 
+                  className="px-4 py-3 border-t border-slate-100 cursor-pointer relative"
+                  onClick={() => openViewModal(booking)}
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-sm">
                       <div className="flex items-center gap-1.5">
@@ -929,13 +936,28 @@ export default function BookingsPage() {
                     </div>
                   </div>
                   
-                  {/* Status Badge */}
-                  <div className="mt-2 flex items-center gap-2">
+                  {/* Status Badge & Edit Button */}
+                  <div className="mt-2 flex items-center justify-between gap-2">
                     <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
                       booking.status || "pending"
                     )}`}>
                       {booking.status || "pending"}
             </span>
+                    
+                    {/* Edit Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditModal(booking);
+                      }}
+                      className="flex items-center gap-1 text-slate-600 hover:text-slate-900 transition-colors"
+                      title="Edit booking"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      <span className="text-xs font-medium">Edit</span>
+                    </button>
         </div>
       </div>
               </div>
@@ -979,21 +1001,21 @@ export default function BookingsPage() {
               <label className="mb-1 block text-sm font-medium text-slate-700">
                 Guest
               </label>
-              <select
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              <Combobox
                 value={editForm.guest_id}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, guest_id: e.target.value })
+                onChange={(value) =>
+                  setEditForm({ ...editForm, guest_id: value })
                 }
+                options={guestsData}
+                getOptionLabel={(guest) => guest.name}
+                getOptionValue={(guest) => getBookingId(guest)}
+                getOptionDescription={(guest) =>
+                  `${guest.phone}${guest.email ? ` • ${guest.email}` : ""}`
+                }
+                placeholder="Search guest by name, phone, or email..."
                 required
-              >
-                <option value="">Select a guest</option>
-                {guestsData.map((guest) => (
-                  <option key={getBookingId(guest)} value={getBookingId(guest)}>
-                    {guest.name}
-                  </option>
-                ))}
-              </select>
+                noOptionsMessage="No guests found"
+              />
             </div>
 
             <div>
@@ -1019,24 +1041,21 @@ export default function BookingsPage() {
             <label className="mb-1 block text-sm font-medium text-slate-700">
               Property
             </label>
-            <select
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            <Combobox
               value={editForm.property_id}
-              onChange={(e) =>
-                setEditForm({ ...editForm, property_id: e.target.value })
+              onChange={(value) =>
+                setEditForm({ ...editForm, property_id: value })
               }
+              options={propertiesData}
+              getOptionLabel={(property) => property.title || property.name}
+              getOptionValue={(property) => getBookingId(property)}
+              getOptionDescription={(property) =>
+                property.address || property.location
+              }
+              placeholder="Search property by name, address, or location..."
               required
-            >
-              <option value="">Select a property</option>
-              {propertiesData.map((property) => (
-                <option
-                  key={getBookingId(property)}
-                  value={getBookingId(property)}
-                >
-                  {property.title || property.name}
-                </option>
-              ))}
-            </select>
+              noOptionsMessage="No properties found"
+            />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -1168,23 +1187,21 @@ export default function BookingsPage() {
 
               {!isCreatingNewGuest ? (
                 <>
-                  <select
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  <Combobox
                     value={createForm.guest_id}
-                    onChange={(e) =>
-                      setCreateForm({ ...createForm, guest_id: e.target.value })
+                    onChange={(value) =>
+                      setCreateForm({ ...createForm, guest_id: value })
                     }
-                  >
-                    <option value="">Select a guest</option>
-                    {guestsData.map((guest) => (
-                      <option
-                        key={getBookingId(guest)}
-                        value={getBookingId(guest)}
-                      >
-                        {guest.name} ({guest.email})
-                      </option>
-                    ))}
-                  </select>
+                    options={guestsData}
+                    getOptionLabel={(guest) => guest.name}
+                    getOptionValue={(guest) => getBookingId(guest)}
+                    getOptionDescription={(guest) =>
+                      `${guest.phone}${guest.email ? ` • ${guest.email}` : ""}`
+                    }
+                    placeholder="Search guest by name, phone, or email..."
+                    required
+                    noOptionsMessage="No guests found"
+                  />
                   <button
                     type="button"
                     onClick={() => setIsCreatingNewGuest(true)}
@@ -1278,24 +1295,21 @@ export default function BookingsPage() {
             <label className="mb-1 block text-sm font-medium text-slate-700">
               Property
             </label>
-            <select
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            <Combobox
               value={createForm.property_id}
-              onChange={(e) =>
-                setCreateForm({ ...createForm, property_id: e.target.value })
+              onChange={(value) =>
+                setCreateForm({ ...createForm, property_id: value })
               }
+              options={propertiesData}
+              getOptionLabel={(property) => property.title || property.name}
+              getOptionValue={(property) => getBookingId(property)}
+              getOptionDescription={(property) =>
+                property.address || property.location
+              }
+              placeholder="Search property by name, address, or location..."
               required
-            >
-              <option value="">Select a property</option>
-              {propertiesData.map((property) => (
-                <option
-                  key={getBookingId(property)}
-                  value={getBookingId(property)}
-                >
-                  {property.title || property.name}
-                </option>
-              ))}
-            </select>
+              noOptionsMessage="No properties found"
+            />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

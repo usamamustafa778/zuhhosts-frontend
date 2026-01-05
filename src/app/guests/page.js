@@ -1,16 +1,27 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import DataTable from "@/components/common/DataTable";
 import Modal from "@/components/common/Modal";
 import PageLoader from "@/components/common/PageLoader";
 import { getAllGuests, createGuest, updateGuest, deleteGuest } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
+import { useSEO } from "@/hooks/useSEO";
 
 const PAGE_SIZE = 10;
 
 export default function GuestsPage() {
+  const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useRequireAuth();
+  
+  // SEO
+  useSEO({
+    title: "Guests | Zuha Host",
+    description: "Manage your guest directory. View, create, and update guest profiles with contact information.",
+    keywords: "guests, guest directory, guest management, customer profiles",
+  });
+  
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const [selectedGuest, setSelectedGuest] = useState(null);
@@ -18,6 +29,32 @@ export default function GuestsPage() {
   const [guestsData, setGuestsData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [openDropdownId, setOpenDropdownId] = useState(null);
+  const [viewMode, setViewMode] = useState(() => {
+    // Default to table on desktop, cards on mobile
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768 ? "table" : "cards";
+    }
+    return "table";
+  });
+  const [filters, setFilters] = useState({
+    search: "",
+    hasIdCard: "",
+    hasProfilePicture: "",
+  });
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (openDropdownId && !event.target.closest('.dropdown-container')) {
+        setOpenDropdownId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openDropdownId]);
 
   // Form state for create modal
   const [createForm, setCreateForm] = useState({
@@ -74,13 +111,43 @@ export default function GuestsPage() {
   };
 
   const filtered = useMemo(() => {
-    return guestsData.filter(
-      (guest) =>
-        (guest.name || "").toLowerCase().includes(query.toLowerCase()) ||
-        (guest.email || "").toLowerCase().includes(query.toLowerCase()) ||
-        (guest.phone || "").toLowerCase().includes(query.toLowerCase())
-    );
-  }, [query, guestsData]);
+    return guestsData.filter((guest) => {
+      // Search filter (name, email, or phone)
+      const searchQuery = filters.search || query;
+      if (searchQuery) {
+        const searchLower = searchQuery.toLowerCase();
+        const nameMatch = (guest.name || "").toLowerCase().includes(searchLower);
+        const emailMatch = (guest.email || "").toLowerCase().includes(searchLower);
+        const phoneMatch = (guest.phone || "").toLowerCase().includes(searchLower);
+        if (!nameMatch && !emailMatch && !phoneMatch) return false;
+      }
+
+      // Has ID Card filter
+      if (filters.hasIdCard === "yes" && !guest.idCard) return false;
+      if (filters.hasIdCard === "no" && guest.idCard) return false;
+
+      // Has Profile Picture filter
+      if (filters.hasProfilePicture === "yes" && !guest.profilePicture) return false;
+      if (filters.hasProfilePicture === "no" && guest.profilePicture) return false;
+
+      return true;
+    });
+  }, [query, filters, guestsData]);
+
+  const handleFilterChange = (field, value) => {
+    setFilters((prev) => ({ ...prev, [field]: value }));
+    setPage(0); // Reset to first page when filters change
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      search: "",
+      hasIdCard: "",
+      hasProfilePicture: "",
+    });
+    setQuery("");
+    setPage(0);
+  };
 
   const paginated = filtered.slice(
     page * PAGE_SIZE,
@@ -370,57 +437,386 @@ export default function GuestsPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto max-w-7xl space-y-8">
       {error && (
         <div className="rounded-2xl border border-rose-100 bg-rose-50/80 p-4 text-sm text-rose-600">
           {error}
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="mt-2 text-3xl font-semibold text-slate-900">
-          Guest directory
-        </h1>
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.back()}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0 lg:hidden"
+            >
+              <svg className="w-6 h-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <h1 className="mt-2 text-2xl lg:text-3xl font-semibold text-slate-900">
+              Guest directory
+            </h1>
+          </div>
 
-        <button
-          className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
-          onClick={() => setCreateOpen(true)}
-        >
-          Add guest
-        </button>
-      </div>
+          <div className="flex flex-wrap gap-2">
+            {/* Filters Button */}
+            <button
+              className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-2"
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                />
+              </svg>
+              Filters
+              {Object.values(filters).some((val) => val !== "") && (
+                <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-slate-900 rounded-full">
+                  {Object.values(filters).filter((val) => val !== "").length}
+                </span>
+              )}
+            </button>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
-        <input
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setPage(0);
-          }}
-          placeholder="Search guests by name or email..."
-          className="flex-1 rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-600"
-        />
-        <div className="flex gap-2 text-sm">
-          <button
-            disabled={page === 0}
-            onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
-            className="rounded-full border border-slate-200 px-4 py-2 text-slate-600 disabled:opacity-30"
-          >
-            Prev
-          </button>
-          <button
-            disabled={page + 1 >= totalPages}
-            onClick={() =>
-              setPage((prev) => Math.min(prev + 1, totalPages - 1))
-            }
-            className="rounded-full border border-slate-200 px-4 py-2 text-slate-600 disabled:opacity-30"
-          >
-            Next
-          </button>
+            {/* View Mode Switcher */}
+            <div className="flex rounded-full border border-slate-200 p-1">
+              <button
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                  viewMode === "cards"
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-600 hover:bg-slate-50"
+                }`}
+                onClick={() => setViewMode("cards")}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+                  />
+                </svg>
+              </button>
+              <button
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                  viewMode === "table"
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-600 hover:bg-slate-50"
+                }`}
+                onClick={() => setViewMode("table")}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <button
+              className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+              onClick={() => setCreateOpen(true)}
+            >
+              <span className="hidden sm:inline">Add guest</span>
+              <span className="sm:hidden">Add</span>
+            </button>
+          </div>
         </div>
+
+        {/* Filters Section */}
+        {showFilters && (
+          <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-slate-900">Filters</h3>
+              <button
+                className="text-sm text-slate-600 hover:text-slate-900 underline"
+                onClick={clearFilters}
+              >
+                Clear all
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Search */}
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  Search
+                </label>
+                <input
+                  type="text"
+                  placeholder="Name, email, or phone..."
+                  value={filters.search}
+                  onChange={(e) => handleFilterChange("search", e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                />
+              </div>
+
+              {/* Has ID Card */}
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  ID Card
+                </label>
+                <select
+                  value={filters.hasIdCard}
+                  onChange={(e) => handleFilterChange("hasIdCard", e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                >
+                  <option value="">All</option>
+                  <option value="yes">Has ID Card</option>
+                  <option value="no">No ID Card</option>
+                </select>
+              </div>
+
+              {/* Has Profile Picture */}
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  Profile Picture
+                </label>
+                <select
+                  value={filters.hasProfilePicture}
+                  onChange={(e) => handleFilterChange("hasProfilePicture", e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                >
+                  <option value="">All</option>
+                  <option value="yes">Has Photo</option>
+                  <option value="no">No Photo</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Results count */}
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <p className="text-sm text-slate-600">
+                Showing{" "}
+                <span className="font-semibold text-slate-900">
+                  {filtered.length}
+                </span>{" "}
+                of {guestsData.length} guest{guestsData.length !== 1 ? "s" : ""}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Pagination Controls - Only for table view */}
+        {viewMode === "table" && filtered.length > PAGE_SIZE && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+            <div className="flex gap-2 text-sm">
+              <button
+                disabled={page === 0}
+                onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+                className="rounded-full border border-slate-200 px-4 py-2 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors"
+              >
+                Prev
+              </button>
+              <button
+                disabled={page + 1 >= totalPages}
+                onClick={() =>
+                  setPage((prev) => Math.min(prev + 1, totalPages - 1))
+                }
+                className="rounded-full border border-slate-200 px-4 py-2 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors"
+              >
+                Next
+              </button>
+            </div>
+            <p className="text-sm text-slate-600">
+              Page {page + 1} of {Math.max(totalPages, 1)}
+            </p>
+          </div>
+        )}
       </div>
 
-      <DataTable
+      {/* Cards View */}
+      {viewMode === "cards" && (
+        <>
+          {filtered.length === 0 ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+                <svg className="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">No guests found</h3>
+              <p className="text-sm text-slate-600 mb-6">Try adjusting your filters or add a new guest</p>
+              <button
+                className="rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                onClick={() => setCreateOpen(true)}
+              >
+                Add guest
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {paginated.map((guest, index) => {
+                const guestId = guest.id || guest._id || `guest-${index}`;
+                const profilePicUrl = guest.profilePicture
+                  ? `http://localhost:5001${guest.profilePicture}`
+                  : null;
+                const idCardUrl = guest.idCard
+                  ? `http://localhost:5001${guest.idCard}`
+                  : null;
+                const createdDate = guest.createdAt
+                  ? new Date(guest.createdAt).toLocaleDateString()
+                  : "N/A";
+
+                return (
+                  <div
+                    key={guestId}
+                    className="rounded-2xl border border-slate-200 bg-white p-4 hover:shadow-md transition-shadow"
+                  >
+                    {/* Guest Header */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        {/* Avatar */}
+                        {profilePicUrl ? (
+                          <img
+                            src={profilePicUrl}
+                            alt={guest.name}
+                            className="h-12 w-12 rounded-full object-cover border-2 border-slate-200 shrink-0"
+                          />
+                        ) : (
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-lg font-bold text-white">
+                            {guest.name?.charAt(0)?.toUpperCase() || "G"}
+                          </div>
+                        )}
+                        
+                        {/* Name, Phone, and ID Card */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-slate-900 truncate mb-1">{guest.name || "N/A"}</h3>
+                          <p className="text-sm text-slate-600 mb-1">{guest.phone || "N/A"}</p>
+                          <div className="text-sm">
+                            {idCardUrl ? (
+                              <a
+                                href={idCardUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 underline-offset-2 hover:underline font-medium"
+                              >
+                                View ID Card
+                              </a>
+                            ) : (
+                              <span className="text-slate-400">ID Card: N/A</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Actions Dropdown */}
+                      <div className="relative dropdown-container">
+                        <button
+                          onClick={() => setOpenDropdownId(openDropdownId === guestId ? null : guestId)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100 active:bg-slate-200 transition-colors shrink-0"
+                        >
+                          <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                          </svg>
+                        </button>
+                        
+                        {/* Dropdown Menu */}
+                        {openDropdownId === guestId && (
+                          <div className="absolute right-0 top-10 z-20 w-40 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+                            <button
+                              className="w-full px-4 py-2.5 text-left text-sm text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                              onClick={() => {
+                                fetchBookingHistory(guest);
+                                setOpenDropdownId(null);
+                              }}
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              History
+                            </button>
+                            <button
+                              className="w-full px-4 py-2.5 text-left text-sm text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2 border-t border-slate-100"
+                              onClick={() => {
+                                openEditModal(guest);
+                                setOpenDropdownId(null);
+                              }}
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                              Edit
+                            </button>
+                            <button
+                              className="w-full px-4 py-2.5 text-left text-sm text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-2 border-t border-slate-100"
+                              onClick={() => {
+                                handleDeleteGuest(guestId);
+                                setOpenDropdownId(null);
+                              }}
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          
+          {/* Pagination for Cards View */}
+          {filtered.length > PAGE_SIZE && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-100 bg-white p-4 shadow-sm mt-4">
+              <div className="flex gap-2 text-sm">
+                <button
+                  disabled={page === 0}
+                  onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+                  className="rounded-full border border-slate-200 px-4 py-2 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors"
+                >
+                  Prev
+                </button>
+                <button
+                  disabled={page + 1 >= totalPages}
+                  onClick={() =>
+                    setPage((prev) => Math.min(prev + 1, totalPages - 1))
+                  }
+                  className="rounded-full border border-slate-200 px-4 py-2 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+              <p className="text-sm text-slate-600">
+                Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length} guest{filtered.length !== 1 ? "s" : ""}
+              </p>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Table View */}
+      {viewMode === "table" && (
+        <DataTable
         headers={[
           "#",
           "Profile Pic",
@@ -548,10 +944,7 @@ export default function GuestsPage() {
         })}
         emptyLabel="No guests match your search."
       />
-
-      <p className="text-center text-xs text-slate-500">
-        Page {page + 1} of {Math.max(totalPages, 1)}
-      </p>
+      )}
 
       <Modal
         title="Edit guest"

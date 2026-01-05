@@ -132,7 +132,7 @@ export default function DashboardPage() {
           </div>
 
           <button
-            onClick={() => router.push("/bookings")}
+            onClick={() => router.push("/bookings/new")}
             className="rounded-full border whitespace-nowrap border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             + Add
@@ -207,8 +207,10 @@ export default function DashboardPage() {
                         const guestName = booking.guest_id?.name || "Guest";
                         const numberOfGuests = booking.numberOfGuests || 1;
                         const startDate = new Date(booking.start_date);
+                        const endDate = new Date(booking.end_date);
                         const today = new Date();
                         startDate.setHours(0, 0, 0, 0);
+                        endDate.setHours(0, 0, 0, 0);
                         today.setHours(0, 0, 0, 0);
                         
                         // If check-in is today, show "group of X checks in"
@@ -217,6 +219,15 @@ export default function DashboardPage() {
                             return `${guestName.split(" ")[0]}'s group of ${numberOfGuests} checks in`;
                           } else {
                             return `${guestName} checks in`;
+                          }
+                        }
+                        
+                        // If checkout is today, show "checks out"
+                        if (endDate.getTime() === today.getTime()) {
+                          if (numberOfGuests > 1) {
+                            return `${guestName.split(" ")[0]}'s group of ${numberOfGuests} checks out`;
+                          } else {
+                            return `${guestName} checks out`;
                           }
                         }
                         
