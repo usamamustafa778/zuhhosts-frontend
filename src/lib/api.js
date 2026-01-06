@@ -1073,3 +1073,33 @@ export function getUserType(user) {
   if (user.hostId) return "team_member";
   return null;
 }
+
+/**
+ * General Search API
+ * Search across properties, guests, tasks, and bookings
+ * @param {string} query - Search query string
+ * @param {string} type - Optional: Filter to specific type (properties, guests, tasks, bookings)
+ * @param {number} limit - Optional: Results per category (default: 10)
+ * @returns {Promise<Object>} Search results grouped by entity type
+ */
+export async function search(query, type = null, limit = 10) {
+  if (!query || query.trim().length === 0) {
+    return {
+      query: "",
+      total: 0,
+      counts: { properties: 0, guests: 0, tasks: 0, bookings: 0 },
+      properties: [],
+      guests: [],
+      tasks: [],
+      bookings: [],
+    };
+  }
+
+  let url = `${API_BASE_URL}/search?q=${encodeURIComponent(query.trim())}&limit=${limit}`;
+  if (type) {
+    url += `&type=${encodeURIComponent(type)}`;
+  }
+
+  const res = await fetchWithAuth(url);
+  return handleResponse(res, "Failed to search");
+}

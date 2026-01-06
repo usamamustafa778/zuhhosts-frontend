@@ -208,7 +208,7 @@ export default function Sidebar({
                           href={isDisabled ? "#" : item.href}
                           className={`group relative flex items-center gap-3 lg:mx-1 mx-2 px-3 lg:py-2.5 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
                             isActive
-                              ? "bg-blue-50 text-blue-700"
+                              ? "bg-rose-50 text-rose-700"
                               : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
                           } ${collapsed ? "justify-center" : ""}`}
                           onClick={(e) => {
@@ -221,10 +221,10 @@ export default function Sidebar({
                           title={collapsed ? item.label : undefined}
                         >
                           {isActive && !collapsed && (
-                            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-7 bg-blue-600 rounded-r-full" />
+                            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-7 bg-rose-600 rounded-r-full" />
                           )}
                           {isActive && collapsed && (
-                            <span className="absolute left-1/2 -translate-x-1/2 bottom-0 h-1 w-7 bg-blue-600 rounded-t-full" />
+                            <span className="absolute left-1/2 -translate-x-1/2 bottom-0 h-1 w-7 bg-rose-600 rounded-t-full" />
                           )}
                           {IconComponent && (
                             <IconComponent 

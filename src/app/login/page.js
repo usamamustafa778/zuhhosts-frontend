@@ -12,6 +12,7 @@ import {
   Loader2,
   Eye,
   EyeOff,
+  ArrowLeft,
 } from "lucide-react";
 import { loginUser, loginSuperadmin } from "@/lib/api";
 import { setAuthToken, setAuthUser, getAuthToken } from "@/lib/auth";
@@ -187,6 +188,15 @@ export default function LoginPage() {
       </div>
 
       <div className="relative z-10 w-full max-w-md">
+        <div className="mb-6 flex justify-center">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-rose-600"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to home
+          </Link>
+        </div>
         <div className="space-y-8 rounded-3xl border border-white/50 bg-white/80 p-8 shadow-2xl backdrop-blur-xl md:p-10">
           <div className="space-y-4 text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 text-3xl shadow-lg shadow-rose-500/30">

@@ -121,7 +121,7 @@ export default function Combobox({
 
       {/* Dropdown */}
       {showDropdown && !disabled && (
-        <div className="absolute z-10 w-full mt-1 max-h-60 overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+        <div className="absolute z-[100] w-full mt-1 max-h-60 overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
           {filteredOptions.length > 0 ? (
             filteredOptions.map((option, index) => (
               <button

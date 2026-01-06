@@ -2,9 +2,11 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Eye } from "lucide-react";
 import DataTable from "@/components/common/DataTable";
 import Modal from "@/components/common/Modal";
 import PageLoader from "@/components/common/PageLoader";
+import PhoneInput from "@/components/common/PhoneInput";
 import { getAllGuests, createGuest, updateGuest, deleteGuest } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
@@ -154,6 +156,15 @@ export default function GuestsPage() {
     page * PAGE_SIZE + PAGE_SIZE
   );
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+
+  // Reset page if current page is beyond available pages
+  useEffect(() => {
+    if (totalPages > 0 && page >= totalPages) {
+      setPage(totalPages - 1);
+    } else if (totalPages === 0 && page > 0) {
+      setPage(0);
+    }
+  }, [totalPages, page]);
 
   const handleCreateGuest = async (e) => {
     e.preventDefault();
@@ -745,10 +756,9 @@ export default function GuestsPage() {
                                 fetchBookingHistory(guest);
                                 setOpenDropdownId(null);
                               }}
+                              title="View Booking History"
                             >
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
+                              <Eye className="w-4 h-4" />
                               History
                             </button>
                             <button
@@ -918,11 +928,11 @@ export default function GuestsPage() {
               </span>,
               <div key={`actions-${guestId}`} className="flex gap-2">
                 <button
-                  className="text-sm text-blue-500 underline-offset-2 hover:text-blue-900 hover:underline"
+                  className="text-blue-500 hover:text-blue-900 transition-colors"
                   onClick={() => fetchBookingHistory(guest)}
                   title="View Booking History"
                 >
-                  History
+                  <Eye className="w-4 h-4" />
                 </button>
                 <button
                   className="text-sm text-slate-500 underline-offset-2 hover:text-slate-900 hover:underline"
@@ -1039,14 +1049,12 @@ export default function GuestsPage() {
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Phone <span className="text-rose-500">*</span>
             </label>
-            <input
-              type="tel"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            <PhoneInput
               value={editForm.phone}
               onChange={(e) =>
                 setEditForm({ ...editForm, phone: e.target.value })
               }
-              placeholder="+1 555 000 0000"
+              placeholder="123 456 7890"
               required
             />
           </div>
@@ -1187,14 +1195,12 @@ export default function GuestsPage() {
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Phone <span className="text-rose-500">*</span>
             </label>
-            <input
-              type="tel"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            <PhoneInput
               value={createForm.phone}
               onChange={(e) =>
                 setCreateForm({ ...createForm, phone: e.target.value })
               }
-              placeholder="+1 555 000 0000"
+              placeholder="123 456 7890"
               required
             />
           </div>
@@ -1290,24 +1296,61 @@ export default function GuestsPage() {
         ) : bookingHistoryData ? (
           <div className="space-y-6">
             {/* Guest Info */}
-            <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
-              {bookingHistoryData.guest.profilePicture && (
-                <img
-                  src={`http://localhost:5001${bookingHistoryData.guest.profilePicture}`}
-                  alt={bookingHistoryData.guest.name}
-                  className="h-16 w-16 rounded-full object-cover border-2 border-slate-200"
-                />
-              )}
-              <div>
-                <h3 className="font-semibold text-slate-900">
-                  {bookingHistoryData.guest.name}
-                </h3>
-                <p className="text-sm text-slate-600">
-                  {bookingHistoryData.guest.email}
-                </p>
-                <p className="text-sm text-slate-600">
-                  {bookingHistoryData.guest.phone}
-                </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
+                {bookingHistoryData.guest.profilePicture ? (
+                  <img
+                    src={`http://localhost:5001${bookingHistoryData.guest.profilePicture}`}
+                    alt={bookingHistoryData.guest.name}
+                    className="h-20 w-20 rounded-full object-cover border-2 border-slate-200 shrink-0"
+                  />
+                ) : (
+                  <div className="h-20 w-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-2xl font-bold text-white shrink-0">
+                    {bookingHistoryData.guest.name?.charAt(0)?.toUpperCase() || "G"}
+                  </div>
+                )}
+                <div>
+                  <h3 className="font-semibold text-slate-900">
+                    {bookingHistoryData.guest.name}
+                  </h3>
+                  <p className="text-sm text-slate-600">
+                    {bookingHistoryData.guest.email}
+                  </p>
+                  <p className="text-sm text-slate-600">
+                    {bookingHistoryData.guest.phone}
+                  </p>
+                </div>
+              </div>
+              
+              {/* ID Card */}
+              <div className="p-4 bg-slate-50 rounded-lg">
+                <h4 className="text-sm font-semibold text-slate-700 mb-2">ID Card</h4>
+                {bookingHistoryData.guest.idCard ? (
+                  <div className="space-y-2">
+                    <a
+                      href={`http://localhost:5001${bookingHistoryData.guest.idCard}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block"
+                    >
+                      <img
+                        src={`http://localhost:5001${bookingHistoryData.guest.idCard}`}
+                        alt="ID Card"
+                        className="w-full h-32 object-contain border border-slate-200 rounded-lg bg-white"
+                      />
+                    </a>
+                    <a
+                      href={`http://localhost:5001${bookingHistoryData.guest.idCard}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                    >
+                      View Full Size
+                    </a>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">No ID card available</p>
+                )}
               </div>
             </div>
 

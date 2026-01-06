@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { registerUser } from "@/lib/api";
 import { setAuthToken, setAuthUser, getAuthToken } from "@/lib/auth";
 
@@ -181,6 +182,15 @@ export default function RegisterPage() {
 
       {/* Register card */}
       <div className="relative z-10 w-full max-w-md">
+        <div className="mb-6 flex justify-center">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-rose-600"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to home
+          </Link>
+        </div>
         <div className="space-y-8 rounded-3xl border border-white/50 bg-white/80 p-8 shadow-2xl backdrop-blur-xl md:p-10">
           {/* Logo and header */}
           <div className="space-y-4 text-center">

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth, useRequireAuth } from "@/hooks/useAuth";
-import { getAllBookings } from "@/lib/api";
+import { getAllBookings, getAllProperties, search } from "@/lib/api";
 import { useSEO } from "@/hooks/useSEO";
 
 export default function DashboardPage() {
@@ -15,7 +15,14 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [todaysBookings, setTodaysBookings] = useState([]);
   const [upcomingBookings, setUpcomingBookings] = useState([]);
+  const [allBookings, setAllBookings] = useState([]);
+  const [allProperties, setAllProperties] = useState([]);
   const [activeView, setActiveView] = useState("today"); // 'today' or 'upcoming'
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchRef = useRef(null);
 
   // SEO
   useSEO({
@@ -31,6 +38,8 @@ export default function DashboardPage() {
         fetchHostStats();
         fetchTodaysBookings();
         fetchUpcomingBookings();
+        fetchAllProperties();
+        fetchAllBookings();
       } else {
         setLoading(false);
       }
@@ -80,11 +89,144 @@ export default function DashboardPage() {
     }
   };
 
+  const fetchAllProperties = async () => {
+    try {
+      const properties = await getAllProperties();
+      setAllProperties(Array.isArray(properties) ? properties : []);
+    } catch (error) {
+      console.error("Error fetching properties:", error);
+      setAllProperties([]);
+    }
+  };
+
+  const fetchAllBookings = async () => {
+    try {
+      const bookings = await getAllBookings();
+      setAllBookings(Array.isArray(bookings) ? bookings : []);
+    } catch (error) {
+      console.error("Error fetching all bookings:", error);
+      setAllBookings([]);
+    }
+  };
+
+  // Calculate how many properties are available
+  // A property is available if status is "available" AND doesn't have an active booking today
+  const getAvailablePropertiesCount = () => {
+    const total = allProperties.length;
+    if (total === 0) return 0;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Get property IDs that have active bookings today
+    const bookedPropertyIdsToday = new Set();
+    
+    allBookings.forEach((booking) => {
+      if (!booking.start_date || !booking.end_date) return;
+      
+      const startDate = new Date(booking.start_date);
+      const endDate = new Date(booking.end_date);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(0, 0, 0, 0);
+      
+      // Check if today falls within the booking period
+      if (today >= startDate && today <= endDate) {
+        const propertyId = booking.property_id?._id || 
+                          booking.property_id?.id || 
+                          booking.propertyId ||
+                          booking.property_id;
+        if (propertyId) {
+          bookedPropertyIdsToday.add(propertyId.toString());
+        }
+      }
+    });
+    
+    // Count properties that are available (status is "available" AND not booked today)
+    const availableCount = allProperties.filter((property) => {
+      const propertyId = (property.id || property._id)?.toString();
+      const isStatusAvailable = property.status === "available";
+      const isNotBookedToday = !bookedPropertyIdsToday.has(propertyId);
+      
+      return isStatusAvailable && isNotBookedToday;
+    }).length;
+    
+    return availableCount;
+  };
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good morning";
     if (hour < 18) return "Good afternoon";
     return "Good evening";
+  };
+
+  // Handle click outside search dropdown
+  useEffect(() => {
+    if (!isSearchOpen) return;
+
+    const handleClickOutside = (event) => {
+      if (
+        searchRef.current &&
+        !searchRef.current.contains(event.target)
+      ) {
+        setIsSearchOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isSearchOpen]);
+
+  // Debounced search
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults(null);
+      setIsSearchOpen(false);
+      return;
+    }
+
+    setIsSearching(true);
+    const timeoutId = setTimeout(async () => {
+      try {
+        const results = await search(searchQuery.trim());
+        setSearchResults(results);
+        setIsSearchOpen(true);
+      } catch (error) {
+        console.error("Search error:", error);
+        setSearchResults(null);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  const handleSearchResultClick = (type, id) => {
+    setIsSearchOpen(false);
+    setSearchQuery("");
+    setSearchResults(null);
+    
+    switch (type) {
+      case "property":
+        router.push(`/properties`);
+        break;
+      case "guest":
+        router.push(`/guests`);
+        break;
+      case "task":
+        router.push(`/tasks`);
+        break;
+      case "booking":
+        if (id) {
+          router.push(`/bookings/${id}`);
+        } else {
+          router.push(`/bookings`);
+        }
+        break;
+      default:
+        break;
+    }
   };
 
   if (isLoading || (isHost && loading)) {
@@ -106,6 +248,143 @@ export default function DashboardPage() {
   if (isHost) {
     return (
       <div className="mx-auto max-w-4xl space-y-6 lg:space-y-12 py-0 lg:py-4">
+        {/* Mobile Search Bar */}
+        <div className="lg:hidden relative" ref={searchRef}>
+          <div className="relative flex items-center rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-500 shadow-sm">
+            <span className="text-slate-400">🔍</span>
+            <input
+              type="text"
+              placeholder="Search properties, guests, tasks..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => {
+                if (searchResults) setIsSearchOpen(true);
+              }}
+              className="ml-2 flex-1 bg-transparent focus:outline-none"
+            />
+            {isSearching && (
+              <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600"></div>
+            )}
+          </div>
+
+          {/* Search Results Dropdown */}
+          {isSearchOpen && searchResults && (
+            <div className="absolute z-[100] mt-2 w-full max-h-[400px] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
+              <div className="sticky top-0 bg-white border-b border-slate-100 px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-slate-700">
+                    Results ({searchResults.total})
+                  </span>
+                  <button
+                    className="text-xs text-slate-400 hover:text-slate-600"
+                    onClick={() => {
+                      setIsSearchOpen(false);
+                      setSearchQuery("");
+                    }}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+
+              <div className="py-2">
+                {/* Properties */}
+                {searchResults.properties && searchResults.properties.length > 0 && (
+                  <div className="px-4 py-2">
+                    <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                      Properties ({searchResults.counts?.properties || 0})
+                    </h4>
+                    {searchResults.properties.map((property) => (
+                      <button
+                        key={property.id || property._id}
+                        onClick={() => handleSearchResultClick("property", property.id || property._id)}
+                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors mb-1"
+                      >
+                        <p className="text-sm font-medium text-slate-900">{property.title}</p>
+                        <p className="text-xs text-slate-500">{property.location}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Guests */}
+                {searchResults.guests && searchResults.guests.length > 0 && (
+                  <div className="px-4 py-2 border-t border-slate-100">
+                    <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                      Guests ({searchResults.counts?.guests || 0})
+                    </h4>
+                    {searchResults.guests.map((guest) => (
+                      <button
+                        key={guest.id || guest._id}
+                        onClick={() => handleSearchResultClick("guest", guest.id || guest._id)}
+                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors mb-1"
+                      >
+                        <p className="text-sm font-medium text-slate-900">{guest.name}</p>
+                        <p className="text-xs text-slate-500">{guest.email || guest.phone}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Tasks */}
+                {searchResults.tasks && searchResults.tasks.length > 0 && (
+                  <div className="px-4 py-2 border-t border-slate-100">
+                    <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                      Tasks ({searchResults.counts?.tasks || 0})
+                    </h4>
+                    {searchResults.tasks.map((task) => (
+                      <button
+                        key={task.id || task._id}
+                        onClick={() => handleSearchResultClick("task", task.id || task._id)}
+                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors mb-1"
+                      >
+                        <p className="text-sm font-medium text-slate-900">{task.title}</p>
+                        {task.description && (
+                          <p className="text-xs text-slate-500 line-clamp-1">{task.description}</p>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Bookings */}
+                {searchResults.bookings && searchResults.bookings.length > 0 && (
+                  <div className="px-4 py-2 border-t border-slate-100">
+                    <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                      Bookings ({searchResults.counts?.bookings || 0})
+                    </h4>
+                    {searchResults.bookings.map((booking) => {
+                      const bookingId = booking.id || booking._id;
+                      return (
+                        <button
+                          key={bookingId}
+                          onClick={() => handleSearchResultClick("booking", bookingId, booking)}
+                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors mb-1"
+                        >
+                          <p className="text-sm font-medium text-slate-900">
+                            {booking.property_id?.title || booking.guest_id?.name || "Booking"}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {booking.guest_id?.name && `${booking.guest_id.name} • `}
+                            {booking.start_date && new Date(booking.start_date).toLocaleDateString()}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* No Results */}
+                {searchResults.total === 0 && (
+                  <div className="px-4 py-8 text-center text-sm text-slate-400">
+                    No results found for "{searchQuery}"
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Today/Upcoming Toggle with Add Booking Button */}
         <div className="flex items-center justify-center gap-2">
           <div className="flex gap-2 lg:gap-4">
@@ -140,7 +419,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Reservation Count */}
-        <div className="text-center">
+        <div className="text-center space-y-2">
           <h2 className="text-2xl lg:text-4xl font-semibold text-slate-900">
             {activeView === "today" ? (
               <>
@@ -154,6 +433,14 @@ export default function DashboardPage() {
               </>
             )}
           </h2>
+          {activeView === "today" && (() => {
+            const availableCount = getAvailablePropertiesCount();
+            return availableCount > 0 && (
+              <p className="text-sm lg:text-base text-slate-600">
+                {availableCount} {availableCount === 1 ? "property" : "properties"} available
+              </p>
+            );
+          })()}
         </div>
 
         {/* Today's Reservations */}

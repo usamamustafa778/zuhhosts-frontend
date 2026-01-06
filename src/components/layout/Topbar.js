@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import { getAllHosts, impersonateHost, stopImpersonation } from "@/lib/api";
+import { getAllHosts, impersonateHost, stopImpersonation, search } from "@/lib/api";
 
 export default function Topbar({ onMenuToggle }) {
   const router = useRouter();
@@ -15,8 +15,13 @@ export default function Topbar({ onMenuToggle }) {
   const [loadingHosts, setLoadingHosts] = useState(false);
   const [switchingHost, setSwitchingHost] = useState(false);
   const [selectedHostId, setSelectedHostId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const profileRef = useRef(null);
   const hostSwitcherRef = useRef(null);
+  const searchRef = useRef(null);
 
   // Check if currently impersonating a host
   const isImpersonating = user?.impersonatedBy || user?.isImpersonating || (isSuperAdmin && selectedHostId);
@@ -56,6 +61,48 @@ export default function Topbar({ onMenuToggle }) {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isHostSwitcherOpen]);
+
+  // Handle click outside search dropdown
+  useEffect(() => {
+    if (!isSearchOpen) return;
+
+    const handleClickOutside = (event) => {
+      if (
+        searchRef.current &&
+        !searchRef.current.contains(event.target)
+      ) {
+        setIsSearchOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isSearchOpen]);
+
+  // Debounced search
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults(null);
+      setIsSearchOpen(false);
+      return;
+    }
+
+    setIsSearching(true);
+    const timeoutId = setTimeout(async () => {
+      try {
+        const results = await search(searchQuery.trim());
+        setSearchResults(results);
+        setIsSearchOpen(true);
+      } catch (error) {
+        console.error("Search error:", error);
+        setSearchResults(null);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
 
   // Fetch hosts when superadmin opens the host switcher
   useEffect(() => {
@@ -197,6 +244,34 @@ export default function Topbar({ onMenuToggle }) {
     return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
   };
 
+  const handleSearchResultClick = (type, id, item = null) => {
+    setIsSearchOpen(false);
+    setSearchQuery("");
+    setSearchResults(null);
+    
+    switch (type) {
+      case "property":
+        router.push(`/properties`);
+        break;
+      case "guest":
+        router.push(`/guests`);
+        break;
+      case "task":
+        router.push(`/tasks`);
+        break;
+      case "booking":
+        // Navigate to booking detail page
+        if (id) {
+          router.push(`/bookings/${id}`);
+        } else {
+          router.push(`/bookings`);
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
   return (
     <header className="sticky top-0 z-20 bg-white shadow-sm">
       {/* Impersonation Banner */}
@@ -301,12 +376,140 @@ export default function Topbar({ onMenuToggle }) {
       {/* Desktop Topbar */}
       <div className="hidden lg:block border-b border-slate-200 px-8 py-3">
         <div className="flex items-center gap-3">
-          <div className="relative flex-1 items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm flex">
-            <span className="text-slate-400">🔍</span>
-            <input
-              placeholder="Quick search (properties, guests, tasks...)"
-              className="ml-2 flex-1 bg-transparent focus:outline-none"
-            />
+          <div className="relative flex-1" ref={searchRef}>
+            <div className="relative flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm">
+              <span className="text-slate-400">🔍</span>
+              <input
+                type="text"
+                placeholder="Quick search (properties, guests, tasks...)"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => {
+                  if (searchResults) setIsSearchOpen(true);
+                }}
+                className="ml-2 flex-1 bg-transparent focus:outline-none"
+              />
+              {isSearching && (
+                <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600"></div>
+              )}
+            </div>
+
+            {/* Search Results Dropdown */}
+            {isSearchOpen && searchResults && (
+              <div className="absolute z-[100] mt-2 w-full max-h-[500px] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
+                <div className="sticky top-0 bg-white border-b border-slate-100 px-4 py-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-slate-700">
+                      Search Results ({searchResults.total})
+                    </span>
+                    <button
+                      className="text-xs text-slate-400 hover:text-slate-600"
+                      onClick={() => {
+                        setIsSearchOpen(false);
+                        setSearchQuery("");
+                      }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+
+                <div className="py-2">
+                  {/* Properties */}
+                  {searchResults.properties && searchResults.properties.length > 0 && (
+                    <div className="px-4 py-2">
+                      <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                        Properties ({searchResults.counts?.properties || 0})
+                      </h4>
+                      {searchResults.properties.map((property) => (
+                        <button
+                          key={property.id || property._id}
+                          onClick={() => handleSearchResultClick("property", property.id || property._id)}
+                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors mb-1"
+                        >
+                          <p className="text-sm font-medium text-slate-900">{property.title}</p>
+                          <p className="text-xs text-slate-500">{property.location}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Guests */}
+                  {searchResults.guests && searchResults.guests.length > 0 && (
+                    <div className="px-4 py-2 border-t border-slate-100">
+                      <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                        Guests ({searchResults.counts?.guests || 0})
+                      </h4>
+                      {searchResults.guests.map((guest) => (
+                        <button
+                          key={guest.id || guest._id}
+                          onClick={() => handleSearchResultClick("guest", guest.id || guest._id)}
+                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors mb-1"
+                        >
+                          <p className="text-sm font-medium text-slate-900">{guest.name}</p>
+                          <p className="text-xs text-slate-500">{guest.email || guest.phone}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Tasks */}
+                  {searchResults.tasks && searchResults.tasks.length > 0 && (
+                    <div className="px-4 py-2 border-t border-slate-100">
+                      <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                        Tasks ({searchResults.counts?.tasks || 0})
+                      </h4>
+                      {searchResults.tasks.map((task) => (
+                        <button
+                          key={task.id || task._id}
+                          onClick={() => handleSearchResultClick("task", task.id || task._id)}
+                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors mb-1"
+                        >
+                          <p className="text-sm font-medium text-slate-900">{task.title}</p>
+                          {task.description && (
+                            <p className="text-xs text-slate-500 line-clamp-1">{task.description}</p>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Bookings */}
+                  {searchResults.bookings && searchResults.bookings.length > 0 && (
+                    <div className="px-4 py-2 border-t border-slate-100">
+                      <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                        Bookings ({searchResults.counts?.bookings || 0})
+                      </h4>
+                      {searchResults.bookings.map((booking) => {
+                        const bookingId = booking.id || booking._id;
+                        return (
+                          <button
+                            key={bookingId}
+                            onClick={() => handleSearchResultClick("booking", bookingId, booking)}
+                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors mb-1"
+                          >
+                            <p className="text-sm font-medium text-slate-900">
+                              {booking.property_id?.title || booking.guest_id?.name || "Booking"}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {booking.guest_id?.name && `${booking.guest_id.name} • `}
+                              {booking.start_date && new Date(booking.start_date).toLocaleDateString()}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* No Results */}
+                  {searchResults.total === 0 && (
+                    <div className="px-4 py-8 text-center text-sm text-slate-400">
+                      No results found for "{searchQuery}"
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Host Switcher for Superadmin (and during impersonation) */}

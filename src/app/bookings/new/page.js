@@ -7,6 +7,7 @@ import toast, { Toaster } from "react-hot-toast";
 import FileUpload from "@/components/common/FileUpload";
 import PageLoader from "@/components/common/PageLoader";
 import Combobox from "@/components/common/Combobox";
+import PhoneInput from "@/components/common/PhoneInput";
 import {
   createBooking,
   getAllProperties,
@@ -312,9 +313,7 @@ export default function NewBookingPage() {
                     <label className="mb-1 block text-xs font-medium text-slate-600">
                       Phone Number *
                     </label>
-                    <input
-                      type="tel"
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
+                    <PhoneInput
                       value={newGuestForm.phone}
                       onChange={(e) =>
                         setNewGuestForm({
@@ -322,7 +321,9 @@ export default function NewBookingPage() {
                           phone: e.target.value,
                         })
                       }
-                      placeholder="+1 (555) 123-4567"
+                      placeholder="123 456 7890"
+                      className="bg-white"
+                      required
                     />
                   </div>
                 </div>
@@ -460,6 +461,7 @@ export default function NewBookingPage() {
               maxFiles={10}
               maxSizeMB={5}
               helpText="Upload up to 10 ID cards. JPG, PNG, GIF, PDF accepted. Max 5MB each."
+              showPreview={false}
             />
           </div>
         </div>

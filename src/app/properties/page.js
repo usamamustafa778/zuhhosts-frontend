@@ -583,9 +583,6 @@ export default function PropertiesPage() {
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-semibold text-slate-400">
-                      {propertyId}
-                    </p>
                     <h3 className="text-lg font-semibold text-slate-900">
                       {property.title || property.name || property.propertyName}
                     </h3>

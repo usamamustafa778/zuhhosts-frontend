@@ -11,6 +11,7 @@ import FileUpload from "@/components/common/FileUpload";
 import IdCardGallery from "@/components/common/IdCardGallery";
 import PageLoader from "@/components/common/PageLoader";
 import Combobox from "@/components/common/Combobox";
+import PhoneInput from "@/components/common/PhoneInput";
 import {
   getAllBookings,
   createBooking,
@@ -21,6 +22,7 @@ import {
   getAllProperties,
   getAllGuests,
   createGuest,
+  updateGuest,
 } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
@@ -330,6 +332,38 @@ export default function BookingsPage() {
 
         const newBooking = await createBooking(formData);
         setBookingsData((prev) => [...prev, newBooking]);
+
+        // Update guest's idCard with the first ID card file
+        if (createIdCardFiles.length > 0 && guestId) {
+          try {
+            const token =
+              typeof window !== "undefined"
+                ? localStorage.getItem("luxeboard.authToken")
+                : null;
+            const guestFormData = new FormData();
+            guestFormData.append("idCard", createIdCardFiles[0]);
+            
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/guests/${guestId}`,
+              {
+                method: "PUT",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+                body: guestFormData,
+              }
+            );
+
+            if (response.ok) {
+              // Refresh guests data
+              const updatedGuests = await getAllGuests();
+              setGuestsData(Array.isArray(updatedGuests) ? updatedGuests : []);
+            }
+          } catch (guestErr) {
+            console.error("Error updating guest ID card:", guestErr);
+            // Don't fail the booking creation if guest update fails
+          }
+        }
       } else {
         const newBooking = await createBooking({
           ...createForm,
@@ -397,6 +431,38 @@ export default function BookingsPage() {
             getBookingId(booking) === bookingId ? updatedBooking : booking
           )
         );
+
+        // Update guest's idCard with the first ID card file
+        if (editIdCardFiles.length > 0 && editForm.guest_id) {
+          try {
+            const token =
+              typeof window !== "undefined"
+                ? localStorage.getItem("luxeboard.authToken")
+                : null;
+            const guestFormData = new FormData();
+            guestFormData.append("idCard", editIdCardFiles[0]);
+            
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/guests/${editForm.guest_id}`,
+              {
+                method: "PUT",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+                body: guestFormData,
+              }
+            );
+
+            if (response.ok) {
+              // Refresh guests data
+              const updatedGuests = await getAllGuests();
+              setGuestsData(Array.isArray(updatedGuests) ? updatedGuests : []);
+            }
+          } catch (guestErr) {
+            console.error("Error updating guest ID card:", guestErr);
+            // Don't fail the booking update if guest update fails
+          }
+        }
       } else {
         const updatedBooking = await updateBooking(bookingId, {
           ...editForm,
@@ -1252,9 +1318,7 @@ export default function BookingsPage() {
                     <label className="mb-1 block text-xs font-medium text-slate-600">
                       Phone Number *
                     </label>
-                    <input
-                      type="tel"
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
+                    <PhoneInput
                       value={newGuestForm.phone}
                       onChange={(e) =>
                         setNewGuestForm({
@@ -1262,7 +1326,9 @@ export default function BookingsPage() {
                           phone: e.target.value,
                         })
                       }
-                      placeholder="+1 (555) 123-4567"
+                      placeholder="123 456 7890"
+                      className="bg-white"
+                      required
                     />
                   </div>
                 </div>
