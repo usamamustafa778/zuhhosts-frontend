@@ -3,9 +3,45 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { 
+  Building2, 
+  X, 
+  ChevronLeft, 
+  ChevronRight,
+  Coins,
+  User,
+  LogOut,
+  LayoutDashboard,
+  Home,
+  Calendar,
+  Users,
+  CreditCard,
+  ClipboardList,
+  Shield,
+  Lock,
+  Key,
+  UserCog
+} from "lucide-react";
 import { roleMenus } from "@/data/dummyData";
 import { useAuth } from "@/hooks/useAuth";
 import { hasPermission } from "@/lib/permissions";
+
+// Icon mapping for dynamic icon rendering
+const iconMap = {
+  Building2,
+  LayoutDashboard,
+  Home,
+  Calendar,
+  Users,
+  User,
+  CreditCard,
+  ClipboardList,
+  Shield,
+  Lock,
+  Key,
+  UserCog,
+  Coins
+};
 
 const groupBySection = (items = []) =>
   items.reduce((acc, item) => {
@@ -29,35 +65,27 @@ export default function Sidebar({
   const { user, userType, isSuperAdmin, isHost, permissions, logout } = useAuth();
   
   const groupedMenus = useMemo(() => {
-    // Determine which menu to show based on user type
-    let menuKey = "Admin"; // Default fallback
+    let menuKey = "Admin";
     
     if (isSuperAdmin) {
       menuKey = "superadmin";
     } else if (isHost) {
       menuKey = "host";
     } else if (userType === "team_member") {
-      // For team members, use their role
       menuKey = user?.role?.name || user?.role || "staff";
     }
     
-    // Get menu items and filter by permissions
     const navItems = roleMenus[menuKey] || roleMenus.Admin;
     
-    // Filter items based on user permissions
     const filteredItems = navItems.filter((item) => {
-      // If no permission required, show the item
       if (!item.permission) return true;
-      
-      // Superadmin has all permissions
       if (isSuperAdmin) return true;
-      
-      // Check if user has the required permission
       return hasPermission(permissions, item.permission);
     });
     
     return groupBySection(filteredItems);
   }, [user, userType, isSuperAdmin, isHost, permissions]);
+  
   const [collapsedSections, setCollapsedSections] = useState(new Set());
 
   const handleSectionToggle = (section) => {
@@ -80,84 +108,109 @@ export default function Sidebar({
 
   return (
     <>
+      {/* Mobile Overlay */}
       {isVisible && (
         <div
-          className="fixed inset-0 z-30 bg-slate-900/30 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden transition-opacity duration-300"
           onClick={onCloseMobile}
         />
       )}
+
+      {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex h-screen w-72 flex-col border-r border-slate-200 bg-white transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex h-screen flex-col bg-white border-r border-slate-200 shadow-xl transition-all duration-300 ease-out lg:static lg:translate-x-0 ${
           isVisible ? "translate-x-0" : "-translate-x-full"
-        } ${collapsed ? "lg:w-20" : "lg:w-72"} ${isDisabled ? "sidebar-disabled" : ""}`}
+        } ${collapsed ? "lg:w-[72px] w-[72px]" : "lg:w-64 w-64"} ${
+          isDisabled ? "opacity-50 pointer-events-none" : ""
+        }`}
       >
-        {/* Header with Close Button for Mobile */}
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-4">
-          <div className="flex items-center gap-2">
-            <span className="rounded-full bg-blue-500/10 p-2 text-xl text-blue-600">
-              🏠
-            </span>
-            {!collapsed && (
-              <div>
-                <p className="text-sm font-semibold tracking-wide text-slate-900">
-                  Zuha Hosts
-                </p>
-                <p className="text-xs text-slate-500">Property Management</p>
+        {/* Header */}
+        <div className="flex shrink-0 items-center justify-between h-16 px-4 border-b border-slate-200">
+          {!collapsed ? (
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 shadow-md">
+                <Building2 className="w-5 h-5 text-white" strokeWidth={2.5} />
               </div>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Mobile Close Button */}
+              <div className="min-w-0">
+                <h1 className="text-base font-bold text-slate-900 truncate">
+                  Zuha Hosts
+                </h1>
+                <p className="text-[11px] text-slate-500 truncate">Property Management</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 shadow-md mx-auto">
+              <Building2 className="w-5 h-5 text-white" strokeWidth={2.5} />
+            </div>
+          )}
+          
+          {!collapsed && (
             <button
-              className="lg:hidden rounded-full p-1.5 text-slate-500 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+              className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
               onClick={onCloseMobile}
               aria-label="Close sidebar"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="w-5 h-5" />
             </button>
-            {/* Desktop Collapse Button */}
-            <button
-              className="hidden rounded-full border border-slate-200 p-1 text-slate-500 hover:bg-slate-50 lg:inline-flex"
-              onClick={onCollapseToggle}
-              aria-label="Toggle sidebar width"
-              disabled={isDisabled}
-            >
-              {collapsed ? "»" : "«"}
-            </button>
-          </div>
+          )}
         </div>
+
+        {/* Collapse Toggle - Desktop Only */}
+        {!collapsed && (
+          <button
+            className="hidden lg:flex absolute top-[70px] -right-3 z-50 h-6 w-6 items-center justify-center rounded-full bg-white border-2 border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+            onClick={onCollapseToggle}
+            aria-label="Collapse sidebar"
+            disabled={isDisabled}
+          >
+            <ChevronLeft className="w-3.5 h-3.5" strokeWidth={3} />
+          </button>
+        )}
         
-        {/* Scrollable Content Area */}
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 py-4">
-          <div className="space-y-4">
+        {collapsed && (
+          <button
+            className="hidden lg:flex absolute top-[70px] -right-3 z-50 h-6 w-6 items-center justify-center rounded-full bg-white border-2 border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+            onClick={onCollapseToggle}
+            aria-label="Expand sidebar"
+            disabled={isDisabled}
+          >
+            <ChevronRight className="w-3.5 h-3.5" strokeWidth={3} />
+          </button>
+        )}
+
+        {/* Navigation Content */}
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden lg:py-4 py-2">
+          <nav className={collapsed ? "space-y-1" : "lg:space-y-6 space-y-0"}>
             {Object.entries(groupedMenus).map(([section, items]) => (
-              <div
-                key={section}
-                className="rounded-xl border border-transparent px-2 py-1 hover:border-slate-100"
-              >
-                <button
-                  className="flex w-full items-center justify-between text-left text-xs font-semibold uppercase tracking-wider text-slate-500"
-                  onClick={() => handleSectionToggle(section)}
-                  disabled={isDisabled}
-                >
-                  <span>{section}</span>
-                  <span>{collapsedSections.has(section) ? "+" : "−"}</span>
-                </button>
-                {!collapsedSections.has(section) && (
-                  <nav className="mt-1 space-y-1">
+              <div key={section} className={collapsed ? "" : "lg:px-3 px-0"}>
+                {!collapsed && (
+                  <div className="mb-2 px-3 hidden lg:block">
+                    <h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      {section}
+                    </h3>
+                  </div>
+                )}
+                
+                {collapsed && (
+                  <div className="mb-1 px-4">
+                    <div className="h-px bg-slate-200" />
+                  </div>
+                )}
+                
+                {(!collapsedSections.has(section) || collapsed) && (
+                  <div className={collapsed ? "space-y-1" : "space-y-0.5 lg:mb-0 mb-0"}>
                     {items.map((item) => {
                       const isActive = pathname === item.href;
+                      const IconComponent = iconMap[item.icon];
                       return (
                         <Link
                           key={item.href}
                           href={isDisabled ? "#" : item.href}
-                          className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                          className={`group relative flex items-center gap-3 lg:mx-1 mx-2 px-3 lg:py-2.5 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
                             isActive
-                              ? "bg-slate-900 text-white shadow-sm"
-                              : "text-slate-600 hover:bg-slate-100"
-                          }`}
+                              ? "bg-blue-50 text-blue-700"
+                              : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                          } ${collapsed ? "justify-center" : ""}`}
                           onClick={(e) => {
                             if (isDisabled) {
                               e.preventDefault();
@@ -165,70 +218,55 @@ export default function Sidebar({
                               onCloseMobile();
                             }
                           }}
+                          title={collapsed ? item.label : undefined}
                         >
-                          <span className="text-lg">{item.icon}</span>
-                          {!collapsed && <span>{item.label}</span>}
+                          {isActive && !collapsed && (
+                            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-7 bg-blue-600 rounded-r-full" />
+                          )}
+                          {isActive && collapsed && (
+                            <span className="absolute left-1/2 -translate-x-1/2 bottom-0 h-1 w-7 bg-blue-600 rounded-t-full" />
+                          )}
+                          {IconComponent && (
+                            <IconComponent 
+                              className={`w-[18px] h-[18px] shrink-0 ${isActive ? 'opacity-100' : 'opacity-70'}`}
+                              strokeWidth={2}
+                            />
+                          )}
+                          {!collapsed && (
+                            <span className="truncate">{item.label}</span>
+                          )}
                         </Link>
                       );
                     })}
-                  </nav>
+                    
+                    {/* Add Logout button after Profile in Account section */}
+                    {section === "Account" && (
+                      <button
+                        onClick={(e) => {
+                          handleLogout();
+                        }}
+                        disabled={isDisabled}
+                        className={`group relative flex items-center gap-3 lg:mx-1 mx-2 px-3 lg:py-2.5 py-2 rounded-lg text-sm font-medium transition-all duration-150 text-rose-700 hover:bg-rose-50 hover:text-rose-800 disabled:opacity-50 disabled:cursor-not-allowed ${
+                          collapsed ? "justify-center" : ""
+                        }`}
+                        title={collapsed ? "Logout" : undefined}
+                      >
+                        <LogOut 
+                          className="w-[18px] h-[18px] shrink-0 opacity-70"
+                          strokeWidth={2}
+                        />
+                        {!collapsed && (
+                          <span className="truncate">Logout</span>
+                        )}
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* Bottom Section - Earnings, Profile & Logout - Fixed at Bottom */}
-        <div className="shrink-0 border-t border-slate-200 bg-white p-4 space-y-2">
-          <Link
-            href="/earnings"
-            className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-              pathname === "/earnings"
-                ? "bg-slate-900 text-white shadow-sm"
-                : "text-slate-600 hover:bg-slate-100"
-            }`}
-            onClick={(e) => {
-              if (isDisabled) {
-                e.preventDefault();
-              } else {
-                onCloseMobile();
-              }
-            }}
-          >
-            <span className="text-lg">💰</span>
-            {!collapsed && <span>Earnings</span>}
-          </Link>
-
-          <Link
-            href="/profile"
-            className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-              pathname === "/profile"
-                ? "bg-slate-900 text-white shadow-sm"
-                : "text-slate-600 hover:bg-slate-100"
-            }`}
-            onClick={(e) => {
-              if (isDisabled) {
-                e.preventDefault();
-              } else {
-                onCloseMobile();
-              }
-            }}
-          >
-            <span className="text-lg">👤</span>
-            {!collapsed && <span>Profile</span>}
-          </Link>
-
-          <button
-            onClick={handleLogout}
-            disabled={isDisabled}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-50"
-          >
-            <span className="text-lg">🚪</span>
-            {!collapsed && <span>Logout</span>}
-          </button>
+          </nav>
         </div>
       </aside>
     </>
   );
 }
-

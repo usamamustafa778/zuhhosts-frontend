@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "@/hooks/useAuth";
-import { getCurrentUser } from "@/lib/api";
+import { getUserProfile } from "@/lib/api";
 import { useSEO } from "@/hooks/useSEO";
 
 export default function PrivacyPage() {
@@ -39,12 +39,13 @@ export default function PrivacyPage() {
   const fetchUserData = async () => {
     try {
       setLoading(true);
-      const response = await getCurrentUser();
-      setUser(response.user);
+      const response = await getUserProfile();
+      const userData = response.user || response;
+      setUser(userData);
       
       // Load privacy settings from user data if available
-      if (response.user.privacySettings) {
-        setPrivacySettings(response.user.privacySettings);
+      if (userData.privacySettings) {
+        setPrivacySettings(userData.privacySettings);
       }
     } catch (err) {
       console.error("Failed to load user data:", err);
@@ -108,38 +109,24 @@ export default function PrivacyPage() {
   );
 
   return (
-    <div className="min-h-screen bg-white lg:bg-slate-50 -mx-4 lg:mx-0 -my-6 lg:my-0">
-      {/* Mobile Header */}
-      <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 py-3 lg:hidden">
-        <div className="flex items-center gap-4">
+    <div className="mx-auto max-w-7xl space-y-8">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => router.back()}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0 lg:hidden"
           >
             <svg className="w-6 h-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h1 className="text-lg font-semibold text-slate-900">Privacy</h1>
+          <h1 className="mt-2 text-3xl font-semibold text-slate-900">
+            Privacy
+          </h1>
         </div>
       </div>
 
-      {/* Desktop Header */}
-      <div className="hidden lg:block mb-8 px-6 pt-6">
-        <button
-          onClick={() => router.back()}
-          className="mb-4 flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to Account settings
-        </button>
-        <h1 className="text-3xl font-semibold text-slate-900">Privacy</h1>
-        <p className="mt-2 text-slate-600">Manage your privacy and data sharing preferences</p>
-      </div>
-
-      <div className="px-4 py-6 lg:px-6">
+      <div>
         <div className="lg:max-w-4xl lg:mx-auto">
         {message && (
           <div
@@ -264,11 +251,8 @@ export default function PrivacyPage() {
             {saving ? "Saving..." : "Save changes"}
           </button>
         </div>
+        </div>
       </div>
-      </div>
-
-      {/* Bottom padding for mobile */}
-      <div className="h-8 lg:hidden" />
     </div>
   );
 }

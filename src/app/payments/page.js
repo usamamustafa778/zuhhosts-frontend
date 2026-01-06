@@ -161,13 +161,7 @@ export default function PaymentsPage() {
             </svg>
           </button>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-              Finance
-            </p>
             <h1 className="mt-2 text-2xl lg:text-3xl font-semibold text-slate-900">Payments</h1>
-            <p className="text-sm text-slate-500">
-              Track settlement status and capture manual payments.
-            </p>
           </div>
         </div>
 

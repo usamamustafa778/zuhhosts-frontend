@@ -9,19 +9,12 @@ import { getAllHosts, impersonateHost, stopImpersonation } from "@/lib/api";
 export default function Topbar({ onMenuToggle }) {
   const router = useRouter();
   const { user, logout: authLogout, isAuthenticated, isSuperAdmin, login } = useAuth();
-  const [notifications] = useState([
-    { id: 1, title: "New booking confirmed" },
-    { id: 2, title: "Task overdue: Deep clean pool" },
-  ]);
-  const [isNotificationsOpen, setNotificationsOpen] = useState(false);
-  const [hasReadNotifications, setHasReadNotifications] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isHostSwitcherOpen, setIsHostSwitcherOpen] = useState(false);
   const [hosts, setHosts] = useState([]);
   const [loadingHosts, setLoadingHosts] = useState(false);
   const [switchingHost, setSwitchingHost] = useState(false);
   const [selectedHostId, setSelectedHostId] = useState(null);
-  const notificationsRef = useRef(null);
   const profileRef = useRef(null);
   const hostSwitcherRef = useRef(null);
 
@@ -31,22 +24,6 @@ export default function Topbar({ onMenuToggle }) {
   // Show host switcher if original user is superadmin (even while impersonating)
   // OR if user is currently a superadmin
   const showHostSwitcher = isSuperAdmin || user?.originalRole === 'superadmin' || isImpersonating;
-
-  useEffect(() => {
-    if (!isNotificationsOpen) return;
-
-    const handleClickOutside = (event) => {
-      if (
-        notificationsRef.current &&
-        !notificationsRef.current.contains(event.target)
-      ) {
-        setNotificationsOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isNotificationsOpen]);
 
   useEffect(() => {
     if (!isProfileOpen) return;
@@ -265,59 +242,8 @@ export default function Topbar({ onMenuToggle }) {
             <h1 className="text-lg font-bold text-slate-900">ZuhHosts</h1>
           </div>
 
-          {/* Right: Profile & Notifications */}
+          {/* Right: Profile */}
           <div className="flex items-center gap-2">
-            {/* Notifications */}
-            <div className="relative" ref={notificationsRef}>
-              <button
-                className="relative flex h-10 w-10 items-center justify-center rounded-full active:bg-slate-100 transition-colors"
-                aria-label="Notifications"
-                onClick={() => {
-                  setNotificationsOpen((prev) => !prev);
-                  if (!hasReadNotifications) {
-                    setHasReadNotifications(true);
-                  }
-                }}
-              >
-                <svg className="h-6 w-6 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                {!hasReadNotifications && notifications.length > 0 && (
-                  <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-rose-500"></span>
-                )}
-              </button>
-              {isNotificationsOpen && (
-                <div className="absolute right-0 z-30 mt-3 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white shadow-xl">
-                  <div className="border-b border-slate-100 px-4 py-3">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-slate-900">Notifications</span>
-                      <button
-                        className="text-sm text-slate-500 hover:text-slate-700"
-                        onClick={() => setNotificationsOpen(false)}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                  <div className="max-h-96 overflow-y-auto p-2">
-                    {notifications.map((item) => (
-                      <div
-                        key={item.id}
-                        className="rounded-xl px-4 py-3 hover:bg-slate-50 transition-colors"
-                      >
-                        <p className="text-sm text-slate-700">{item.title}</p>
-                      </div>
-                    ))}
-                    {notifications.length === 0 && (
-                      <p className="text-center py-8 text-sm text-slate-400">
-                        You're all caught up!
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* Profile */}
             {isAuthenticated && user && (
               <div className="relative" ref={profileRef}>
@@ -468,49 +394,6 @@ export default function Topbar({ onMenuToggle }) {
             </div>
           )}
 
-          <div className="relative" ref={notificationsRef}>
-            <button
-              className={`relative rounded-full border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-50 ${hasReadNotifications ? '' : 'font-bold'}`}
-              aria-label="Notifications"
-              onClick={() => {
-                setNotificationsOpen((prev) => !prev);
-                if (!hasReadNotifications) {
-                  setHasReadNotifications(true);
-                }
-              }}
-            >
-              🔔
-            </button>
-            {isNotificationsOpen && (
-              <div className="absolute right-0 z-30 mt-3 w-64 rounded-2xl border border-slate-100 bg-white p-3 shadow-xl">
-                <div className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-700">
-                  <span>Notifications</span>
-                  <button
-                    className="text-xs text-slate-400 hover:text-slate-600"
-                    onClick={() => setNotificationsOpen(false)}
-                  >
-                    Close
-                  </button>
-                </div>
-                <div className="space-y-2 text-sm">
-                  {notifications.map((item) => (
-                    <div
-                      key={item.id}
-                      className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2 text-slate-600"
-                    >
-                      {item.title}
-                    </div>
-                  ))}
-                  {notifications.length === 0 && (
-                    <p className="text-center text-xs text-slate-400">
-                      You're all caught up!
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-          
           {isAuthenticated && user ? (
             <div className="relative" ref={profileRef}>
               <button

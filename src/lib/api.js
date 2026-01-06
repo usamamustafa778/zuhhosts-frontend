@@ -289,6 +289,46 @@ export async function updateBookingPaymentStatus(id, paymentStatus) {
   return handleResponse(res, "Failed to update payment status");
 }
 
+/**
+ * Get earnings data with various query parameters
+ * @param {Object} params - Query parameters
+ * @param {string} params.period - Period filter (week, month, year)
+ * @param {string} params.startDate - Start date (YYYY-MM-DD)
+ * @param {string} params.endDate - End date (YYYY-MM-DD)
+ * @param {string} params.groupBy - Group by field (property, month, etc.)
+ * @param {string} params.property_id - Filter by property ID
+ * @param {string} params.payment_status - Filter by payment status (paid, pending, etc.)
+ * @returns {Promise<Object>} Earnings data
+ */
+export async function getEarnings(params = {}) {
+  const queryParams = new URLSearchParams();
+  
+  if (params.period) {
+    queryParams.append('period', params.period);
+  }
+  if (params.startDate) {
+    queryParams.append('startDate', params.startDate);
+  }
+  if (params.endDate) {
+    queryParams.append('endDate', params.endDate);
+  }
+  if (params.groupBy) {
+    queryParams.append('groupBy', params.groupBy);
+  }
+  if (params.property_id) {
+    queryParams.append('property_id', params.property_id);
+  }
+  if (params.payment_status) {
+    queryParams.append('payment_status', params.payment_status);
+  }
+
+  const url = `${API_BASE_URL}/bookings/earnings${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+  console.log("🔵 API Call: getEarnings", url);
+  const res = await fetchWithAuth(url);
+  console.log("🔵 API Response:", res.status, res.statusText);
+  return handleResponse(res, "Failed to fetch earnings");
+}
+
 export async function getAllPayments() {
   console.log("🔵 API Call: getAllPayments", `${API_BASE_URL}/payments`);
   const res = await fetchWithAuth(`${API_BASE_URL}/payments`);
@@ -683,6 +723,55 @@ export async function changePassword(currentPassword, newPassword) {
     body: JSON.stringify({ currentPassword, newPassword }),
   });
   return handleResponse(res, "Failed to change password");
+}
+
+// ============================================
+// Profile Management API Functions
+// ============================================
+
+/**
+ * Get current user profile
+ * Endpoint: GET /api/users/profile or GET /users/profile
+ * Returns the authenticated user's profile information with populated role, permissions, and hostId
+ */
+export async function getUserProfile() {
+  const res = await fetchWithAuth(`${API_BASE_URL}/users/profile`);
+  return handleResponse(res, "Failed to fetch user profile");
+}
+
+/**
+ * Update user profile
+ * Endpoint: PUT /api/users/profile or PATCH /api/users/profile
+ * Allows users to update their personal information
+ * Allowed fields: name, email, phone, businessName (optional, for hosts), department (optional, for staff)
+ * @param {Object} data - Profile data to update
+ * @param {string} data.name - User's full name (min 2 characters)
+ * @param {string} data.email - Email address (validated format, checked for uniqueness)
+ * @param {string} [data.phone] - Phone number (optional, validated format)
+ * @param {string} [data.businessName] - Business name (optional, for hosts)
+ * @param {string} [data.department] - Department (optional, for staff)
+ */
+export async function updateUserProfile(data) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/users/profile`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, "Failed to update user profile");
+}
+
+/**
+ * Update user password
+ * Endpoint: PUT /api/users/profile/password or PATCH /api/users/profile/password
+ * Allows users to change their password
+ * @param {string} currentPassword - User's current password
+ * @param {string} newPassword - New password (min 6 characters)
+ */
+export async function updateUserPassword(currentPassword, newPassword) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/users/profile/password`, {
+    method: "PUT",
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  return handleResponse(res, "Failed to update password");
 }
 
 // ============================================
