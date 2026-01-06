@@ -175,26 +175,36 @@ export default function TasksPage() {
   };
 
   const getStatusColor = (status) => {
-    switch (status) {
+    const normalizedStatus = (status || "").toLowerCase().trim();
+    switch (normalizedStatus) {
       case "completed":
+      case "complete":
         return "bg-green-100 text-green-700";
       case "in_progress":
+      case "in-progress":
         return "bg-blue-100 text-blue-700";
       case "cancelled":
+      case "canceled":
         return "bg-rose-100 text-rose-700";
+      case "pending":
       default:
         return "bg-slate-100 text-slate-700";
     }
   };
 
   const getStatusLabel = (status) => {
-    switch (status) {
+    const normalizedStatus = (status || "").toLowerCase().trim();
+    switch (normalizedStatus) {
       case "in_progress":
+      case "in-progress":
         return "In Progress";
       case "completed":
+      case "complete":
         return "Completed";
       case "cancelled":
+      case "canceled":
         return "Cancelled";
+      case "pending":
       default:
         return "Pending";
     }
@@ -204,17 +214,34 @@ export default function TasksPage() {
   const kanbanTasks = tasks.map((task) => {
     const taskId = task.id || task._id;
 
-    // Map API status to Kanban column names
+    // Map API status to Kanban column names (explicitly handle all cases)
     let column = "Pending";
-    if (task.status === "in_progress") column = "In Progress";
-    else if (task.status === "completed") column = "Completed";
-    else if (task.status === "cancelled") column = "Cancelled";
+    const status = (task.status || "").toLowerCase().trim();
+    if (status === "in_progress" || status === "in-progress") {
+      column = "In Progress";
+    } else if (status === "completed" || status === "complete") {
+      column = "Completed";
+    } else if (status === "cancelled" || status === "canceled") {
+      column = "Cancelled";
+    } else {
+      // Default to Pending for "pending" or any other status
+      column = "Pending";
+    }
+
+    // Handle nested objects from API response
+    const assignedTo = typeof task.assigned_to === 'object' && task.assigned_to !== null 
+      ? task.assigned_to 
+      : (users.find(u => (u.id || u._id) === task.assigned_to) || {});
+    
+    const property = typeof task.property_id === 'object' && task.property_id !== null
+      ? task.property_id
+      : (properties.find(p => (p.id || p._id) === task.property_id) || {});
 
     return {
       id: taskId,
       title: task.title || "Untitled Task",
-      assignee: task.assigned_to?.name || "Unassigned",
-      property: task.property_id?.title || "No property",
+      assignee: assignedTo.name || "Unassigned",
+      property: property.title || property.name || "No property",
       description: task.description || "",
       status: task.status,
       column: column,
@@ -350,8 +377,19 @@ export default function TasksPage() {
             <div className="grid gap-3 md:grid-cols-2">
               {tasks.map((task) => {
                 const taskId = task.id || task._id;
-                const property = properties.find(p => (p.id || p._id) === task.property_id) || {};
-                const assignee = users.find(u => (u.id || u._id) === task.assigned_to) || {};
+                
+                // Handle nested objects from API response
+                const property = typeof task.property_id === 'object' && task.property_id !== null
+                  ? task.property_id
+                  : (properties.find(p => (p.id || p._id) === task.property_id) || {});
+                
+                const assignee = typeof task.assigned_to === 'object' && task.assigned_to !== null
+                  ? task.assigned_to
+                  : (users.find(u => (u.id || u._id) === task.assigned_to) || {});
+                
+                const host = typeof task.hostId === 'object' && task.hostId !== null
+                  ? task.hostId
+                  : null;
                 
                 return (
                   <div
@@ -384,10 +422,10 @@ export default function TasksPage() {
                               onClick={() => {
                                 setEditingTask(task);
                                 setFormData({
-                                  property_id: task.property_id || "",
+                                  property_id: typeof task.property_id === 'object' ? (task.property_id.id || task.property_id._id) : (task.property_id || ""),
                                   title: task.title || "",
                                   description: task.description || "",
-                                  assigned_to: task.assigned_to || "",
+                                  assigned_to: typeof task.assigned_to === 'object' ? (task.assigned_to.id || task.assigned_to._id) : (task.assigned_to || ""),
                                   status: task.status || "pending",
                                 });
                                 setOpenDropdownId(null);
@@ -419,7 +457,12 @@ export default function TasksPage() {
                     <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100">
                       <div>
                         <span className="text-xs text-slate-500 block mb-1">Property</span>
-                        <span className="text-sm text-slate-900 truncate block">{property.title || property.name || "N/A"}</span>
+                        <span className="text-sm text-slate-900 truncate block" title={property.location || ""}>
+                          {property.title || property.name || "N/A"}
+                        </span>
+                        {property.location && (
+                          <span className="text-xs text-slate-400 truncate block">{property.location}</span>
+                        )}
                       </div>
                       <div className="text-right">
                         <span className="text-xs text-slate-500 block mb-1">Status</span>
@@ -433,9 +476,44 @@ export default function TasksPage() {
                           <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-xs font-bold text-white">
                             {assignee.name?.charAt(0)?.toUpperCase() || "?"}
                           </div>
-                          <span className="text-sm text-slate-900 truncate">{assignee.name || "Unassigned"}</span>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm text-slate-900 truncate block">{assignee.name || "Unassigned"}</span>
+                            {assignee.email && (
+                              <span className="text-xs text-slate-400 truncate block">{assignee.email}</span>
+                            )}
+                          </div>
                         </div>
                       </div>
+                      {host && (
+                        <div className="col-span-2 pt-2 border-t border-slate-100">
+                          <span className="text-xs text-slate-500 block mb-1">Host</span>
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-xs font-bold text-white">
+                              {host.name?.charAt(0)?.toUpperCase() || "?"}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm text-slate-900 truncate block">{host.name || "N/A"}</span>
+                              {host.email && (
+                                <span className="text-xs text-slate-400 truncate block">{host.email}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {task.createdAt && (
+                        <div className="col-span-2 pt-2 border-t border-slate-100">
+                          <span className="text-xs text-slate-500">Created</span>
+                          <span className="text-xs text-slate-600 ml-2">
+                            {new Date(task.createdAt).toLocaleDateString('en-US', { 
+                              year: 'numeric', 
+                              month: 'short', 
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
