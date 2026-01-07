@@ -54,16 +54,68 @@ async function fetchWithAuth(url, options = {}, requireAuth = true) {
 
 async function handleResponse(response, fallbackMessage) {
   if (!response.ok) {
+    // Clone the response so we can read it multiple times if needed
+    const clonedResponse = response.clone();
+    
     // Try to parse JSON error first
     try {
       const errorData = await response.json();
-      throw new Error(errorData.error || errorData.message || fallbackMessage);
+      
+      // Extract error message from various possible fields
+      let errorMessage = fallbackMessage;
+      
+      if (errorData) {
+        if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        } else if (typeof errorData === 'object') {
+          errorMessage = errorData.error || 
+                        errorData.message || 
+                        errorData.msg ||
+                        errorData.errorMessage ||
+                        (errorData.errors && Array.isArray(errorData.errors) ? errorData.errors.join(', ') : null) ||
+                        fallbackMessage;
+        }
+      }
+      
+      throw new Error(errorMessage);
     } catch (parseError) {
-      // If JSON parsing fails, try text
+      // If we successfully parsed JSON and got a specific error message, use it
+      if (parseError.message && parseError.message !== fallbackMessage && parseError.name === 'Error') {
+        throw parseError;
+      }
+      
+      // If JSON parsing failed, try reading as text
       try {
-        const text = await response.text();
-        throw new Error(text || fallbackMessage);
-      } catch {
+        const text = await clonedResponse.text();
+        let errorMessage = fallbackMessage;
+        
+        // Try to parse the text as JSON if it looks like JSON
+        if (text && text.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(text);
+            errorMessage = parsed.error || 
+                          parsed.message || 
+                          parsed.msg || 
+                          parsed.errorMessage ||
+                          text ||
+                          fallbackMessage;
+          } catch {
+            errorMessage = text || fallbackMessage;
+          }
+        } else if (text) {
+          errorMessage = text;
+        }
+        
+        throw new Error(errorMessage);
+      } catch (textError) {
+        // If we got a specific error message from text, use it
+        if (textError.message && textError.message !== fallbackMessage) {
+          throw textError;
+        }
+        // Fall back to the original parseError if it has a specific message
+        if (parseError.message && parseError.message !== fallbackMessage) {
+          throw parseError;
+        }
         throw new Error(fallbackMessage);
       }
     }

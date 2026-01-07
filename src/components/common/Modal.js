@@ -9,7 +9,8 @@ export default function Modal({
   primaryActionLabel = "Save", 
   primaryAction,
   onPrimaryAction,
-  size = "medium" 
+  size = "medium",
+  disabled = false
 }) {
   if (!isOpen) return null;
 
@@ -57,8 +58,9 @@ export default function Modal({
           </button>
           {(primaryActionLabel || primaryAction || onPrimaryAction) && (
             <button 
-              className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+              className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-slate-900"
               onClick={handlePrimaryAction}
+              disabled={disabled}
             >
               {primaryActionLabel}
             </button>

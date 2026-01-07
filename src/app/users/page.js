@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import DataTable from "@/components/common/DataTable";
 import StatusPill from "@/components/common/StatusPill";
 import Modal from "@/components/common/Modal";
-import FormField from "@/components/common/FormField";
+import InputField from "@/components/common/InputField";
 import PhoneInput from "@/components/common/PhoneInput";
 import PageLoader from "@/components/common/PageLoader";
 import { useDashboard } from "@/components/layout/DashboardShell";
@@ -18,7 +18,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Info } from "lucide-react";
 import toast from "react-hot-toast";
 
 const formatPermissions = (permissions) =>
@@ -58,6 +58,7 @@ export default function UsersPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState(null);
+  const [validationErrors, setValidationErrors] = useState({});
   const [viewMode, setViewMode] = useState(() => {
     // Default to table on desktop, cards on mobile
     if (typeof window !== "undefined") {
@@ -109,7 +110,6 @@ export default function UsersPage() {
       try {
         setIsLoading(true);
         setError(null);
-        const toastId = toast.loading("Loading users and roles...");
 
         // Fetch users and roles in parallel
         const [usersResponse, rolesResponse] = await Promise.all([
@@ -124,9 +124,6 @@ export default function UsersPage() {
             ? rolesResponse
             : rolesResponse?.roles ?? [];
           setRolesData(rolesArray);
-          toast.success("Users and roles loaded successfully!", {
-            id: toastId,
-          });
         }
       } catch (err) {
         const errorMessage = err.message || "Failed to load data";
@@ -176,11 +173,74 @@ export default function UsersPage() {
     }
   }, [selectedUser]);
 
+  // Validation function for create form
+  const validateCreateForm = () => {
+    const errors = {};
+
+    // Name validation
+    if (!createForm.name || createForm.name.trim().length < 2) {
+      errors.name = "Name must be at least 2 characters long";
+    }
+
+    // Email validation
+    if (!createForm.email || createForm.email.trim().length === 0) {
+      errors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(createForm.email)) {
+      errors.email = "Please enter a valid email address";
+    }
+
+    // Password validation
+    if (!createForm.password || createForm.password.length < 6) {
+      errors.password = "Password must be at least 6 characters long";
+    }
+
+    // Role validation
+    if (!createForm.role || createForm.role.trim().length === 0) {
+      errors.role = "Role is required";
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Validation function for edit form
+  const validateEditForm = () => {
+    const errors = {};
+
+    // Name validation
+    if (!editForm.name || editForm.name.trim().length < 2) {
+      errors.name = "Name must be at least 2 characters long";
+    }
+
+    // Email validation
+    if (!editForm.email || editForm.email.trim().length === 0) {
+      errors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email)) {
+      errors.email = "Please enter a valid email address";
+    }
+
+    // Role validation
+    if (!editForm.role || editForm.role.trim().length === 0) {
+      errors.role = "Role is required";
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleCreateUser = async () => {
+    // Validate form before submission
+    if (!validateCreateForm()) {
+      toast.error("Please fix the form errors before submitting");
+      return;
+    }
+
+    let toastId;
     try {
       setIsSaving(true);
       setError(null);
-      const toastId = toast.loading("Creating user...");
+      setValidationErrors({});
+      toastId = toast.loading("Creating user...");
 
       // Find role ID from role name
       const selectedRole = rolesData.find(
@@ -202,7 +262,7 @@ export default function UsersPage() {
       setUsersData((prev) => [...prev, result]);
       setCreateOpen(false);
 
-      // Reset form
+      // Reset form only on success
       setCreateForm({
         name: "",
         email: "",
@@ -214,9 +274,43 @@ export default function UsersPage() {
 
       toast.success("User created successfully!", { id: toastId });
     } catch (err) {
+      // Extract error message from API response
       const errorMessage = err.message || "Failed to create user";
-      setError(errorMessage);
-      toast.error(errorMessage);
+
+      // Check if error is email or phone-related and set it in validation errors
+      const lowerErrorMessage = errorMessage.toLowerCase();
+      if (
+        lowerErrorMessage.includes("email") ||
+        (lowerErrorMessage.includes("already exists") &&
+          lowerErrorMessage.includes("email")) ||
+        (lowerErrorMessage.includes("duplicate") &&
+          lowerErrorMessage.includes("email"))
+      ) {
+        setValidationErrors({ email: errorMessage });
+        setError(null);
+      } else if (
+        lowerErrorMessage.includes("phone") ||
+        (lowerErrorMessage.includes("already exists") &&
+          lowerErrorMessage.includes("phone")) ||
+        (lowerErrorMessage.includes("duplicate") &&
+          lowerErrorMessage.includes("phone")) ||
+        lowerErrorMessage.includes("invalid phone") ||
+        lowerErrorMessage.includes("phone number")
+      ) {
+        setValidationErrors({ phone: errorMessage });
+        setError(null);
+      } else {
+        setError(errorMessage);
+        setValidationErrors({});
+      }
+
+      // Replace loading toast with error toast, keeping form open
+      if (toastId) {
+        toast.error(errorMessage, { id: toastId, duration: 5000 });
+      } else {
+        toast.error(errorMessage, { duration: 5000 });
+      }
+      // Don't close modal or reset form on error - let user fix and try again
     } finally {
       setIsSaving(false);
     }
@@ -225,10 +319,18 @@ export default function UsersPage() {
   const handleUpdateUser = async () => {
     if (!selectedUser) return;
 
+    // Validate form before submission
+    if (!validateEditForm()) {
+      toast.error("Please fix the form errors before submitting");
+      return;
+    }
+
+    let toastId;
     try {
       setIsSaving(true);
       setError(null);
-      const toastId = toast.loading("Updating user...");
+      setValidationErrors({});
+      toastId = toast.loading("Updating user...");
 
       const userId = selectedUser.id || selectedUser._id;
 
@@ -255,9 +357,43 @@ export default function UsersPage() {
 
       toast.success("User updated successfully!", { id: toastId });
     } catch (err) {
+      // Extract error message from API response
       const errorMessage = err.message || "Failed to update user";
-      setError(errorMessage);
-      toast.error(errorMessage);
+
+      // Check if error is email or phone-related and set it in validation errors
+      const lowerErrorMessage = errorMessage.toLowerCase();
+      if (
+        lowerErrorMessage.includes("email") ||
+        (lowerErrorMessage.includes("already exists") &&
+          lowerErrorMessage.includes("email")) ||
+        (lowerErrorMessage.includes("duplicate") &&
+          lowerErrorMessage.includes("email"))
+      ) {
+        setValidationErrors({ email: errorMessage });
+        setError(null);
+      } else if (
+        lowerErrorMessage.includes("phone") ||
+        (lowerErrorMessage.includes("already exists") &&
+          lowerErrorMessage.includes("phone")) ||
+        (lowerErrorMessage.includes("duplicate") &&
+          lowerErrorMessage.includes("phone")) ||
+        lowerErrorMessage.includes("invalid phone") ||
+        lowerErrorMessage.includes("phone number")
+      ) {
+        setValidationErrors({ phone: errorMessage });
+        setError(null);
+      } else {
+        setError(errorMessage);
+        setValidationErrors({});
+      }
+
+      // Replace loading toast with error toast, keeping form open
+      if (toastId) {
+        toast.error(errorMessage, { id: toastId, duration: 5000 });
+      } else {
+        toast.error(errorMessage, { duration: 5000 });
+      }
+      // Don't close modal on error - let user fix and try again
     } finally {
       setIsSaving(false);
     }
@@ -347,14 +483,6 @@ export default function UsersPage() {
 
   if (isLoading) {
     return <PageLoader message="Loading users..." />;
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-3xl border border-rose-100 bg-rose-50/80 p-8 text-center text-rose-600">
-        {error}
-      </div>
-    );
   }
 
   return (
@@ -447,12 +575,6 @@ export default function UsersPage() {
           </button>
         </div>
       </div>
-
-      {error && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-          {error}
-        </div>
-      )}
 
       {/* Card View (Mobile) */}
       {viewMode === "cards" && (
@@ -689,31 +811,41 @@ export default function UsersPage() {
         isOpen={Boolean(selectedUser)}
         onClose={() => {
           setError(null);
+          setValidationErrors({});
           setSelectedUser(null);
         }}
         primaryActionLabel={isSaving ? "Saving..." : "Save changes"}
         primaryAction={handleUpdateUser}
+        disabled={isSaving}
       >
-        {error && (
-          <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
-            {error}
-          </div>
-        )}
         <div className="flex flex-col gap-3">
-          <FormField
+          <InputField
             label="Full name"
+            type="text"
             value={editForm.name}
-            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+            onChange={(e) => {
+              setEditForm({ ...editForm, name: e.target.value });
+              if (validationErrors.name) {
+                setValidationErrors({ ...validationErrors, name: null });
+              }
+            }}
             placeholder="Enter full name"
+            error={validationErrors.name}
+            required
           />
-          <FormField
+          <InputField
             label="Email"
             type="email"
             value={editForm.email}
-            onChange={(e) =>
-              setEditForm({ ...editForm, email: e.target.value })
-            }
+            onChange={(e) => {
+              setEditForm({ ...editForm, email: e.target.value });
+              if (validationErrors.email) {
+                setValidationErrors({ ...validationErrors, email: null });
+              }
+            }}
             placeholder="Enter email"
+            error={validationErrors.email}
+            required
           />
           <div className="space-y-1 text-sm text-slate-600">
             <label className="block text-sm font-medium text-slate-700">
@@ -721,25 +853,55 @@ export default function UsersPage() {
             </label>
             <PhoneInput
               value={editForm.phone}
-              onChange={(e) =>
-                setEditForm({ ...editForm, phone: e.target.value })
-              }
+              onChange={(e) => {
+                setEditForm({ ...editForm, phone: e.target.value });
+                if (validationErrors.phone) {
+                  setValidationErrors({ ...validationErrors, phone: null });
+                }
+              }}
               placeholder="Enter phone number"
+              error={validationErrors.phone}
             />
           </div>
-          <FormField
-            label="Role"
-            as="select"
-            value={
-              editForm.role.charAt(0).toUpperCase() + editForm.role.slice(1)
-            }
-            onChange={(e) =>
-              setEditForm({ ...editForm, role: e.target.value.toLowerCase() })
-            }
-            options={rolesData.map(
-              (r) => r.name.charAt(0).toUpperCase() + r.name.slice(1)
+          <div>
+            <label className="space-y-1 text-sm text-slate-600">
+              <span className="font-semibold text-sm">Role</span>
+              <select
+                value={
+                  editForm.role.charAt(0).toUpperCase() + editForm.role.slice(1)
+                }
+                onChange={(e) => {
+                  setEditForm({
+                    ...editForm,
+                    role: e.target.value.toLowerCase(),
+                  });
+                  if (validationErrors.role) {
+                    setValidationErrors({ ...validationErrors, role: null });
+                  }
+                }}
+                className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-700 focus:outline-none ${
+                  validationErrors.role
+                    ? "border-rose-300 focus:border-rose-400"
+                    : "border-slate-200 focus:border-slate-400"
+                }`}
+              >
+                {rolesData.map((r) => {
+                  const roleName =
+                    r.name.charAt(0).toUpperCase() + r.name.slice(1);
+                  return (
+                    <option key={r._id || r.id || r.name} value={r.name}>
+                      {roleName}
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
+            {validationErrors.role && (
+              <p className="mt-1 text-xs text-rose-600">
+                {validationErrors.role}
+              </p>
             )}
-          />
+          </div>
           {isSuperAdmin && (
             <div className="flex items-center gap-2">
               <input
@@ -760,6 +922,14 @@ export default function UsersPage() {
             </div>
           )}
         </div>
+
+        {error && (
+          <div className="mt-5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1 text-sm text-rose-700">
+            <Info className="h-4 w-4 text-rose-500" />
+            Fix the form errors before submitting.
+            {error}
+          </div>
+        )}
       </Modal>
 
       <Modal
@@ -767,33 +937,41 @@ export default function UsersPage() {
         isOpen={isCreateOpen}
         onClose={() => {
           setError(null);
+          setValidationErrors({});
           setCreateOpen(false);
         }}
         primaryActionLabel={isSaving ? "Creating..." : "Create user"}
         primaryAction={handleCreateUser}
+        disabled={isSaving}
       >
-        {error && (
-          <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
-            {error}
-          </div>
-        )}
         <div className="flex flex-col gap-3">
-          <FormField
+          <InputField
             label="Full name"
+            type="text"
             value={createForm.name}
-            onChange={(e) =>
-              setCreateForm({ ...createForm, name: e.target.value })
-            }
+            onChange={(e) => {
+              setCreateForm({ ...createForm, name: e.target.value });
+              if (validationErrors.name) {
+                setValidationErrors({ ...validationErrors, name: null });
+              }
+            }}
             placeholder="Enter full name"
+            error={validationErrors.name}
+            required
           />
-          <FormField
+          <InputField
             label="Email"
             type="email"
             value={createForm.email}
-            onChange={(e) =>
-              setCreateForm({ ...createForm, email: e.target.value })
-            }
+            onChange={(e) => {
+              setCreateForm({ ...createForm, email: e.target.value });
+              if (validationErrors.email) {
+                setValidationErrors({ ...validationErrors, email: null });
+              }
+            }}
             placeholder="Enter email"
+            error={validationErrors.email}
+            required
           />
           <div className="space-y-1 text-sm text-slate-600">
             <label className="block text-sm font-medium text-slate-700">
@@ -801,10 +979,14 @@ export default function UsersPage() {
             </label>
             <PhoneInput
               value={createForm.phone}
-              onChange={(e) =>
-                setCreateForm({ ...createForm, phone: e.target.value })
-              }
+              onChange={(e) => {
+                setCreateForm({ ...createForm, phone: e.target.value });
+                if (validationErrors.phone) {
+                  setValidationErrors({ ...validationErrors, phone: null });
+                }
+              }}
               placeholder="Enter phone number"
+              error={validationErrors.phone}
             />
           </div>
           <div className="space-y-1 text-sm text-slate-600">
@@ -813,11 +995,21 @@ export default function UsersPage() {
               <input
                 type={showPassword ? "text" : "password"}
                 value={createForm.password}
-                onChange={(e) =>
-                  setCreateForm({ ...createForm, password: e.target.value })
-                }
+                onChange={(e) => {
+                  setCreateForm({ ...createForm, password: e.target.value });
+                  if (validationErrors.password) {
+                    setValidationErrors({
+                      ...validationErrors,
+                      password: null,
+                    });
+                  }
+                }}
                 placeholder="Enter password (min 6 characters)"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 pr-10 text-sm text-slate-700 focus:border-slate-400 focus:outline-none"
+                className={`w-full rounded-lg border px-3 py-2 pr-10 text-sm text-slate-700 focus:outline-none ${
+                  validationErrors.password
+                    ? "border-rose-300 focus:border-rose-400"
+                    : "border-slate-200 focus:border-slate-400"
+                }`}
               />
               <button
                 type="button"
@@ -832,29 +1024,57 @@ export default function UsersPage() {
                 )}
               </button>
             </div>
-          </div>
-          <FormField
-            label="Role"
-            as="select"
-            value={
-              createForm.role
-                ? createForm.role.charAt(0).toUpperCase() +
-                  createForm.role.slice(1)
-                : rolesData.length > 0
-                ? rolesData[0].name.charAt(0).toUpperCase() +
-                  rolesData[0].name.slice(1)
-                : ""
-            }
-            onChange={(e) =>
-              setCreateForm({
-                ...createForm,
-                role: e.target.value.toLowerCase(),
-              })
-            }
-            options={rolesData.map(
-              (r) => r.name.charAt(0).toUpperCase() + r.name.slice(1)
+            {validationErrors.password && (
+              <p className="mt-1 text-xs text-rose-600">
+                {validationErrors.password}
+              </p>
             )}
-          />
+          </div>
+          <div>
+            <label className="space-y-1 text-sm text-slate-600">
+              <span className="font-semibold text-sm">Role</span>
+              <select
+                value={
+                  createForm.role
+                    ? createForm.role.charAt(0).toUpperCase() +
+                      createForm.role.slice(1)
+                    : rolesData.length > 0
+                    ? rolesData[0].name.charAt(0).toUpperCase() +
+                      rolesData[0].name.slice(1)
+                    : ""
+                }
+                onChange={(e) => {
+                  setCreateForm({
+                    ...createForm,
+                    role: e.target.value.toLowerCase(),
+                  });
+                  if (validationErrors.role) {
+                    setValidationErrors({ ...validationErrors, role: null });
+                  }
+                }}
+                className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-700 focus:outline-none ${
+                  validationErrors.role
+                    ? "border-rose-300 focus:border-rose-400"
+                    : "border-slate-200 focus:border-slate-400"
+                }`}
+              >
+                {rolesData.map((r) => {
+                  const roleName =
+                    r.name.charAt(0).toUpperCase() + r.name.slice(1);
+                  return (
+                    <option key={r._id || r.id || r.name} value={r.name}>
+                      {roleName}
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
+            {validationErrors.role && (
+              <p className="mt-1 text-xs text-rose-600">
+                {validationErrors.role}
+              </p>
+            )}
+          </div>
           {isSuperAdmin && (
             <div className="flex items-center gap-2">
               <input
@@ -875,6 +1095,14 @@ export default function UsersPage() {
             </div>
           )}
         </div>
+
+        {error && (
+          <div className="mt-5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1 text-sm text-rose-700">
+            <Info className="h-4 w-4 text-rose-500" />
+            Fix the form errors before submitting.
+            {error}
+          </div>
+        )}
       </Modal>
 
       <Modal

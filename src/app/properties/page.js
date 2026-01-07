@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import PhotoCarousel from "@/components/modules/PhotoCarousel";
 import DataTable from "@/components/common/DataTable";
 import Modal from "@/components/common/Modal";
@@ -21,12 +21,14 @@ import { useSEO } from "@/hooks/useSEO";
 export default function PropertiesPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useRequireAuth();
-  
+
   // SEO
   useSEO({
     title: "Properties | Zuha Host",
-    description: "Manage your property listings. Add, edit, and monitor all your vacation rental properties.",
-    keywords: "properties, listings, vacation rentals, property management, rental properties",
+    description:
+      "Manage your property listings. Add, edit, and monitor all your vacation rental properties.",
+    keywords:
+      "properties, listings, vacation rentals, property management, rental properties",
   });
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [isCreateOpen, setCreateOpen] = useState(false);
@@ -57,23 +59,17 @@ export default function PropertiesPage() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    console.log(
-      "🟢 PropertiesPage: useEffect triggered, calling getAllProperties"
-    );
     const loadProperties = async () => {
       try {
         setIsLoading(true);
         setError(null);
-        console.log("🟢 PropertiesPage: Starting API call...");
         const data = await getAllProperties();
-        console.log(
-          "🟢 PropertiesPage: API call successful, data received:",
-          data
-        );
         setPropertiesData(Array.isArray(data) ? data : []);
       } catch (err) {
+        const errorMessage = err.message || "Failed to load properties";
         console.error("🔴 PropertiesPage: API call failed:", err);
-        setError(err.message || "Failed to load properties");
+        setError(errorMessage);
+        toast.error(errorMessage);
       } finally {
         setIsLoading(false);
       }
@@ -101,7 +97,6 @@ export default function PropertiesPage() {
   };
 
   const validatePropertyForm = (data, isUpdate = false) => {
-    // For updates, only validate fields that are provided
     if (!isUpdate) {
       // Required fields for creation
       if (!data.title || data.title.trim().length < 3) {
@@ -138,6 +133,7 @@ export default function PropertiesPage() {
   };
 
   const handleCreateProperty = async () => {
+    let toastId;
     try {
       // Validate form
       const validationError = validatePropertyForm(formData, false);
@@ -155,18 +151,24 @@ export default function PropertiesPage() {
         area: Number(formData.area),
       };
 
-      const toastId = toast.loading("Creating property...");
+      toastId = toast.loading("Creating property...");
       const newProperty = await createProperty(payload);
       setPropertiesData((prev) => [...prev, newProperty]);
       setCreateOpen(false);
       resetForm();
       toast.success("Property created successfully!", { id: toastId });
     } catch (err) {
-      toast.error(err.message || "Failed to create property");
+      const errorMessage = err.message || "Failed to create property";
+      if (toastId) {
+        toast.error(errorMessage, { id: toastId });
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
 
   const handleUpdateProperty = async () => {
+    let toastId;
     try {
       const propertyId = selectedProperty.id || selectedProperty._id;
 
@@ -191,7 +193,7 @@ export default function PropertiesPage() {
         return;
       }
 
-      const toastId = toast.loading("Updating property...");
+      toastId = toast.loading("Updating property...");
       const updatedProperty = await updateProperty(propertyId, payload);
       setPropertiesData((prev) =>
         prev.map((prop) =>
@@ -204,22 +206,33 @@ export default function PropertiesPage() {
       resetForm();
       toast.success("Property updated successfully!", { id: toastId });
     } catch (err) {
-      toast.error(err.message || "Failed to update property");
+      const errorMessage = err.message || "Failed to update property";
+      if (toastId) {
+        toast.error(errorMessage, { id: toastId });
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
 
   const handleDeleteProperty = async (propertyId) => {
     if (!confirm("Are you sure you want to delete this property?")) return;
 
+    let toastId;
     try {
-      const toastId = toast.loading("Deleting property...");
+      toastId = toast.loading("Deleting property...");
       await deleteProperty(propertyId);
       setPropertiesData((prev) =>
         prev.filter((prop) => (prop.id || prop._id) !== propertyId)
       );
       toast.success("Property deleted successfully!", { id: toastId });
     } catch (err) {
-      toast.error(err.message || "Failed to delete property");
+      const errorMessage = err.message || "Failed to delete property";
+      if (toastId) {
+        toast.error(errorMessage, { id: toastId });
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
 
@@ -318,25 +331,26 @@ export default function PropertiesPage() {
     return <PageLoader message="Loading properties..." />;
   }
 
-  if (error) {
-    return (
-      <div className="rounded-3xl border border-rose-100 bg-rose-50/80 p-8 text-center text-rose-600">
-        {error}
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto max-w-7xl space-y-8">
-      <Toaster position="top-right" />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.back()}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0 lg:hidden"
           >
-            <svg className="w-6 h-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <svg
+              className="w-6 h-6 text-slate-900"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
           <h1 className="mt-2 text-3xl font-semibold text-slate-900">
@@ -711,7 +725,7 @@ export default function PropertiesPage() {
         </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField
-            label="Price (per night)"
+            label="Price Per Night (USD)"
             type="number"
             value={formData.price}
             onChange={(e) => handleFormChange("price", e.target.value)}
@@ -797,7 +811,7 @@ export default function PropertiesPage() {
         </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField
-            label="Price * (per night)"
+            label="Price per night (USD)"
             type="number"
             value={formData.price}
             onChange={(e) => handleFormChange("price", e.target.value)}
@@ -817,7 +831,7 @@ export default function PropertiesPage() {
           onChange={(e) => handleFormChange("location", e.target.value)}
           placeholder="123 Ocean Drive, Miami, FL"
         />
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4 py-3">
           <FormField
             label="Property Type"
             as="select"
