@@ -19,12 +19,14 @@ import { useSEO } from "@/hooks/useSEO";
 export default function TasksPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useRequireAuth();
-  
+
   // SEO
   useSEO({
     title: "Tasks | Zuha Host",
-    description: "Track and manage property maintenance tasks, cleaning schedules, and team assignments.",
-    keywords: "tasks, maintenance, cleaning schedule, task management, property tasks",
+    description:
+      "Track and manage property maintenance tasks, cleaning schedules, and team assignments.",
+    keywords:
+      "tasks, maintenance, cleaning schedule, task management, property tasks",
   });
   const [tasks, setTasks] = useState([]);
   const [properties, setProperties] = useState([]);
@@ -32,13 +34,14 @@ export default function TasksPage() {
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filterStatus, setFilterStatus] = useState("");
+  const [filterStatus, setFilterStatus] = useState("pending");
   const [openDropdownId, setOpenDropdownId] = useState(null);
+  const [openStatusDropdownId, setOpenStatusDropdownId] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
   const [processingTasks, setProcessingTasks] = useState(new Set());
   const [viewMode, setViewMode] = useState(() => {
     // Default to kanban on desktop, cards on mobile
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       return window.innerWidth >= 768 ? "kanban" : "cards";
     }
     return "kanban";
@@ -56,14 +59,20 @@ export default function TasksPage() {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (openDropdownId && !event.target.closest('.dropdown-container')) {
+      if (openDropdownId && !event.target.closest(".dropdown-container")) {
         setOpenDropdownId(null);
+      }
+      if (
+        openStatusDropdownId &&
+        !event.target.closest(".status-dropdown-container")
+      ) {
+        setOpenStatusDropdownId(null);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [openDropdownId]);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openDropdownId, openStatusDropdownId]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -117,7 +126,7 @@ export default function TasksPage() {
     try {
       setError(null);
       const updatedTask = await updateTask(taskId, { status: newStatus });
-      
+
       // Update with server response
       setTasks((prev) =>
         prev.map((t) => {
@@ -270,13 +279,15 @@ export default function TasksPage() {
     }
 
     // Handle nested objects from API response
-    const assignedTo = typeof task.assigned_to === 'object' && task.assigned_to !== null 
-      ? task.assigned_to 
-      : (users.find(u => (u.id || u._id) === task.assigned_to) || {});
-    
-    const property = typeof task.property_id === 'object' && task.property_id !== null
-      ? task.property_id
-      : (properties.find(p => (p.id || p._id) === task.property_id) || {});
+    const assignedTo =
+      typeof task.assigned_to === "object" && task.assigned_to !== null
+        ? task.assigned_to
+        : users.find((u) => (u.id || u._id) === task.assigned_to) || {};
+
+    const property =
+      typeof task.property_id === "object" && task.property_id !== null
+        ? task.property_id
+        : properties.find((p) => (p.id || p._id) === task.property_id) || {};
 
     return {
       id: taskId,
@@ -312,8 +323,18 @@ export default function TasksPage() {
             onClick={() => router.back()}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0 lg:hidden"
           >
-            <svg className="w-6 h-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <svg
+              className="w-6 h-6 text-slate-900"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
           <h1 className="mt-2 text-3xl font-semibold text-slate-900">
@@ -401,12 +422,26 @@ export default function TasksPage() {
           {tasks.length === 0 ? (
             <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
-                <svg className="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                <svg
+                  className="h-8 w-8 text-slate-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                  />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">No tasks yet</h3>
-              <p className="text-sm text-slate-600 mb-6">Create your first task to get started</p>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                No tasks yet
+              </h3>
+              <p className="text-sm text-slate-600 mb-6">
+                Create your first task to get started
+              </p>
               <button
                 className="rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white hover:bg-slate-800"
                 onClick={() => setCreateOpen(true)}
@@ -418,143 +453,267 @@ export default function TasksPage() {
             <div className="grid gap-3 md:grid-cols-2">
               {tasks.map((task) => {
                 const taskId = task.id || task._id;
-                
+
                 // Handle nested objects from API response
-                const property = typeof task.property_id === 'object' && task.property_id !== null
-                  ? task.property_id
-                  : (properties.find(p => (p.id || p._id) === task.property_id) || {});
-                
-                const assignee = typeof task.assigned_to === 'object' && task.assigned_to !== null
-                  ? task.assigned_to
-                  : (users.find(u => (u.id || u._id) === task.assigned_to) || {});
-                
-                const host = typeof task.hostId === 'object' && task.hostId !== null
-                  ? task.hostId
-                  : null;
-                
+                const property =
+                  typeof task.property_id === "object" &&
+                  task.property_id !== null
+                    ? task.property_id
+                    : properties.find(
+                        (p) => (p.id || p._id) === task.property_id
+                      ) || {};
+
+                const assignee =
+                  typeof task.assigned_to === "object" &&
+                  task.assigned_to !== null
+                    ? task.assigned_to
+                    : users.find((u) => (u.id || u._id) === task.assigned_to) ||
+                      {};
+
+                const propertyName =
+                  property.title || property.name || "No property";
+                const assigneeName = assignee.name || "Unassigned";
+
                 return (
                   <div
                     key={taskId}
-                    className="rounded-2xl border border-slate-200 bg-white p-4 hover:shadow-md transition-shadow"
+                    className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm hover:shadow-md transition-shadow relative"
                   >
-                    {/* Task Header */}
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-slate-900 mb-1">{task.title}</h3>
-                        <p className="text-sm text-slate-600 line-clamp-2">{task.description}</p>
-                      </div>
-                      
-                      {/* Actions Dropdown */}
-                      <div className="relative dropdown-container ml-2">
-                        <button
-                          onClick={() => setOpenDropdownId(openDropdownId === taskId ? null : taskId)}
-                          className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100 active:bg-slate-200 transition-colors"
+                    {/* Actions Dropdown */}
+                    <div className="absolute top-3 right-3 dropdown-container z-10">
+                      <button
+                        onClick={() =>
+                          setOpenDropdownId(
+                            openDropdownId === taskId ? null : taskId
+                          )
+                        }
+                        className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-slate-200 active:bg-slate-300 transition-colors"
+                      >
+                        <svg
+                          className="w-4 h-4 text-slate-600"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
                         >
-                          <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                          </svg>
-                        </button>
-                        
-                        {/* Dropdown Menu */}
-                        {openDropdownId === taskId && (
-                          <div className="absolute right-0 top-10 z-20 w-40 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
-                            <button
-                              className="w-full px-4 py-2.5 text-left text-sm text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2"
-                              onClick={() => {
-                                setEditingTask(task);
-                                setFormData({
-                                  property_id: typeof task.property_id === 'object' ? (task.property_id.id || task.property_id._id) : (task.property_id || ""),
-                                  title: task.title || "",
-                                  description: task.description || "",
-                                  assigned_to: typeof task.assigned_to === 'object' ? (task.assigned_to.id || task.assigned_to._id) : (task.assigned_to || ""),
-                                  status: task.status || "pending",
-                                });
-                                setOpenDropdownId(null);
-                              }}
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+                          />
+                        </svg>
+                      </button>
+
+                      {/* Dropdown Menu */}
+                      {openDropdownId === taskId && (
+                        <div className="absolute right-0 top-8 z-20 w-40 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+                          <button
+                            className="w-full px-4 py-2.5 text-left text-sm text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                            onClick={() => {
+                              setEditingTask(task);
+                              setFormData({
+                                property_id:
+                                  typeof task.property_id === "object"
+                                    ? task.property_id.id ||
+                                      task.property_id._id
+                                    : task.property_id || "",
+                                title: task.title || "",
+                                description: task.description || "",
+                                assigned_to:
+                                  typeof task.assigned_to === "object"
+                                    ? task.assigned_to.id ||
+                                      task.assigned_to._id
+                                    : task.assigned_to || "",
+                                status: task.status || "pending",
+                              });
+                              setOpenDropdownId(null);
+                            }}
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
                             >
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                              Edit
-                            </button>
-                            <button
-                              className="w-full px-4 py-2.5 text-left text-sm text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-2 border-t border-slate-100"
-                              onClick={() => {
-                                handleDeleteTask(taskId);
-                                setOpenDropdownId(null);
-                              }}
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                              />
+                            </svg>
+                            Edit
+                          </button>
+                          <button
+                            className="w-full px-4 py-2.5 text-left text-sm text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-2 border-t border-slate-100"
+                            onClick={() => {
+                              handleDeleteTask(taskId);
+                              setOpenDropdownId(null);
+                            }}
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
                             >
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                            Delete
+                          </button>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Task Details Grid */}
-                    <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100">
-                      <div>
-                        <span className="text-xs text-slate-500 block mb-1">Property</span>
-                        <span className="text-sm text-slate-900 truncate block" title={property.location || ""}>
-                          {property.title || property.name || "N/A"}
+                    {/* Task Content - Matching Kanban Card Style */}
+                    <div className="flex items-start justify-between gap-2 mb-1 pr-8">
+                      <p className="text-sm font-semibold text-slate-900 line-clamp-2 flex-1">
+                        {task.title}
+                      </p>
+                    </div>
+                    {task.description && (
+                      <p className="mt-1 text-xs text-slate-500 line-clamp-2">
+                        {task.description}
+                      </p>
+                    )}
+                    {propertyName && propertyName !== "No property" && (
+                      <p className="mt-2 text-xs text-slate-600 font-medium truncate">
+                        📍 {propertyName}
+                      </p>
+                    )}
+                    <div className="mt-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-[10px] font-bold text-white">
+                          {assigneeName.charAt(0).toUpperCase() || "?"}
+                        </div>
+                        <span className="text-xs text-slate-600 truncate max-w-[100px]">
+                          {assigneeName}
+                          {task.createdAt && (
+                            <p className=" text-[10px] text-slate-400">
+                              {new Date(task.createdAt).toLocaleDateString(
+                                "en-US",
+                                {
+                                  month: "short",
+                                  day: "numeric",
+                                }
+                              )}
+                            </p>
+                          )}
                         </span>
-                        {property.location && (
-                          <span className="text-xs text-slate-400 truncate block">{property.location}</span>
+                      </div>
+
+                      {/* Status badge with dropdown */}
+                      <div className="relative status-dropdown-container shrink-0">
+                        <button
+                          onClick={() =>
+                            setOpenStatusDropdownId(
+                              openStatusDropdownId === taskId ? null : taskId
+                            )
+                          }
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
+                            task.status === "completed" ||
+                            task.status === "complete"
+                              ? "bg-green-100 text-green-700 hover:bg-green-200"
+                              : task.status === "in_progress" ||
+                                task.status === "in-progress"
+                              ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                              : task.status === "cancelled" ||
+                                task.status === "canceled"
+                              ? "bg-rose-100 text-rose-700 hover:bg-rose-200"
+                              : "bg-red-100 text-red-600 hover:bg-red-200"
+                          }`}
+                        >
+                          {task.status === "completed" ||
+                          task.status === "complete"
+                            ? "Done"
+                            : task.status === "in_progress" ||
+                              task.status === "in-progress"
+                            ? "Active"
+                            : task.status === "cancelled" ||
+                              task.status === "canceled"
+                            ? "Cancelled"
+                            : "Pending"}
+                          <svg
+                            className="ml-1 h-3 w-3"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
+                        </button>
+
+                        {/* Status Dropdown Menu */}
+                        {openStatusDropdownId === taskId && (
+                          <div className="absolute right-0 top-8 z-20 w-36 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+                            <button
+                              className={`w-full px-3 py-2 text-left text-xs font-medium transition-colors ${
+                                task.status === "pending"
+                                  ? "bg-slate-50 text-slate-900"
+                                  : "text-slate-700 hover:bg-slate-50"
+                              }`}
+                              onClick={() => {
+                                handleStatusChange(taskId, "pending");
+                                setOpenStatusDropdownId(null);
+                              }}
+                            >
+                              Pending
+                            </button>
+                            <button
+                              className={`w-full px-3 py-2 text-left text-xs font-medium transition-colors border-t border-slate-100 ${
+                                task.status === "in_progress" ||
+                                task.status === "in-progress"
+                                  ? "bg-blue-50 text-blue-900"
+                                  : "text-slate-700 hover:bg-slate-50"
+                              }`}
+                              onClick={() => {
+                                handleStatusChange(taskId, "in_progress");
+                                setOpenStatusDropdownId(null);
+                              }}
+                            >
+                              In Progress
+                            </button>
+                            <button
+                              className={`w-full px-3 py-2 text-left text-xs font-medium transition-colors border-t border-slate-100 ${
+                                task.status === "completed" ||
+                                task.status === "complete"
+                                  ? "bg-green-50 text-green-900"
+                                  : "text-slate-700 hover:bg-slate-50"
+                              }`}
+                              onClick={() => {
+                                handleStatusChange(taskId, "completed");
+                                setOpenStatusDropdownId(null);
+                              }}
+                            >
+                              Completed
+                            </button>
+                            <button
+                              className={`w-full px-3 py-2 text-left text-xs font-medium transition-colors border-t border-slate-100 ${
+                                task.status === "cancelled" ||
+                                task.status === "canceled"
+                                  ? "bg-rose-50 text-rose-900"
+                                  : "text-slate-700 hover:bg-slate-50"
+                              }`}
+                              onClick={() => {
+                                handleStatusChange(taskId, "cancelled");
+                                setOpenStatusDropdownId(null);
+                              }}
+                            >
+                              Cancelled
+                            </button>
+                          </div>
                         )}
                       </div>
-                      <div className="text-right">
-                        <span className="text-xs text-slate-500 block mb-1">Status</span>
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(task.status)}`}>
-                          {getStatusLabel(task.status)}
-                        </span>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="text-xs text-slate-500 block mb-1">Assigned to</span>
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-xs font-bold text-white">
-                            {assignee.name?.charAt(0)?.toUpperCase() || "?"}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <span className="text-sm text-slate-900 truncate block">{assignee.name || "Unassigned"}</span>
-                            {assignee.email && (
-                              <span className="text-xs text-slate-400 truncate block">{assignee.email}</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      {host && (
-                        <div className="col-span-2 pt-2 border-t border-slate-100">
-                          <span className="text-xs text-slate-500 block mb-1">Host</span>
-                          <div className="flex items-center gap-2">
-                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-xs font-bold text-white">
-                              {host.name?.charAt(0)?.toUpperCase() || "?"}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <span className="text-sm text-slate-900 truncate block">{host.name || "N/A"}</span>
-                              {host.email && (
-                                <span className="text-xs text-slate-400 truncate block">{host.email}</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                      {task.createdAt && (
-                        <div className="col-span-2 pt-2 border-t border-slate-100">
-                          <span className="text-xs text-slate-500">Created</span>
-                          <span className="text-xs text-slate-600 ml-2">
-                            {new Date(task.createdAt).toLocaleDateString('en-US', { 
-                              year: 'numeric', 
-                              month: 'short', 
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </span>
-                        </div>
-                      )}
                     </div>
                   </div>
                 );
@@ -570,12 +729,26 @@ export default function TasksPage() {
           {tasks.length === 0 ? (
             <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
-                <svg className="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                <svg
+                  className="h-8 w-8 text-slate-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                  />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">No tasks yet</h3>
-              <p className="text-sm text-slate-600 mb-6">Create your first task to get started</p>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                No tasks yet
+              </h3>
+              <p className="text-sm text-slate-600 mb-6">
+                Create your first task to get started
+              </p>
               <button
                 className="rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white hover:bg-slate-800"
                 onClick={() => setCreateOpen(true)}
@@ -584,8 +757,8 @@ export default function TasksPage() {
               </button>
             </div>
           ) : (
-            <KanbanBoard 
-              tasks={kanbanTasks} 
+            <KanbanBoard
+              tasks={kanbanTasks}
               onComplete={handleComplete}
               onStatusChange={handleStatusChange}
               processingTasks={Array.from(processingTasks)}
