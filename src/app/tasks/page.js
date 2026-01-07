@@ -35,6 +35,7 @@ export default function TasksPage() {
   const [filterStatus, setFilterStatus] = useState("");
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
+  const [processingTasks, setProcessingTasks] = useState(new Set());
   const [viewMode, setViewMode] = useState(() => {
     // Default to kanban on desktop, cards on mobile
     if (typeof window !== 'undefined') {
@@ -95,14 +96,54 @@ export default function TasksPage() {
   };
 
   const handleStatusChange = async (taskId, newStatus) => {
+    // Find the task to get its current state for rollback
+    const currentTask = tasks.find((t) => (t.id || t._id) === taskId);
+    if (!currentTask) return;
+
+    // Optimistic update - immediately update local state
+    setTasks((prev) =>
+      prev.map((t) => {
+        const id = t.id || t._id;
+        if (id === taskId) {
+          return { ...t, status: newStatus };
+        }
+        return t;
+      })
+    );
+
+    // Mark task as processing
+    setProcessingTasks((prev) => new Set(prev).add(taskId));
+
     try {
       setError(null);
       const updatedTask = await updateTask(taskId, { status: newStatus });
+      
+      // Update with server response
       setTasks((prev) =>
-        prev.map((t) => ((t.id || t._id) === taskId ? updatedTask : t))
+        prev.map((t) => {
+          const id = t.id || t._id;
+          return id === taskId ? updatedTask : t;
+        })
       );
     } catch (err) {
+      // Rollback on error
+      setTasks((prev) =>
+        prev.map((t) => {
+          const id = t.id || t._id;
+          if (id === taskId) {
+            return currentTask; // Restore original task
+          }
+          return t;
+        })
+      );
       setError(err.message || "Failed to update task");
+    } finally {
+      // Remove from processing
+      setProcessingTasks((prev) => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
     }
   };
 
@@ -543,7 +584,12 @@ export default function TasksPage() {
               </button>
             </div>
           ) : (
-            <KanbanBoard tasks={kanbanTasks} onComplete={handleComplete} />
+            <KanbanBoard 
+              tasks={kanbanTasks} 
+              onComplete={handleComplete}
+              onStatusChange={handleStatusChange}
+              processingTasks={Array.from(processingTasks)}
+            />
           )}
         </>
       )}

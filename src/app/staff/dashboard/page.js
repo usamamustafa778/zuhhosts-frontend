@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardShell from '@/components/layout/DashboardShell';
 import SummaryCard from '@/components/common/SummaryCard';
+import { API_BASE_URL } from '@/lib/api';
 
 /**
  * HOST STAFF DASHBOARD
@@ -45,7 +46,7 @@ export default function StaffDashboard() {
 
   const fetchTasks = async (token) => {
     try {
-      const response = await fetch('http://localhost:5001/api/tasks', {
+      const response = await fetch(`${API_BASE_URL}/tasks`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
