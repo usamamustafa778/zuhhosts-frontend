@@ -1,19 +1,15 @@
 "use client";
 
-import { Geist, Geist_Mono } from "next/font/google";
+import { Roboto } from "next/font/google";
 import "./globals.css";
 import DashboardShell from "@/components/layout/DashboardShell";
 import { usePathname } from "next/navigation";
 import { Toaster } from "react-hot-toast";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const roboto = Roboto({
+  weight: ["300", "400", "500", "700"],
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: "--font-roboto",
 });
 
 export default function RootLayout({ children }) {
@@ -24,7 +20,7 @@ export default function RootLayout({ children }) {
     pathname === "/login" || pathname === "/register" || pathname === "/";
 
   return (
-    <html lang="en">
+    <html lang="en" className={roboto.variable}>
       <head>
         <title>Zuha Host - Modern Property Management Platform</title>
         <meta name="description" content="Zuha Host - Modern property management platform for Airbnb hosts. Manage bookings, properties, guests, and earnings all in one place." />
@@ -37,7 +33,7 @@ export default function RootLayout({ children }) {
         <link rel="icon" href="/favicon.ico" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${roboto.variable} antialiased`}
       >
         <Toaster 
           position="top-center"

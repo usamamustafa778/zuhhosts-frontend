@@ -2,9 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import KanbanBoard from "@/components/modules/KanbanBoard";
 import Modal from "@/components/common/Modal";
 import PageLoader from "@/components/common/PageLoader";
+import Combobox from "@/components/common/Combobox";
+import InputField from "@/components/common/InputField";
 import {
   getAllTasks,
   createTask,
@@ -54,6 +57,16 @@ export default function TasksPage() {
     description: "",
     assigned_to: "",
     status: "pending",
+    includePayment: false,
+    payment: {
+      amount: "",
+      payment_type: "expense",
+      method: "cash",
+      date: new Date().toISOString().split("T")[0],
+      paid_to: "",
+      paid_by: "",
+      notes: "",
+    },
   });
 
   // Close dropdown when clicking outside
@@ -104,6 +117,15 @@ export default function TasksPage() {
     }
   };
 
+  // Handle create task button - redirect to new page on mobile, open modal on desktop
+  const handleCreateTaskClick = () => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      router.push("/tasks/new");
+    } else {
+      setCreateOpen(true);
+    }
+  };
+
   const handleStatusChange = async (taskId, newStatus) => {
     // Find the task to get its current state for rollback
     const currentTask = tasks.find((t) => (t.id || t._id) === taskId);
@@ -123,6 +145,8 @@ export default function TasksPage() {
     // Mark task as processing
     setProcessingTasks((prev) => new Set(prev).add(taskId));
 
+    const toastId = toast.loading("Updating task status...");
+
     try {
       setError(null);
       const updatedTask = await updateTask(taskId, { status: newStatus });
@@ -134,6 +158,8 @@ export default function TasksPage() {
           return id === taskId ? updatedTask : t;
         })
       );
+
+      toast.success("Task status updated successfully", { id: toastId });
     } catch (err) {
       // Rollback on error
       setTasks((prev) =>
@@ -146,6 +172,9 @@ export default function TasksPage() {
         })
       );
       setError(err.message || "Failed to update task");
+      toast.error(err.message || "Failed to update task status", {
+        id: toastId,
+      });
     } finally {
       // Remove from processing
       setProcessingTasks((prev) => {
@@ -164,9 +193,41 @@ export default function TasksPage() {
     e.preventDefault();
     console.log("🚀 Creating task", formData);
 
+    const toastId = toast.loading("Creating task...");
+
     try {
       setError(null);
-      const newTask = await createTask(formData);
+
+      // Prepare task data
+      const taskData = {
+        property_id: formData.property_id,
+        title: formData.title,
+        description: formData.description || undefined,
+        assigned_to: formData.assigned_to,
+        status: formData.status,
+      };
+
+      // Include payment if checkbox is checked and required fields are filled
+      if (
+        formData.includePayment &&
+        formData.payment.amount &&
+        formData.payment.payment_type &&
+        formData.payment.method
+      ) {
+        taskData.payment = {
+          amount: parseFloat(formData.payment.amount),
+          payment_type: formData.payment.payment_type,
+          method: formData.payment.method,
+          date: formData.payment.date
+            ? new Date(formData.payment.date).toISOString()
+            : undefined,
+          paid_to: formData.payment.paid_to || undefined,
+          paid_by: formData.payment.paid_by || undefined,
+          notes: formData.payment.notes || undefined,
+        };
+      }
+
+      const newTask = await createTask(taskData);
       setTasks((prev) => [newTask, ...prev]);
       setCreateOpen(false);
       setFormData({
@@ -175,16 +236,30 @@ export default function TasksPage() {
         description: "",
         assigned_to: "",
         status: "pending",
+        includePayment: false,
+        payment: {
+          amount: "",
+          payment_type: "maintenance_work",
+          method: "cash",
+          date: new Date().toISOString().split("T")[0],
+          paid_to: "",
+          paid_by: "",
+          notes: "",
+        },
       });
       console.log("✅ Task created successfully:", newTask);
+      toast.success("Task created successfully", { id: toastId });
     } catch (err) {
       console.error("❌ Error creating task:", err);
       setError(err.message || "Failed to create task");
+      toast.error(err.message || "Failed to create task", { id: toastId });
     }
   };
 
   const handleDeleteTask = async (taskId) => {
     if (!confirm("Are you sure you want to delete this task?")) return;
+
+    const toastId = toast.loading("Deleting task...");
 
     try {
       setError(null);
@@ -195,8 +270,10 @@ export default function TasksPage() {
           return id !== taskId;
         })
       );
+      toast.success("Task deleted successfully", { id: toastId });
     } catch (err) {
       setError(err.message || "Failed to delete task");
+      toast.error(err.message || "Failed to delete task", { id: toastId });
     }
   };
 
@@ -204,10 +281,41 @@ export default function TasksPage() {
     e.preventDefault();
     if (!editingTask) return;
 
+    const toastId = toast.loading("Updating task...");
+
     try {
       setError(null);
       const taskId = editingTask.id || editingTask._id;
-      const updatedTask = await updateTask(taskId, formData);
+
+      // Prepare task data
+      const taskData = {};
+      if (formData.property_id) taskData.property_id = formData.property_id;
+      if (formData.title) taskData.title = formData.title;
+      if (formData.description) taskData.description = formData.description;
+      if (formData.assigned_to) taskData.assigned_to = formData.assigned_to;
+      if (formData.status) taskData.status = formData.status;
+
+      // Include payment if checkbox is checked and required fields are filled
+      if (
+        formData.includePayment &&
+        formData.payment.amount &&
+        formData.payment.payment_type &&
+        formData.payment.method
+      ) {
+        taskData.payment = {
+          amount: parseFloat(formData.payment.amount),
+          payment_type: formData.payment.payment_type,
+          method: formData.payment.method,
+          date: formData.payment.date
+            ? new Date(formData.payment.date).toISOString()
+            : undefined,
+          paid_to: formData.payment.paid_to || undefined,
+          paid_by: formData.payment.paid_by || undefined,
+          notes: formData.payment.notes || undefined,
+        };
+      }
+
+      const updatedTask = await updateTask(taskId, taskData);
       setTasks((prev) =>
         prev.map((t) => ((t.id || t._id) === taskId ? updatedTask : t))
       );
@@ -218,9 +326,21 @@ export default function TasksPage() {
         description: "",
         assigned_to: "",
         status: "pending",
+        includePayment: false,
+        payment: {
+          amount: "",
+          payment_type: "maintenance_work",
+          method: "cash",
+          date: new Date().toISOString().split("T")[0],
+          paid_to: "",
+          paid_by: "",
+          notes: "",
+        },
       });
+      toast.success("Task updated successfully", { id: toastId });
     } catch (err) {
       setError(err.message || "Failed to update task");
+      toast.error(err.message || "Failed to update task", { id: toastId });
     }
   };
 
@@ -408,7 +528,7 @@ export default function TasksPage() {
           </select>
           <button
             className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-            onClick={() => setCreateOpen(true)}
+            onClick={handleCreateTaskClick}
           >
             <span className="hidden sm:inline">New task</span>
             <span className="sm:hidden">Add</span>
@@ -444,7 +564,7 @@ export default function TasksPage() {
               </p>
               <button
                 className="rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-                onClick={() => setCreateOpen(true)}
+                onClick={handleCreateTaskClick}
               >
                 New task
               </button>
@@ -511,6 +631,13 @@ export default function TasksPage() {
                             className="w-full px-4 py-2.5 text-left text-sm text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2"
                             onClick={() => {
                               setEditingTask(task);
+                              const taskPayment = task.payment || {};
+                              const paymentDate = taskPayment.date
+                                ? new Date(taskPayment.date)
+                                    .toISOString()
+                                    .split("T")[0]
+                                : new Date().toISOString().split("T")[0];
+
                               setFormData({
                                 property_id:
                                   typeof task.property_id === "object"
@@ -525,6 +652,20 @@ export default function TasksPage() {
                                       task.assigned_to._id
                                     : task.assigned_to || "",
                                 status: task.status || "pending",
+                                includePayment: Boolean(
+                                  taskPayment && taskPayment.id
+                                ),
+                                payment: {
+                                  amount: taskPayment.amount?.toString() || "",
+                                  payment_type:
+                                    taskPayment.payment_type ||
+                                    "maintenance_work",
+                                  method: taskPayment.method || "cash",
+                                  date: paymentDate,
+                                  paid_to: taskPayment.paid_to || "",
+                                  paid_by: taskPayment.paid_by || "",
+                                  notes: taskPayment.notes || "",
+                                },
                               });
                               setOpenDropdownId(null);
                             }}
@@ -751,7 +892,7 @@ export default function TasksPage() {
               </p>
               <button
                 className="rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-                onClick={() => setCreateOpen(true)}
+                onClick={handleCreateTaskClick}
               >
                 New task
               </button>
@@ -769,8 +910,8 @@ export default function TasksPage() {
 
       {/* Edit Task Modal */}
       <Modal
-        title="Edit task"
-        description="Update task details and assignment."
+        title="Edit Task"
+        description="Update task details, assignment, and payment information."
         isOpen={Boolean(editingTask)}
         onClose={() => {
           setEditingTask(null);
@@ -780,6 +921,16 @@ export default function TasksPage() {
             description: "",
             assigned_to: "",
             status: "pending",
+            includePayment: false,
+            payment: {
+              amount: "",
+              payment_type: "maintenance_work",
+              method: "cash",
+              date: new Date().toISOString().split("T")[0],
+              paid_to: "",
+              paid_by: "",
+              notes: "",
+            },
           });
         }}
         primaryActionLabel="Update task"
@@ -792,111 +943,255 @@ export default function TasksPage() {
           onSubmit={handleUpdateTask}
           className="space-y-4"
         >
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Property <span className="text-rose-500">*</span>
-            </label>
-            <select
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              value={formData.property_id}
-              onChange={(e) =>
-                setFormData({ ...formData, property_id: e.target.value })
-              }
-              required
-            >
-              <option value="">Select a property</option>
-              {properties.map((property) => (
-                <option
-                  key={property.id || property._id}
-                  value={property.id || property._id}
-                >
-                  {property.title || property.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <InputField
+            label="Title"
+            type="text"
+            value={formData.title}
+            onChange={(e) =>
+              setFormData({ ...formData, title: e.target.value })
+            }
+            placeholder="Task title"
+            minLength={3}
+            maxLength={100}
+            required
+          />
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Title <span className="text-rose-500">*</span>
-            </label>
-            <input
-              type="text"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              value={formData.title}
-              onChange={(e) =>
-                setFormData({ ...formData, title: e.target.value })
-              }
-              placeholder="Task title"
-              minLength={3}
-              maxLength={100}
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Description <span className="text-rose-500">*</span>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Description
             </label>
             <textarea
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 transition-colors"
               value={formData.description}
               onChange={(e) =>
                 setFormData({ ...formData, description: e.target.value })
               }
-              placeholder="Detailed task description..."
+              placeholder="Detailed task description (optional)..."
               rows={4}
-              minLength={5}
-              required
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              Assign To <span className="text-rose-500">*</span>
+              Property <span className="text-rose-500">*</span>
             </label>
-            <select
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              value={formData.assigned_to}
-              onChange={(e) =>
-                setFormData({ ...formData, assigned_to: e.target.value })
+            <Combobox
+              value={formData.property_id}
+              onChange={(value) =>
+                setFormData({ ...formData, property_id: value })
               }
+              options={properties}
+              getOptionLabel={(property) => property.title || property.name}
+              getOptionValue={(property) => property.id || property._id}
+              getOptionDescription={(property) =>
+                property.address || property.location
+              }
+              placeholder="Search property by name, address, or location..."
               required
-            >
-              <option value="">Select a team member</option>
-              {users.map((user) => (
-                <option key={user.id || user._id} value={user.id || user._id}>
-                  {user.name} ({user.email})
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Status
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Assign To <span className="text-rose-500">*</span>
+              </label>
+              <Combobox
+                value={formData.assigned_to}
+                onChange={(value) =>
+                  setFormData({ ...formData, assigned_to: value })
+                }
+                options={users}
+                getOptionLabel={(user) => `${user.name} (${user.email})`}
+                getOptionValue={(user) => user.id || user._id}
+                getOptionDescription={(user) => user.email}
+                placeholder="Search team member..."
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Status
+              </label>
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={formData.status}
+                onChange={(e) =>
+                  setFormData({ ...formData, status: e.target.value })
+                }
+              >
+                <option value="pending">Pending</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Payment Section */}
+          <div className="pt-4 border-t border-slate-200">
+            <label className="flex items-center gap-2 mb-4">
+              <input
+                type="checkbox"
+                checked={formData.includePayment}
+                onChange={(e) =>
+                  setFormData({ ...formData, includePayment: e.target.checked })
+                }
+                className="rounded border-slate-300 text-rose-500 focus:ring-rose-500"
+              />
+              <span className="text-sm font-medium text-slate-700">
+                Include Payment
+              </span>
             </label>
-            <select
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              value={formData.status}
-              onChange={(e) =>
-                setFormData({ ...formData, status: e.target.value })
-              }
-            >
-              <option value="pending">Pending</option>
-              <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
+
+            {formData.includePayment && (
+              <div className="space-y-4 pl-6 border-l-2 border-slate-200">
+                <InputField
+                  label="Amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.payment.amount}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      payment: { ...formData.payment, amount: e.target.value },
+                    })
+                  }
+                  placeholder="0.00"
+                  required={formData.includePayment}
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Type <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      value={formData.payment.payment_type}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          payment: {
+                            ...formData.payment,
+                            payment_type: e.target.value,
+                          },
+                        })
+                      }
+                      required={formData.includePayment}
+                    >
+                      <option value="maintenance_work">Maintenance work</option>
+                      <option value="staff_payment">Staff payment</option>
+                      <option value="utility_bills">Utility bills</option>
+                      <option value="supplies">Supplies</option>
+                      <option value="refund">Refund</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Method <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      value={formData.payment.method}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          payment: {
+                            ...formData.payment,
+                            method: e.target.value,
+                          },
+                        })
+                      }
+                      required={formData.includePayment}
+                    >
+                      <option value="cash">Cash</option>
+                      <option value="bank">Bank</option>
+                      <option value="online">Online</option>
+                    </select>
+                  </div>
+                </div>
+
+                <InputField
+                  label="Date"
+                  type="date"
+                  value={formData.payment.date}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      payment: { ...formData.payment, date: e.target.value },
+                    })
+                  }
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <InputField
+                    label="Paid To"
+                    type="text"
+                    value={formData.payment.paid_to}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        payment: {
+                          ...formData.payment,
+                          paid_to: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="Person/entity name"
+                  />
+
+                  <InputField
+                    label="Paid By"
+                    type="text"
+                    value={formData.payment.paid_by}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        payment: {
+                          ...formData.payment,
+                          paid_by: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="Person/entity name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Notes
+                  </label>
+                  <textarea
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 transition-colors"
+                    value={formData.payment.notes}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        payment: { ...formData.payment, notes: e.target.value },
+                      })
+                    }
+                    placeholder="Additional payment notes..."
+                    rows={2}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </form>
       </Modal>
 
-      {/* Create Task Modal */}
+      {/* Create Task Modal - Desktop Only */}
       <Modal
-        title="Create task"
-        description="Assign tasks to team members for property management."
-        isOpen={isCreateOpen}
+        title="Create New Task"
+        isOpen={
+          isCreateOpen &&
+          typeof window !== "undefined" &&
+          window.innerWidth >= 768
+        }
         onClose={() => {
           setCreateOpen(false);
           setFormData({
@@ -905,6 +1200,16 @@ export default function TasksPage() {
             description: "",
             assigned_to: "",
             status: "pending",
+            includePayment: false,
+            payment: {
+              amount: "",
+              payment_type: "maintenance_work",
+              method: "cash",
+              date: new Date().toISOString().split("T")[0],
+              paid_to: "",
+              paid_by: "",
+              notes: "",
+            },
           });
         }}
         primaryActionLabel="Create task"
@@ -917,104 +1222,244 @@ export default function TasksPage() {
           onSubmit={handleCreateTask}
           className="space-y-4"
         >
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Property <span className="text-rose-500">*</span>
-            </label>
-            <select
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              value={formData.property_id}
-              onChange={(e) =>
-                setFormData({ ...formData, property_id: e.target.value })
-              }
-              required
-            >
-              <option value="">Select a property</option>
-              {properties.map((property) => (
-                <option
-                  key={property.id || property._id}
-                  value={property.id || property._id}
-                >
-                  {property.title || property.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <InputField
+            label="Title"
+            type="text"
+            value={formData.title}
+            onChange={(e) =>
+              setFormData({ ...formData, title: e.target.value })
+            }
+            placeholder="Task title"
+            minLength={3}
+            maxLength={100}
+            required
+          />
+          <p className="text-xs text-slate-500 -mt-2">3-100 characters</p>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Title <span className="text-rose-500">*</span>
-            </label>
-            <input
-              type="text"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              value={formData.title}
-              onChange={(e) =>
-                setFormData({ ...formData, title: e.target.value })
-              }
-              placeholder="Task title"
-              minLength={3}
-              maxLength={100}
-              required
-            />
-            <p className="mt-1 text-xs text-slate-500">3-100 characters</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Description <span className="text-rose-500">*</span>
+            <label className="block text-sm font-semibold text-slate-700 mb-0.5">
+              Description
             </label>
             <textarea
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 transition-colors"
               value={formData.description}
               onChange={(e) =>
                 setFormData({ ...formData, description: e.target.value })
               }
-              placeholder="Detailed task description..."
+              placeholder="Detailed task description (optional)..."
               rows={4}
-              minLength={5}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Property <span className="text-rose-500">*</span>
+            </label>
+            <Combobox
+              value={formData.property_id}
+              onChange={(value) =>
+                setFormData({ ...formData, property_id: value })
+              }
+              options={properties}
+              getOptionLabel={(property) => property.title || property.name}
+              getOptionValue={(property) => property.id || property._id}
+              getOptionDescription={(property) =>
+                property.address || property.location
+              }
+              placeholder="Search property by name, address, or location..."
               required
             />
-            <p className="mt-1 text-xs text-slate-500">Minimum 5 characters</p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Assign To <span className="text-rose-500">*</span>
-            </label>
-            <select
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              value={formData.assigned_to}
-              onChange={(e) =>
-                setFormData({ ...formData, assigned_to: e.target.value })
-              }
-              required
-            >
-              <option value="">Select a team member</option>
-              {users.map((user) => (
-                <option key={user.id || user._id} value={user.id || user._id}>
-                  {user.name} ({user.email})
-                </option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Assign To <span className="text-rose-500">*</span>
+              </label>
+              <Combobox
+                value={formData.assigned_to}
+                onChange={(value) =>
+                  setFormData({ ...formData, assigned_to: value })
+                }
+                options={users}
+                getOptionLabel={(user) => `${user.name} (${user.email})`}
+                getOptionValue={(user) => user.id || user._id}
+                getOptionDescription={(user) => user.email}
+                placeholder="Search team member..."
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Status
+              </label>
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={formData.status}
+                onChange={(e) =>
+                  setFormData({ ...formData, status: e.target.value })
+                }
+              >
+                <option value="pending">Pending</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Status
+          {/* Payment Section */}
+          <div className="pt-4 border-t border-slate-200">
+            <label className="flex items-center gap-2 mb-4">
+              <input
+                type="checkbox"
+                checked={formData.includePayment}
+                onChange={(e) =>
+                  setFormData({ ...formData, includePayment: e.target.checked })
+                }
+                className="rounded border-slate-300 text-rose-500 focus:ring-rose-500"
+              />
+              <span className="text-sm font-medium text-slate-700">
+                Include Payment
+              </span>
             </label>
-            <select
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              value={formData.status}
-              onChange={(e) =>
-                setFormData({ ...formData, status: e.target.value })
-              }
-            >
-              <option value="pending">Pending</option>
-              <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
+
+            {formData.includePayment && (
+              <div className="space-y-4 pl-6 border-l-2 border-slate-200">
+                <InputField
+                  label="Amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.payment.amount}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      payment: { ...formData.payment, amount: e.target.value },
+                    })
+                  }
+                  placeholder="0.00"
+                  required={formData.includePayment}
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Type <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      value={formData.payment.payment_type}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          payment: {
+                            ...formData.payment,
+                            payment_type: e.target.value,
+                          },
+                        })
+                      }
+                      required={formData.includePayment}
+                    >
+                      <option value="maintenance_work">Maintenance work</option>
+                      <option value="staff_payment">Staff payment</option>
+                      <option value="utility_bills">Utility bills</option>
+                      <option value="supplies">Supplies</option>
+                      <option value="refund">Refund</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Method <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      value={formData.payment.method}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          payment: {
+                            ...formData.payment,
+                            method: e.target.value,
+                          },
+                        })
+                      }
+                      required={formData.includePayment}
+                    >
+                      <option value="cash">Cash</option>
+                      <option value="bank">Bank</option>
+                      <option value="online">Online</option>
+                    </select>
+                  </div>
+                </div>
+
+                <InputField
+                  label="Date"
+                  type="date"
+                  value={formData.payment.date}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      payment: { ...formData.payment, date: e.target.value },
+                    })
+                  }
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <InputField
+                    label="Paid To"
+                    type="text"
+                    value={formData.payment.paid_to}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        payment: {
+                          ...formData.payment,
+                          paid_to: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="Person/entity name"
+                  />
+
+                  <InputField
+                    label="Paid By"
+                    type="text"
+                    value={formData.payment.paid_by}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        payment: {
+                          ...formData.payment,
+                          paid_by: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="Person/entity name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Notes
+                  </label>
+                  <textarea
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 transition-colors"
+                    value={formData.payment.notes}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        payment: { ...formData.payment, notes: e.target.value },
+                      })
+                    }
+                    placeholder="Additional payment notes..."
+                    rows={2}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </form>
       </Modal>

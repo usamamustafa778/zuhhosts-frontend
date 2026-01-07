@@ -135,7 +135,37 @@ export async function getPropertyById(id) {
   return handleResponse(res, "Failed to fetch property");
 }
 
-export async function createProperty(data) {
+export async function createProperty(data, images = []) {
+  // If images are provided, use FormData
+  if (images && images.length > 0) {
+    const formData = new FormData();
+    
+    // Append all property data
+    Object.keys(data).forEach(key => {
+      formData.append(key, data[key]);
+    });
+    
+    // Append images
+    images.forEach((image) => {
+      formData.append('images', image);
+    });
+    
+    const token = getToken();
+    const headers = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    // Don't set Content-Type - browser will set it with boundary for FormData
+    
+    const res = await fetch(`${API_BASE_URL}/properties`, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+    return handleResponse(res, "Failed to create property");
+  }
+  
+  // Otherwise use JSON
   const res = await fetchWithAuth(`${API_BASE_URL}/properties`, {
     method: "POST",
     body: JSON.stringify(data),
@@ -143,7 +173,44 @@ export async function createProperty(data) {
   return handleResponse(res, "Failed to create property");
 }
 
-export async function updateProperty(id, data) {
+export async function updateProperty(id, data, images = [], imagesToRemove = []) {
+  // If images are provided or images need to be removed, use FormData
+  if ((images && images.length > 0) || (imagesToRemove && imagesToRemove.length > 0)) {
+    const formData = new FormData();
+    
+    // Append all property data
+    Object.keys(data).forEach(key => {
+      formData.append(key, data[key]);
+    });
+    
+    // Append new images
+    if (images && images.length > 0) {
+      images.forEach((image) => {
+        formData.append('images', image);
+      });
+    }
+    
+    // Append images to remove
+    if (imagesToRemove && imagesToRemove.length > 0) {
+      formData.append('imagesToRemove', JSON.stringify(imagesToRemove));
+    }
+    
+    const token = getToken();
+    const headers = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    // Don't set Content-Type - browser will set it with boundary for FormData
+    
+    const res = await fetch(`${API_BASE_URL}/properties/${id}`, {
+      method: "PUT",
+      headers,
+      body: formData,
+    });
+    return handleResponse(res, "Failed to update property");
+  }
+  
+  // Otherwise use JSON
   const res = await fetchWithAuth(`${API_BASE_URL}/properties/${id}`, {
     method: "PUT",
     body: JSON.stringify(data),
@@ -381,9 +448,28 @@ export async function getEarnings(params = {}) {
   return handleResponse(res, "Failed to fetch earnings");
 }
 
-export async function getAllPayments() {
-  console.log("🔵 API Call: getAllPayments", `${API_BASE_URL}/payments`);
-  const res = await fetchWithAuth(`${API_BASE_URL}/payments`);
+/**
+ * Get all payments with optional filters
+ * @param {Object} filters - Optional filters
+ * @param {string} filters.task_id - Filter by task ID
+ * @param {string} filters.booking_id - Filter by booking ID
+ * @param {string} filters.property_id - Filter by property ID
+ * @param {string} filters.payment_type - Filter by payment type (expense, income)
+ * @param {string} filters.method - Filter by payment method (cash, bank, online)
+ * @returns {Promise<Array>} Array of payments
+ */
+export async function getAllPayments(filters = {}) {
+  const queryParams = new URLSearchParams();
+  
+  if (filters.task_id) queryParams.append('task_id', filters.task_id);
+  if (filters.booking_id) queryParams.append('booking_id', filters.booking_id);
+  if (filters.property_id) queryParams.append('property_id', filters.property_id);
+  if (filters.payment_type) queryParams.append('payment_type', filters.payment_type);
+  if (filters.method) queryParams.append('method', filters.method);
+  
+  const url = `${API_BASE_URL}/payments${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+  console.log("🔵 API Call: getAllPayments", url);
+  const res = await fetchWithAuth(url);
   console.log("🔵 API Response:", res.status, res.statusText);
   return handleResponse(res, "Failed to fetch payments");
 }
@@ -393,6 +479,21 @@ export async function getPaymentById(id) {
   return handleResponse(res, "Failed to fetch payment");
 }
 
+/**
+ * Create a payment
+ * @param {Object} data - Payment data
+ * @param {number} data.amount - Payment amount (required, ≥ 0)
+ * @param {string} data.payment_type - Payment type: 'expense' or 'income' (required)
+ * @param {string} data.method - Payment method: 'cash', 'bank', or 'online' (required)
+ * @param {string} [data.date] - Payment date (ISO 8601, optional, defaults to now)
+ * @param {string} [data.task_id] - Task ID (optional)
+ * @param {string} [data.booking_id] - Booking ID (optional)
+ * @param {string} [data.property_id] - Property ID (optional)
+ * @param {string} [data.paid_to] - Person/entity paid to (optional)
+ * @param {string} [data.paid_by] - Person/entity who paid (optional)
+ * @param {string} [data.notes] - Additional notes (optional)
+ * @returns {Promise<Object>} Created payment object
+ */
 export async function createPayment(data) {
   const res = await fetchWithAuth(`${API_BASE_URL}/payments`, {
     method: "POST",
@@ -550,6 +651,25 @@ export async function getTasksByStatus(status) {
   return handleResponse(res, "Failed to fetch tasks by status");
 }
 
+/**
+ * Create a task with optional payment
+ * @param {Object} data - Task data
+ * @param {string} data.property_id - Property ID (required)
+ * @param {string} data.title - Task title (required, min 3 chars)
+ * @param {string} data.description - Task description (required, min 5 chars)
+ * @param {string} data.assigned_to - Assigned user ID (required)
+ * @param {string} [data.status] - Task status: 'pending', 'in_progress', 'completed', 'cancelled' (optional)
+ * @param {Object} [data.payment] - Optional payment object
+ * @param {number} data.payment.amount - Payment amount (required if payment provided)
+ * @param {string} data.payment.payment_type - Payment type: 'expense' or 'income' (required if payment provided)
+ * @param {string} data.payment.method - Payment method: 'cash', 'bank', or 'online' (required if payment provided)
+ * @param {string} [data.payment.date] - Payment date (optional)
+ * @param {string} [data.payment.booking_id] - Booking ID (optional)
+ * @param {string} [data.payment.paid_to] - Person/entity paid to (optional)
+ * @param {string} [data.payment.paid_by] - Person/entity who paid (optional)
+ * @param {string} [data.payment.notes] - Payment notes (optional)
+ * @returns {Promise<Object>} Created task object with payment if provided
+ */
 export async function createTask(data) {
   const res = await fetchWithAuth(`${API_BASE_URL}/tasks`, {
     method: "POST",
@@ -558,6 +678,26 @@ export async function createTask(data) {
   return handleResponse(res, "Failed to create task");
 }
 
+/**
+ * Update a task with optional payment
+ * @param {string} id - Task ID
+ * @param {Object} data - Task data (all fields optional)
+ * @param {string} [data.property_id] - Property ID
+ * @param {string} [data.title] - Task title (min 3 chars)
+ * @param {string} [data.description] - Task description (min 5 chars)
+ * @param {string} [data.assigned_to] - Assigned user ID
+ * @param {string} [data.status] - Task status
+ * @param {Object} [data.payment] - Optional payment object (creates or updates existing payment)
+ * @param {number} data.payment.amount - Payment amount (required if payment provided)
+ * @param {string} data.payment.payment_type - Payment type: 'expense' or 'income' (required if payment provided)
+ * @param {string} data.payment.method - Payment method: 'cash', 'bank', or 'online' (required if payment provided)
+ * @param {string} [data.payment.date] - Payment date (optional)
+ * @param {string} [data.payment.booking_id] - Booking ID (optional)
+ * @param {string} [data.payment.paid_to] - Person/entity paid to (optional)
+ * @param {string} [data.payment.paid_by] - Person/entity who paid (optional)
+ * @param {string} [data.payment.notes] - Payment notes (optional)
+ * @returns {Promise<Object>} Updated task object with payment if provided
+ */
 export async function updateTask(id, data) {
   const res = await fetchWithAuth(`${API_BASE_URL}/tasks/${id}`, {
     method: "PUT",
