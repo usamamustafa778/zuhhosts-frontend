@@ -6,6 +6,7 @@ import DataTable from "@/components/common/DataTable";
 import StatusPill from "@/components/common/StatusPill";
 import Modal from "@/components/common/Modal";
 import FormField from "@/components/common/FormField";
+import PhoneInput from "@/components/common/PhoneInput";
 import PageLoader from "@/components/common/PageLoader";
 import { useDashboard } from "@/components/layout/DashboardShell";
 import {
@@ -18,6 +19,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
 import { Eye, EyeOff } from "lucide-react";
+import toast from "react-hot-toast";
 
 const formatPermissions = (permissions) =>
   (permissions ?? [])
@@ -36,14 +38,15 @@ export default function UsersPage() {
     isHost,
     user,
   } = useAuth();
-  
+
   // SEO
   useSEO({
     title: "Users | Zuha Host",
-    description: "User management dashboard. Manage team members, permissions, and roles.",
+    description:
+      "User management dashboard. Manage team members, permissions, and roles.",
     keywords: "users, user management, team members, staff management",
   });
-  
+
   const [selectedUser, setSelectedUser] = useState(null);
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [usersData, setUsersData] = useState([]);
@@ -57,7 +60,7 @@ export default function UsersPage() {
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [viewMode, setViewMode] = useState(() => {
     // Default to table on desktop, cards on mobile
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       return window.innerWidth >= 768 ? "table" : "cards";
     }
     return "table";
@@ -85,13 +88,13 @@ export default function UsersPage() {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (openDropdownId && !event.target.closest('.dropdown-container')) {
+      if (openDropdownId && !event.target.closest(".dropdown-container")) {
         setOpenDropdownId(null);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openDropdownId]);
 
   useEffect(() => {
@@ -106,6 +109,7 @@ export default function UsersPage() {
       try {
         setIsLoading(true);
         setError(null);
+        const toastId = toast.loading("Loading users and roles...");
 
         // Fetch users and roles in parallel
         const [usersResponse, rolesResponse] = await Promise.all([
@@ -120,11 +124,16 @@ export default function UsersPage() {
             ? rolesResponse
             : rolesResponse?.roles ?? [];
           setRolesData(rolesArray);
+          toast.success("Users and roles loaded successfully!", {
+            id: toastId,
+          });
         }
       } catch (err) {
+        const errorMessage = err.message || "Failed to load data";
         if (isMounted) {
-          setError(err.message || "Failed to load data");
+          setError(errorMessage);
         }
+        toast.error(errorMessage);
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -171,6 +180,7 @@ export default function UsersPage() {
     try {
       setIsSaving(true);
       setError(null);
+      const toastId = toast.loading("Creating user...");
 
       // Find role ID from role name
       const selectedRole = rolesData.find(
@@ -201,8 +211,12 @@ export default function UsersPage() {
         role: "",
         host: false,
       });
+
+      toast.success("User created successfully!", { id: toastId });
     } catch (err) {
-      setError(err.message || "Failed to create user");
+      const errorMessage = err.message || "Failed to create user";
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -214,6 +228,7 @@ export default function UsersPage() {
     try {
       setIsSaving(true);
       setError(null);
+      const toastId = toast.loading("Updating user...");
 
       const userId = selectedUser.id || selectedUser._id;
 
@@ -237,8 +252,12 @@ export default function UsersPage() {
         prev.map((u) => ((u.id || u._id) === userId ? { ...u, ...result } : u))
       );
       setSelectedUser(null);
+
+      toast.success("User updated successfully!", { id: toastId });
     } catch (err) {
-      setError(err.message || "Failed to update user");
+      const errorMessage = err.message || "Failed to update user";
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -247,12 +266,16 @@ export default function UsersPage() {
   const handleDeleteUser = async (userId) => {
     try {
       setIsDeletingId(userId);
+      const toastId = toast.loading("Deleting user...");
       await deleteUserApi(userId);
       setUsersData((prev) =>
         prev.filter((user) => (user.id || user._id) !== userId)
       );
+      toast.success("User deleted successfully!", { id: toastId });
     } catch (err) {
-      setError(err.message || "Failed to delete user");
+      const errorMessage = err.message || "Failed to delete user";
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsDeletingId(null);
     }
@@ -342,16 +365,22 @@ export default function UsersPage() {
             onClick={() => router.back()}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0 lg:hidden"
           >
-            <svg className="w-6 h-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <svg
+              className="w-6 h-6 text-slate-900"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
           <h1 className="mt-2 text-2xl lg:text-3xl font-semibold text-slate-900">
-            {isSuperAdmin
-              ? "User Management"
-              : isHost
-              ? "Team Management"
-              : "User Management"}
+            {isSuperAdmin ? "User Management" : "Staff Management"}
           </h1>
         </div>
 
@@ -413,7 +442,7 @@ export default function UsersPage() {
               setCreateOpen(true);
             }}
           >
-            <span className="hidden sm:inline">Create user</span>
+            <span className="hidden sm:inline">Add new </span>
             <span className="sm:hidden">Add</span>
           </button>
         </div>
@@ -431,12 +460,26 @@ export default function UsersPage() {
           {usersData.length === 0 ? (
             <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
-                <svg className="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                <svg
+                  className="h-8 w-8 text-slate-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+                  />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">No users yet</h3>
-              <p className="text-sm text-slate-600 mb-6">Get started by creating your first user</p>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                No users yet
+              </h3>
+              <p className="text-sm text-slate-600 mb-6">
+                Get started by creating your first user
+              </p>
               <button
                 className="rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white hover:bg-slate-800"
                 onClick={() => {
@@ -451,8 +494,9 @@ export default function UsersPage() {
             <div className="grid gap-3 md:grid-cols-2">
               {usersData.map((user) => {
                 const userId = user.id || user._id;
-                const roleName = typeof user.role === "object" ? user.role?.name : user.role;
-                
+                const roleName =
+                  typeof user.role === "object" ? user.role?.name : user.role;
+
                 return (
                   <div
                     key={userId}
@@ -465,25 +509,43 @@ export default function UsersPage() {
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-lg font-bold text-white">
                           {user.name?.charAt(0)?.toUpperCase() || "U"}
                         </div>
-                        
+
                         {/* Name & Email */}
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-slate-900 truncate">{user.name}</h3>
-                          <p className="text-sm text-slate-600 truncate">{user.email}</p>
+                          <h3 className="font-semibold text-slate-900 truncate">
+                            {user.name}
+                          </h3>
+                          <p className="text-sm text-slate-600 truncate">
+                            {user.email}
+                          </p>
                         </div>
                       </div>
-                      
+
                       {/* Actions Dropdown */}
                       <div className="relative dropdown-container">
                         <button
-                          onClick={() => setOpenDropdownId(openDropdownId === userId ? null : userId)}
+                          onClick={() =>
+                            setOpenDropdownId(
+                              openDropdownId === userId ? null : userId
+                            )
+                          }
                           className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100 active:bg-slate-200 transition-colors"
                         >
-                          <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                          <svg
+                            className="w-5 h-5 text-slate-600"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+                            />
                           </svg>
                         </button>
-                        
+
                         {/* Dropdown Menu */}
                         {openDropdownId === userId && (
                           <div className="absolute right-0 top-10 z-20 w-40 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
@@ -495,8 +557,18 @@ export default function UsersPage() {
                                 setOpenDropdownId(null);
                               }}
                             >
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                />
                               </svg>
                               Edit
                             </button>
@@ -508,10 +580,22 @@ export default function UsersPage() {
                                 setOpenDropdownId(null);
                               }}
                             >
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
                               </svg>
-                              {isDeletingId === userId ? "Deleting..." : "Delete"}
+                              {isDeletingId === userId
+                                ? "Deleting..."
+                                : "Delete"}
                             </button>
                           </div>
                         )}
@@ -532,12 +616,16 @@ export default function UsersPage() {
                           </span>
                         )}
                       </div>
-                      
+
                       <div className="flex items-center gap-3">
                         {user.phone && (
                           <div className="text-right">
-                            <span className="text-xs text-slate-500 block">Phone</span>
-                            <span className="text-sm text-slate-900">{user.phone}</span>
+                            <span className="text-xs text-slate-500 block">
+                              Phone
+                            </span>
+                            <span className="text-sm text-slate-900">
+                              {user.phone}
+                            </span>
                           </div>
                         )}
                         <StatusPill label={user.status || "Active"} />
@@ -557,12 +645,26 @@ export default function UsersPage() {
           {usersData.length === 0 ? (
             <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
-                <svg className="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                <svg
+                  className="h-8 w-8 text-slate-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+                  />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">No users yet</h3>
-              <p className="text-sm text-slate-600 mb-6">Get started by creating your first user</p>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                No users yet
+              </h3>
+              <p className="text-sm text-slate-600 mb-6">
+                Get started by creating your first user
+              </p>
               <button
                 className="rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white hover:bg-slate-800"
                 onClick={() => {
@@ -583,8 +685,7 @@ export default function UsersPage() {
       )}
 
       <Modal
-        title="Edit user"
-        description="Adjust level of access instantly."
+        title="Edit staff detail"
         isOpen={Boolean(selectedUser)}
         onClose={() => {
           setError(null);
@@ -598,7 +699,7 @@ export default function UsersPage() {
             {error}
           </div>
         )}
-        <div className="space-y-4">
+        <div className="flex flex-col gap-3">
           <FormField
             label="Full name"
             value={editForm.name}
@@ -614,14 +715,18 @@ export default function UsersPage() {
             }
             placeholder="Enter email"
           />
-          <FormField
-            label="Phone (optional)"
-            value={editForm.phone}
-            onChange={(e) =>
-              setEditForm({ ...editForm, phone: e.target.value })
-            }
-            placeholder="Enter phone number"
-          />
+          <div className="space-y-1 text-sm text-slate-600">
+            <label className="block text-sm font-medium text-slate-700">
+              Phone (optional)
+            </label>
+            <PhoneInput
+              value={editForm.phone}
+              onChange={(e) =>
+                setEditForm({ ...editForm, phone: e.target.value })
+              }
+              placeholder="Enter phone number"
+            />
+          </div>
           <FormField
             label="Role"
             as="select"
@@ -658,8 +763,7 @@ export default function UsersPage() {
       </Modal>
 
       <Modal
-        title="Create user"
-        description="Create a new user with role."
+        title="Add staff member"
         isOpen={isCreateOpen}
         onClose={() => {
           setError(null);
@@ -673,7 +777,7 @@ export default function UsersPage() {
             {error}
           </div>
         )}
-        <div className="space-y-4">
+        <div className="flex flex-col gap-3">
           <FormField
             label="Full name"
             value={createForm.name}
@@ -691,14 +795,18 @@ export default function UsersPage() {
             }
             placeholder="Enter email"
           />
-          <FormField
-            label="Phone (optional)"
-            value={createForm.phone}
-            onChange={(e) =>
-              setCreateForm({ ...createForm, phone: e.target.value })
-            }
-            placeholder="Enter phone number"
-          />
+          <div className="space-y-1 text-sm text-slate-600">
+            <label className="block text-sm font-medium text-slate-700">
+              Phone (optional)
+            </label>
+            <PhoneInput
+              value={createForm.phone}
+              onChange={(e) =>
+                setCreateForm({ ...createForm, phone: e.target.value })
+              }
+              placeholder="Enter phone number"
+            />
+          </div>
           <div className="space-y-1 text-sm text-slate-600">
             <span className="font-semibold text-sm">Password</span>
             <div className="relative">

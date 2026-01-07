@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Combobox from "./Combobox";
 
 // Common country codes
@@ -29,40 +29,51 @@ const COUNTRY_CODES = [
 
 // Parse existing value to extract country code and number
 const parsePhoneValue = (phoneValue) => {
-  if (!phoneValue) return { code: "+1", number: "" };
+  if (!phoneValue || phoneValue.trim() === "") return { code: "+1", number: "" };
+  
+  // Sort country codes by length (longest first) to handle cases like +1 vs +123
+  const sortedCodes = [...COUNTRY_CODES].sort((a, b) => b.code.length - a.code.length);
   
   // Check if value already starts with a country code
-  for (const country of COUNTRY_CODES) {
+  for (const country of sortedCodes) {
     if (phoneValue.startsWith(country.code)) {
+      const remainder = phoneValue.substring(country.code.length).trim();
       return {
         code: country.code,
-        number: phoneValue.substring(country.code.length).trim(),
+        number: remainder,
       };
     }
   }
   
-  // Default to +1 if no code found
-  return { code: "+1", number: phoneValue };
+  // Default to +1 if no code found (treat as just a number)
+  return { code: "+1", number: phoneValue.trim() };
 };
 
 export default function PhoneInput({ value, onChange, placeholder, className = "", required = false }) {
   const parsed = parsePhoneValue(value);
   const [selectedCode, setSelectedCode] = useState(parsed.code);
   const [phoneNumber, setPhoneNumber] = useState(parsed.number);
+  const lastValueRef = useRef(value);
 
-  // Update when value prop changes
+  // Update when value prop changes (important for edit mode)
   useEffect(() => {
-    const newParsed = parsePhoneValue(value);
-    setSelectedCode(newParsed.code);
-    setPhoneNumber(newParsed.number);
+    // Only update if value actually changed from external source (not from our own onChange)
+    if (value !== lastValueRef.current) {
+      lastValueRef.current = value;
+      const newParsed = parsePhoneValue(value || "");
+      setSelectedCode(newParsed.code);
+      setPhoneNumber(newParsed.number);
+    }
   }, [value]);
 
   const handleCodeChange = (code) => {
     setSelectedCode(code);
     // Combine new code with existing number
     const fullPhone = code + (phoneNumber ? ` ${phoneNumber}` : "");
+    const formattedValue = fullPhone.trim() || "";
+    lastValueRef.current = formattedValue;
     if (onChange) {
-      onChange({ target: { value: fullPhone } });
+      onChange({ target: { value: formattedValue } });
     }
   };
 
@@ -71,8 +82,10 @@ export default function PhoneInput({ value, onChange, placeholder, className = "
     setPhoneNumber(number);
     // Combine selected code with new number
     const fullPhone = selectedCode + (number ? ` ${number}` : "");
+    const formattedValue = fullPhone.trim() || "";
+    lastValueRef.current = formattedValue;
     if (onChange) {
-      onChange({ target: { value: fullPhone } });
+      onChange({ target: { value: formattedValue } });
     }
   };
 
