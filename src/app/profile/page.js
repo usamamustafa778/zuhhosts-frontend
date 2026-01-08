@@ -3,14 +3,18 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "@/hooks/useAuth";
-import { getUserProfile } from "@/lib/api";
+import { getUserProfile, getCurrencies, updateDefaultCurrency } from "@/lib/api";
 import { useSEO } from "@/hooks/useSEO";
+import toast from "react-hot-toast";
 
 export default function ProfilePage() {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useRequireAuth();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [currencies, setCurrencies] = useState([]);
+  const [selectedCurrency, setSelectedCurrency] = useState("");
+  const [updatingCurrency, setUpdatingCurrency] = useState(false);
 
   // SEO
   useSEO({
@@ -22,8 +26,16 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
       fetchUserData();
+      fetchCurrencies();
     }
   }, [isLoading, isAuthenticated]);
+
+  // Sync selectedCurrency when user data changes
+  useEffect(() => {
+    if (user?.defaultCurrency && user.defaultCurrency !== selectedCurrency) {
+      setSelectedCurrency(user.defaultCurrency);
+    }
+  }, [user?.defaultCurrency]);
 
   const fetchUserData = async () => {
     try {
@@ -31,6 +43,11 @@ export default function ProfilePage() {
       const response = await getUserProfile();
       const userData = response.user || response;
       setUser(userData);
+      
+      // Set default currency from user data
+      if (userData.defaultCurrency) {
+        setSelectedCurrency(userData.defaultCurrency);
+      }
     } catch (err) {
       console.error("Failed to load user data:", err);
       // Don't throw error, just set user to null
@@ -38,6 +55,60 @@ export default function ProfilePage() {
       setUser(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCurrencies = async () => {
+    try {
+      const response = await getCurrencies();
+      const currenciesList = response.currencies || [];
+      setCurrencies(currenciesList);
+      
+      // If user doesn't have a currency set, use default from API
+      setSelectedCurrency((prev) => {
+        if (prev) return prev; // Already set from user data
+        if (user?.defaultCurrency) return user.defaultCurrency;
+        return response.default || "USD";
+      });
+    } catch (err) {
+      console.error("Failed to load currencies:", err);
+      // Don't show error toast for currencies, just log it
+      // Set a fallback default
+      if (!selectedCurrency) {
+        setSelectedCurrency("USD");
+      }
+    }
+  };
+
+  const handleCurrencyChange = async (e) => {
+    const newCurrency = e.target.value;
+    setSelectedCurrency(newCurrency);
+    setUpdatingCurrency(true);
+
+    try {
+      const response = await updateDefaultCurrency(newCurrency);
+      
+      // Update local user state
+      if (response.user) {
+        setUser(response.user);
+      } else if (response.defaultCurrency) {
+        setUser((prev) => ({
+          ...prev,
+          defaultCurrency: response.defaultCurrency,
+          defaultCurrency_name: response.defaultCurrency_name,
+        }));
+      }
+
+      toast.success("Default currency updated successfully!");
+    } catch (err) {
+      console.error("Failed to update currency:", err);
+      toast.error(err.message || "Failed to update currency. Please try again.");
+      // Revert selection
+      if (user?.defaultCurrency) {
+        setSelectedCurrency(user.defaultCurrency);
+      }
+    } finally {
+      setUpdatingCurrency(false);
     }
   };
 
@@ -150,6 +221,63 @@ export default function ProfilePage() {
             </button>
           </div>
         )}
+
+        {/* Currency Selector */}
+        <div className="mb-6 rounded-2xl bg-white border border-slate-200 p-6 lg:p-8 shadow-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center">
+              <svg className="w-5 h-5 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h2 className="text-xl font-semibold text-slate-900">Default currency</h2>
+              <p className="text-sm text-slate-600 mt-1">
+                This currency will be used as the default when creating new payments, bookings, or properties.
+              </p>
+            </div>
+          </div>
+
+          <div className="relative">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 z-10">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <select
+              value={selectedCurrency || user?.defaultCurrency || "USD"}
+              onChange={handleCurrencyChange}
+              disabled={updatingCurrency || loading}
+              className="w-full rounded-xl border border-slate-300 bg-white pl-12 pr-12 py-3.5 text-slate-900 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20 transition-all appearance-none cursor-pointer disabled:bg-slate-50 disabled:cursor-not-allowed"
+            >
+              {currencies.length > 0 ? (
+                currencies.map((currency) => (
+                  <option key={currency.code} value={currency.code}>
+                    {currency.name} ({currency.code})
+                  </option>
+                ))
+              ) : (
+                <option value="USD">US Dollar (USD)</option>
+              )}
+            </select>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none flex items-center gap-2">
+              {updatingCurrency && (
+                <svg className="w-5 h-5 animate-spin text-slate-400" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              )}
+              <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+          {user?.defaultCurrency_name && (
+            <p className="text-xs text-slate-500 mt-3">
+              Current default: {user.defaultCurrency_name}
+            </p>
+          )}
+        </div>
 
         {/* Settings List */}
         <div className="space-y-0 lg:rounded-2xl lg:border lg:border-slate-200 lg:bg-white lg:shadow-sm border-t border-slate-200 -mx-4 lg:mx-0 lg:overflow-hidden">

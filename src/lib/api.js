@@ -967,6 +967,32 @@ export async function updateUserPassword(currentPassword, newPassword) {
   return handleResponse(res, "Failed to update password");
 }
 
+/**
+ * Get available currencies
+ * Endpoint: GET /api/users/currencies
+ * Returns list of all supported currencies with codes and names
+ * @returns {Promise<Object>} Object with currencies array and default currency
+ */
+export async function getCurrencies() {
+  const res = await fetchWithAuth(`${API_BASE_URL}/users/currencies`);
+  return handleResponse(res, "Failed to fetch currencies");
+}
+
+/**
+ * Update user's default currency
+ * Endpoint: PUT /api/users/profile/currency or PATCH /api/users/profile/currency
+ * Updates the user's default currency preference
+ * @param {string} currency - Currency code (e.g., "USD", "PKR", "INR")
+ * @returns {Promise<Object>} Updated user object
+ */
+export async function updateDefaultCurrency(currency) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/users/profile/currency`, {
+    method: "PUT",
+    body: JSON.stringify({ currency }),
+  });
+  return handleResponse(res, "Failed to update default currency");
+}
+
 // ============================================
 // Superadmin API Functions
 // ============================================
