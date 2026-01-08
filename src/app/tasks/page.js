@@ -18,6 +18,7 @@ import {
 } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
+import { formatCurrency } from "@/utils/currencyUtils";
 
 export default function TasksPage() {
   const router = useRouter();
@@ -37,7 +38,13 @@ export default function TasksPage() {
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filterStatus, setFilterStatus] = useState("pending");
+  const [filterStatus, setFilterStatus] = useState(() => {
+    // Default to all on desktop, pending on mobile
+    if (typeof window !== "undefined") {
+      return window.innerWidth >= 768 ? "all" : "pending";
+    }
+    return "all";
+  });
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [openStatusDropdownId, setOpenStatusDropdownId] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
@@ -99,7 +106,7 @@ export default function TasksPage() {
       setError(null);
 
       // Build query params for filtering
-      const params = filterStatus ? `?status=${filterStatus}` : "";
+      const params = filterStatus && filterStatus !== "all" ? `?status=${filterStatus}` : "";
 
       const [tasksData, propertiesData, usersData] = await Promise.all([
         getAllTasks(params),
@@ -432,7 +439,7 @@ export default function TasksPage() {
           </h1>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           {/* View Mode Switcher - Hidden on mobile */}
           <div className="hidden md:flex rounded-full border border-slate-200 p-1">
             <button
@@ -485,17 +492,19 @@ export default function TasksPage() {
             </button>
           </div>
 
+          {/* Filter Dropdown - Desktop only */}
           <select
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+            className="hidden md:block rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:border-slate-400"
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
           >
-            <option value="">All Tasks</option>
+            <option value="all">All Tasks</option>
             <option value="pending">Pending</option>
             <option value="in_progress">In Progress</option>
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
           </select>
+
           <button
             className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
             onClick={handleCreateTaskClick}
@@ -504,6 +513,60 @@ export default function TasksPage() {
             <span className="sm:hidden">Add</span>
           </button>
         </div>
+      </div>
+
+      {/* Filter Tabs - Mobile only */}
+      <div className="md:hidden flex gap-1 overflow-x-auto pb-1 -mx-1 px-1">
+        <button
+          className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+            filterStatus === "all"
+              ? "bg-slate-900 text-white"
+              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+          }`}
+          onClick={() => setFilterStatus("all")}
+        >
+          All
+        </button>
+        <button
+          className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+            filterStatus === "pending"
+              ? "bg-slate-900 text-white"
+              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+          }`}
+          onClick={() => setFilterStatus("pending")}
+        >
+          Pending
+        </button>
+        <button
+          className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+            filterStatus === "in_progress"
+              ? "bg-slate-900 text-white"
+              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+          }`}
+          onClick={() => setFilterStatus("in_progress")}
+        >
+          Progress
+        </button>
+        <button
+          className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+            filterStatus === "completed"
+              ? "bg-slate-900 text-white"
+              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+          }`}
+          onClick={() => setFilterStatus("completed")}
+        >
+          Completed
+        </button>
+        <button
+          className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+            filterStatus === "cancelled"
+              ? "bg-slate-900 text-white"
+              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+          }`}
+          onClick={() => setFilterStatus("cancelled")}
+        >
+          Cancelled
+        </button>
       </div>
 
       {/* Card View (Mobile) */}
@@ -1062,7 +1125,7 @@ export default function TasksPage() {
                 editingTask.payment.amount !== undefined &&
                 formData.includePayment && (
                   <span className="text-xs text-slate-500 ml-2">
-                    (${editingTask.payment.amount || 0} •{" "}
+                    ({formatCurrency(editingTask.payment.amount || 0, editingTask.payment.currency || null)} •{" "}
                     {(editingTask.payment.status || "unpaid") === "paid"
                       ? "Paid"
                       : "Unpaid"}

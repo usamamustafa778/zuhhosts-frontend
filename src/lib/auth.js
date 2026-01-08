@@ -37,10 +37,17 @@ export const setAuthUser = (user) => {
   if (typeof window === "undefined") return;
   if (!user) {
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem("defaultCurrency");
     window.dispatchEvent(new Event("auth-change"));
     return;
   }
   localStorage.setItem(USER_KEY, JSON.stringify(user));
+  
+  // Store currency from user object
+  if (user.defaultCurrency) {
+    localStorage.setItem("defaultCurrency", user.defaultCurrency);
+  }
+  
   // Dispatch custom event to notify auth state change
   window.dispatchEvent(new Event("auth-change"));
 };
@@ -48,6 +55,8 @@ export const setAuthUser = (user) => {
 export const clearAuthUser = () => {
   if (typeof window === "undefined") return;
   localStorage.removeItem(USER_KEY);
+  localStorage.removeItem("defaultCurrency");
+  localStorage.removeItem("defaultCurrency_name");
   // Dispatch custom event to notify auth state change
   window.dispatchEvent(new Event("auth-change"));
 };

@@ -12,10 +12,13 @@ export default function FileUpload({
   onChange,
   helpText = "Accepted: JPG, PNG, GIF, PDF. Max 5MB per file.",
   showPreview = true,
+  disabled = false,
 }) {
   const [dragActive, setDragActive] = useState(false);
 
   const handleFiles = (newFiles) => {
+    if (disabled) return;
+    
     const fileArray = Array.from(newFiles);
 
     // Validate file count
@@ -37,6 +40,7 @@ export default function FileUpload({
   };
 
   const handleDrag = (e) => {
+    if (disabled) return;
     e.preventDefault();
     e.stopPropagation();
     if (e.type === "dragenter" || e.type === "dragover") {
@@ -47,6 +51,7 @@ export default function FileUpload({
   };
 
   const handleDrop = (e) => {
+    if (disabled) return;
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
@@ -64,6 +69,7 @@ export default function FileUpload({
   };
 
   const removeFile = (indexToRemove) => {
+    if (disabled) return;
     const updatedFiles = files.filter((_, index) => index !== indexToRemove);
     onChange(updatedFiles);
   };
@@ -92,7 +98,9 @@ export default function FileUpload({
       {/* Upload Area */}
       <div
         className={`relative rounded-lg border-2 border-dashed transition-colors ${
-          dragActive
+          disabled
+            ? "border-slate-200 bg-slate-100 opacity-50 cursor-not-allowed"
+            : dragActive
             ? "border-blue-500 bg-blue-50"
             : "border-slate-200 bg-slate-50"
         }`}
@@ -106,12 +114,15 @@ export default function FileUpload({
           multiple
           accept={accept}
           onChange={handleChange}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
           id="file-upload"
+          disabled={disabled}
         />
         <label
           htmlFor="file-upload"
-          className="flex flex-col items-center justify-center px-6 py-8 cursor-pointer"
+          className={`flex flex-col items-center justify-center px-6 py-8 ${
+            disabled ? "cursor-not-allowed" : "cursor-pointer"
+          }`}
         >
           <Upload className="h-10 w-10 text-slate-400 mb-3" />
           <p className="text-sm font-medium text-slate-600">
@@ -148,8 +159,9 @@ export default function FileUpload({
                 <button
                   type="button"
                   onClick={() => removeFile(index)}
-                  className="flex-shrink-0 rounded-full p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                  className="flex-shrink-0 rounded-full p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label={`Remove ${file.name}`}
+                  disabled={disabled}
                 >
                   <X className="h-4 w-4" />
                 </button>

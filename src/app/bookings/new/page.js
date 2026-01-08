@@ -14,19 +14,21 @@ import {
   getAllGuests,
   createGuest,
 } from "@/lib/api";
+import { getDefaultCurrency } from "@/utils/currencyUtils";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
 
-const INITIAL_FORM_STATE = {
+const getInitialFormState = () => ({
   property_id: "",
   guest_id: "",
   start_date: "",
   end_date: "",
   amount: "",
+  currency: getDefaultCurrency(),
   discount: "0",
   payment_status: "unpaid",
   numberOfGuests: "1",
-};
+});
 
 const getBookingId = (item) => item.id || item._id;
 
@@ -68,8 +70,38 @@ export default function NewBookingPage() {
   const [isCreatingNewGuest, setIsCreatingNewGuest] = useState(false);
   const [idCardFiles, setIdCardFiles] = useState([]);
 
-  const [createForm, setCreateForm] = useState(INITIAL_FORM_STATE);
+  const [createForm, setCreateForm] = useState(() => getInitialFormState());
   const [newGuestForm, setNewGuestForm] = useState({ name: "", phone: "" });
+
+  // Sync currency on mount and when it changes in local storage
+  useEffect(() => {
+    // Set currency from local storage on mount
+    const currentCurrency = getDefaultCurrency();
+    setCreateForm((prev) => ({
+      ...prev,
+      currency: currentCurrency,
+    }));
+
+    const handleCurrencyChange = () => {
+      const newCurrency = getDefaultCurrency();
+      setCreateForm((prev) => ({
+        ...prev,
+        currency: newCurrency,
+      }));
+    };
+
+    // Listen for currency changes
+    window.addEventListener("currency-change", handleCurrencyChange);
+    window.addEventListener("storage", (e) => {
+      if (e.key === "defaultCurrency") {
+        handleCurrencyChange();
+      }
+    });
+
+    return () => {
+      window.removeEventListener("currency-change", handleCurrencyChange);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -86,6 +118,13 @@ export default function NewBookingPage() {
 
         setPropertiesData(Array.isArray(properties) ? properties : []);
         setGuestsData(Array.isArray(guests) ? guests : []);
+        
+        // Set default currency from local storage (ensure it's current)
+        const defaultCurrency = getDefaultCurrency();
+        setCreateForm((prev) => ({
+          ...prev,
+          currency: defaultCurrency,
+        }));
       } catch (err) {
         setError(err.message || "Failed to load data");
         console.error("Error loading data:", err);
@@ -135,9 +174,13 @@ export default function NewBookingPage() {
       // Prepare form data with files
       const formData = new FormData();
 
-      // Append all booking fields
+      // Append all booking fields, ensuring currency is from local storage
       Object.keys(createForm).forEach((key) => {
-        formData.append(key, createForm[key]);
+        if (key === "currency") {
+          formData.append(key, getDefaultCurrency());
+        } else {
+          formData.append(key, createForm[key]);
+        }
       });
 
       // Append ID card files
@@ -397,7 +440,7 @@ export default function NewBookingPage() {
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
-                Amount (USD) *
+                Amount *
               </label>
               <input
                 type="number"

@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
+import { formatCurrency } from "@/utils/currencyUtils";
 
 const getBookingId = (booking) => booking.id || booking._id;
 
@@ -67,6 +68,10 @@ const getPaymentStatusColor = (status) => {
     default:
       return "bg-rose-100 text-rose-700";
   }
+};
+
+const formatAmount = (amount, currency = null) => {
+  return formatCurrency(amount, currency);
 };
 
 export default function BookingDetailsPage() {
@@ -295,7 +300,7 @@ export default function BookingDetailsPage() {
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
               <span className="text-xs text-slate-500">Amount</span>
               <p className="text-sm font-medium text-slate-800">
-                ${booking.amount || 0}
+                {formatAmount(booking.amount, booking.currency)}
               </p>
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">

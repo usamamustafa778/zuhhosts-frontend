@@ -867,13 +867,11 @@ export default function UsersPage() {
             <label className="space-y-1 text-sm text-slate-600">
               <span className="font-semibold text-sm">Role</span>
               <select
-                value={
-                  editForm.role.charAt(0).toUpperCase() + editForm.role.slice(1)
-                }
+                value={editForm.role}
                 onChange={(e) => {
                   setEditForm({
                     ...editForm,
-                    role: e.target.value.toLowerCase(),
+                    role: e.target.value,
                   });
                   if (validationErrors.role) {
                     setValidationErrors({ ...validationErrors, role: null });
@@ -1034,19 +1032,11 @@ export default function UsersPage() {
             <label className="space-y-1 text-sm text-slate-600">
               <span className="font-semibold text-sm">Role</span>
               <select
-                value={
-                  createForm.role
-                    ? createForm.role.charAt(0).toUpperCase() +
-                      createForm.role.slice(1)
-                    : rolesData.length > 0
-                    ? rolesData[0].name.charAt(0).toUpperCase() +
-                      rolesData[0].name.slice(1)
-                    : ""
-                }
+                value={createForm.role || (rolesData.length > 0 ? rolesData[0].name : "")}
                 onChange={(e) => {
                   setCreateForm({
                     ...createForm,
-                    role: e.target.value.toLowerCase(),
+                    role: e.target.value,
                   });
                   if (validationErrors.role) {
                     setValidationErrors({ ...validationErrors, role: null });

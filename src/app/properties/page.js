@@ -20,6 +20,7 @@ import {
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
 import { API_BASE_URL } from "@/lib/api";
+import { formatCurrency } from "@/utils/currencyUtils";
 
 export default function PropertiesPage() {
   const router = useRouter();
@@ -710,7 +711,7 @@ export default function PropertiesPage() {
                   </p>
                   <div className="flex items-center justify-between">
                     <p className="text-lg font-semibold text-slate-900">
-                      ${property.price || 0}
+                      {formatCurrency(property.price || 0, property.currency || null)}
                       <span className="text-sm font-normal text-slate-500">
                         {" "}
                         / night
@@ -817,7 +818,7 @@ export default function PropertiesPage() {
                   property.propertyType || "House",
                   `${property.bedrooms || 0} / ${property.bathrooms || 0}`,
                   `${property.area || 0} sq ft`,
-                  `$${property.price || 0}`,
+                  formatCurrency(property.price || 0, property.currency || null),
                   <StatusPill
                     key="status"
                     label={property.status || "available"}

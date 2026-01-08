@@ -3,18 +3,19 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "@/hooks/useAuth";
-import { getUserProfile, getCurrencies, updateDefaultCurrency } from "@/lib/api";
+import { getCurrencies } from "@/lib/api";
+import { useCurrency } from "@/hooks/useCurrency";
+import { setCurrencyMap } from "@/utils/currencyUtils";
 import { useSEO } from "@/hooks/useSEO";
 import toast from "react-hot-toast";
 
 export default function ProfilePage() {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useRequireAuth();
+  const { currency, currencyName, updateCurrency, isLoading: updatingCurrency } = useCurrency();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currencies, setCurrencies] = useState([]);
-  const [selectedCurrency, setSelectedCurrency] = useState("");
-  const [updatingCurrency, setUpdatingCurrency] = useState(false);
 
   // SEO
   useSEO({
@@ -30,28 +31,13 @@ export default function ProfilePage() {
     }
   }, [isLoading, isAuthenticated]);
 
-  // Sync selectedCurrency when user data changes
-  useEffect(() => {
-    if (user?.defaultCurrency && user.defaultCurrency !== selectedCurrency) {
-      setSelectedCurrency(user.defaultCurrency);
-    }
-  }, [user?.defaultCurrency]);
-
   const fetchUserData = async () => {
     try {
       setLoading(true);
-      const response = await getUserProfile();
-      const userData = response.user || response;
-      setUser(userData);
-      
-      // Set default currency from user data
-      if (userData.defaultCurrency) {
-        setSelectedCurrency(userData.defaultCurrency);
-      }
+      // User data is already in local storage from auth, but we can fetch if needed
+      setUser(null);
     } catch (err) {
       console.error("Failed to load user data:", err);
-      // Don't throw error, just set user to null
-      // The page can still be displayed without user data
       setUser(null);
     } finally {
       setLoading(false);
@@ -64,51 +50,22 @@ export default function ProfilePage() {
       const currenciesList = response.currencies || [];
       setCurrencies(currenciesList);
       
-      // If user doesn't have a currency set, use default from API
-      setSelectedCurrency((prev) => {
-        if (prev) return prev; // Already set from user data
-        if (user?.defaultCurrency) return user.defaultCurrency;
-        return response.default || "USD";
-      });
+      // Store currency map in local storage for use across the app
+      setCurrencyMap(currenciesList);
     } catch (err) {
       console.error("Failed to load currencies:", err);
-      // Don't show error toast for currencies, just log it
-      // Set a fallback default
-      if (!selectedCurrency) {
-        setSelectedCurrency("USD");
-      }
     }
   };
 
   const handleCurrencyChange = async (e) => {
     const newCurrency = e.target.value;
-    setSelectedCurrency(newCurrency);
-    setUpdatingCurrency(true);
 
     try {
-      const response = await updateDefaultCurrency(newCurrency);
-      
-      // Update local user state
-      if (response.user) {
-        setUser(response.user);
-      } else if (response.defaultCurrency) {
-        setUser((prev) => ({
-          ...prev,
-          defaultCurrency: response.defaultCurrency,
-          defaultCurrency_name: response.defaultCurrency_name,
-        }));
-      }
-
+      await updateCurrency(newCurrency);
       toast.success("Default currency updated successfully!");
     } catch (err) {
       console.error("Failed to update currency:", err);
       toast.error(err.message || "Failed to update currency. Please try again.");
-      // Revert selection
-      if (user?.defaultCurrency) {
-        setSelectedCurrency(user.defaultCurrency);
-      }
-    } finally {
-      setUpdatingCurrency(false);
     }
   };
 
@@ -245,7 +202,7 @@ export default function ProfilePage() {
               </svg>
             </div>
             <select
-              value={selectedCurrency || user?.defaultCurrency || "USD"}
+              value={currency}
               onChange={handleCurrencyChange}
               disabled={updatingCurrency || loading}
               className="w-full rounded-xl border border-slate-300 bg-white pl-12 pr-12 py-3.5 text-slate-900 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20 transition-all appearance-none cursor-pointer disabled:bg-slate-50 disabled:cursor-not-allowed"
@@ -272,9 +229,9 @@ export default function ProfilePage() {
               </svg>
             </div>
           </div>
-          {user?.defaultCurrency_name && (
+          {currencyName && (
             <p className="text-xs text-slate-500 mt-3">
-              Current default: {user.defaultCurrency_name}
+              Current default: {currencyName}
             </p>
           )}
         </div>

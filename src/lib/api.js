@@ -417,6 +417,7 @@ export async function updateBookingPaymentStatus(id, paymentStatus) {
  * @param {string} params.groupBy - Group by field (property, month, etc.)
  * @param {string} params.property_id - Filter by property ID
  * @param {string} params.payment_status - Filter by payment status (paid, pending, etc.)
+ * @param {string} params.currency - Filter by currency code (e.g., "USD", "PKR", "INR")
  * @returns {Promise<Object>} Earnings data
  */
 export async function getEarnings(params = {}) {
@@ -439,6 +440,9 @@ export async function getEarnings(params = {}) {
   }
   if (params.payment_status) {
     queryParams.append('payment_status', params.payment_status);
+  }
+  if (params.currency) {
+    queryParams.append('currency', params.currency);
   }
 
   const url = `${API_BASE_URL}/bookings/earnings${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;

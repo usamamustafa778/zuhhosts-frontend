@@ -12,6 +12,7 @@ import { getAllGuests } from "@/lib/api";
 import { getAllProperties } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
+import { formatCurrency } from "@/utils/currencyUtils";
 
 // Helper function to format payment type labels
 const getPaymentTypeLabel = (paymentType) => {
@@ -166,7 +167,7 @@ export default function PaymentsPage() {
       cells: [
         paymentId.slice(-8),
         property ? (property.title || property.name || "N/A") : "N/A",
-        `$${payment.amount || 0}`,
+        formatCurrency(payment.amount || 0, payment.currency || null),
         getPaymentTypeLabel(payment.payment_type),
         payment.method || "N/A",
         payment.date ? new Date(payment.date).toLocaleDateString() : "N/A",
@@ -342,7 +343,7 @@ export default function PaymentsPage() {
                     <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100">
                       <div>
                         <span className="text-xs text-slate-500 block mb-1">Amount</span>
-                        <span className="text-lg font-semibold text-slate-900">${amount}</span>
+                        <span className="text-lg font-semibold text-slate-900">{formatCurrency(amount, payment.currency || null)}</span>
                       </div>
                       <div className="text-right">
                         <span className="text-xs text-slate-500 block mb-1">Method</span>
@@ -532,7 +533,7 @@ export default function PaymentsPage() {
               <div>
                 <label className="text-xs font-semibold text-slate-500 uppercase">Amount</label>
                 <p className="mt-1 text-lg font-semibold text-slate-900">
-                  ${selectedPayment.amount || 0}
+                  {formatCurrency(selectedPayment.amount || 0, selectedPayment.currency || null)}
                 </p>
               </div>
               <div>
