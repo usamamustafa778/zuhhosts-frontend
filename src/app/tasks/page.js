@@ -60,8 +60,9 @@ export default function TasksPage() {
     includePayment: false,
     payment: {
       amount: "",
-      payment_type: "expense",
+      payment_type: "maintenance_work",
       method: "cash",
+      status: "unpaid",
       date: new Date().toISOString().split("T")[0],
       paid_to: "",
       paid_by: "",
@@ -218,6 +219,7 @@ export default function TasksPage() {
           amount: parseFloat(formData.payment.amount),
           payment_type: formData.payment.payment_type,
           method: formData.payment.method,
+          status: formData.payment.status || "unpaid",
           date: formData.payment.date
             ? new Date(formData.payment.date).toISOString()
             : undefined,
@@ -241,6 +243,7 @@ export default function TasksPage() {
           amount: "",
           payment_type: "maintenance_work",
           method: "cash",
+          status: "unpaid",
           date: new Date().toISOString().split("T")[0],
           paid_to: "",
           paid_by: "",
@@ -306,6 +309,7 @@ export default function TasksPage() {
           amount: parseFloat(formData.payment.amount),
           payment_type: formData.payment.payment_type,
           method: formData.payment.method,
+          status: formData.payment.status || "unpaid",
           date: formData.payment.date
             ? new Date(formData.payment.date).toISOString()
             : undefined,
@@ -331,6 +335,7 @@ export default function TasksPage() {
           amount: "",
           payment_type: "maintenance_work",
           method: "cash",
+          status: "unpaid",
           date: new Date().toISOString().split("T")[0],
           paid_to: "",
           paid_by: "",
@@ -341,42 +346,6 @@ export default function TasksPage() {
     } catch (err) {
       setError(err.message || "Failed to update task");
       toast.error(err.message || "Failed to update task", { id: toastId });
-    }
-  };
-
-  const getStatusColor = (status) => {
-    const normalizedStatus = (status || "").toLowerCase().trim();
-    switch (normalizedStatus) {
-      case "completed":
-      case "complete":
-        return "bg-green-100 text-green-700";
-      case "in_progress":
-      case "in-progress":
-        return "bg-blue-100 text-blue-700";
-      case "cancelled":
-      case "canceled":
-        return "bg-rose-100 text-rose-700";
-      case "pending":
-      default:
-        return "bg-slate-100 text-slate-700";
-    }
-  };
-
-  const getStatusLabel = (status) => {
-    const normalizedStatus = (status || "").toLowerCase().trim();
-    switch (normalizedStatus) {
-      case "in_progress":
-      case "in-progress":
-        return "In Progress";
-      case "completed":
-      case "complete":
-        return "Completed";
-      case "cancelled":
-      case "canceled":
-        return "Cancelled";
-      case "pending":
-      default:
-        return "Pending";
     }
   };
 
@@ -418,6 +387,7 @@ export default function TasksPage() {
       status: task.status,
       column: column,
       createdAt: task.createdAt,
+      payment: task.payment || null, // Include payment info for display
     };
   });
 
@@ -653,7 +623,7 @@ export default function TasksPage() {
                                     : task.assigned_to || "",
                                 status: task.status || "pending",
                                 includePayment: Boolean(
-                                  taskPayment && taskPayment.id
+                                  taskPayment && taskPayment.amount !== undefined
                                 ),
                                 payment: {
                                   amount: taskPayment.amount?.toString() || "",
@@ -661,6 +631,7 @@ export default function TasksPage() {
                                     taskPayment.payment_type ||
                                     "maintenance_work",
                                   method: taskPayment.method || "cash",
+                                  status: taskPayment.status || "unpaid",
                                   date: paymentDate,
                                   paid_to: taskPayment.paid_to || "",
                                   paid_by: taskPayment.paid_by || "",
@@ -902,6 +873,49 @@ export default function TasksPage() {
               tasks={kanbanTasks}
               onComplete={handleComplete}
               onStatusChange={handleStatusChange}
+              onEdit={(kanbanTask) => {
+                // Find the original task from the tasks array
+                const originalTask = tasks.find((t) => {
+                  const taskId = t.id || t._id;
+                  return taskId === kanbanTask.id;
+                });
+
+                if (originalTask) {
+                  setEditingTask(originalTask);
+                  const taskPayment = originalTask.payment || {};
+                  const paymentDate = taskPayment.date
+                    ? new Date(taskPayment.date).toISOString().split("T")[0]
+                    : new Date().toISOString().split("T")[0];
+
+                  setFormData({
+                    property_id:
+                      typeof originalTask.property_id === "object"
+                        ? originalTask.property_id.id ||
+                          originalTask.property_id._id
+                        : originalTask.property_id || "",
+                    title: originalTask.title || "",
+                    description: originalTask.description || "",
+                    assigned_to:
+                      typeof originalTask.assigned_to === "object"
+                        ? originalTask.assigned_to.id ||
+                          originalTask.assigned_to._id
+                        : originalTask.assigned_to || "",
+                    status: originalTask.status || "pending",
+                    includePayment: Boolean(taskPayment && taskPayment.amount !== undefined),
+                    payment: {
+                      amount: taskPayment.amount?.toString() || "",
+                      payment_type:
+                        taskPayment.payment_type || "maintenance_work",
+                      method: taskPayment.method || "cash",
+                      date: paymentDate,
+                      paid_to: taskPayment.paid_to || "",
+                      paid_by: taskPayment.paid_by || "",
+                      notes: taskPayment.notes || "",
+                    },
+                  });
+                }
+              }}
+              onDelete={handleDeleteTask}
               processingTasks={Array.from(processingTasks)}
             />
           )}
@@ -1043,6 +1057,18 @@ export default function TasksPage() {
               <span className="text-sm font-medium text-slate-700">
                 Include Payment
               </span>
+              {editingTask &&
+                editingTask.payment &&
+                editingTask.payment.amount !== undefined &&
+                formData.includePayment && (
+                  <span className="text-xs text-slate-500 ml-2">
+                    (${editingTask.payment.amount || 0} •{" "}
+                    {(editingTask.payment.status || "unpaid") === "paid"
+                      ? "Paid"
+                      : "Unpaid"}
+                    )
+                  </span>
+                )}
             </label>
 
             {formData.includePayment && (
@@ -1113,6 +1139,28 @@ export default function TasksPage() {
                       <option value="online">Online</option>
                     </select>
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    value={formData.payment.status}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        payment: {
+                          ...formData.payment,
+                          status: e.target.value,
+                        },
+                      })
+                    }
+                  >
+                    <option value="unpaid">Unpaid</option>
+                    <option value="paid">Paid</option>
+                  </select>
                 </div>
 
                 <InputField
@@ -1393,6 +1441,28 @@ export default function TasksPage() {
                       <option value="online">Online</option>
                     </select>
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    value={formData.payment.status}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        payment: {
+                          ...formData.payment,
+                          status: e.target.value,
+                        },
+                      })
+                    }
+                  >
+                    <option value="unpaid">Unpaid</option>
+                    <option value="paid">Paid</option>
+                  </select>
                 </div>
 
                 <InputField

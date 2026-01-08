@@ -689,8 +689,9 @@ export async function createTask(data) {
  * @param {string} [data.status] - Task status
  * @param {Object} [data.payment] - Optional payment object (creates or updates existing payment)
  * @param {number} data.payment.amount - Payment amount (required if payment provided)
- * @param {string} data.payment.payment_type - Payment type: 'expense' or 'income' (required if payment provided)
+ * @param {string} data.payment.payment_type - Payment type: 'maintenance_work', 'staff_payment', 'utility_bills', 'supplies', or 'refund' (required if payment provided)
  * @param {string} data.payment.method - Payment method: 'cash', 'bank', or 'online' (required if payment provided)
+ * @param {string} [data.payment.status] - Payment status: 'paid' or 'unpaid' (optional, defaults to 'unpaid')
  * @param {string} [data.payment.date] - Payment date (optional)
  * @param {string} [data.payment.booking_id] - Booking ID (optional)
  * @param {string} [data.payment.paid_to] - Person/entity paid to (optional)
