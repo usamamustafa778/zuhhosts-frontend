@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardShell from '@/components/layout/DashboardShell';
 import SummaryCard from '@/components/common/SummaryCard';
+import { API_BASE_URL } from '@/lib/api';
 
 /**
  * SUPERADMIN DASHBOARD
@@ -53,7 +54,7 @@ export default function SuperadminDashboard() {
   const fetchPlatformStats = async (token) => {
     try {
       // Fetch hosts
-      const hostsResponse = await fetch('http://localhost:5001/api/hosts', {
+      const hostsResponse = await fetch(`${API_BASE_URL}/hosts`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -77,7 +78,7 @@ export default function SuperadminDashboard() {
       }
 
       // Fetch superadmin staff count
-      const staffResponse = await fetch('http://localhost:5001/api/superadmin/staff', {
+      const staffResponse = await fetch(`${API_BASE_URL}/superadmin/staff`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

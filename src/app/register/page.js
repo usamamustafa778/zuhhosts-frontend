@@ -3,13 +3,19 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, User, Mail, Lock } from "lucide-react";
 import { registerUser } from "@/lib/api";
 import { setAuthToken, setAuthUser, getAuthToken } from "@/lib/auth";
+import InputField from "@/components/common/InputField";
 
 export default function RegisterPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+  });
+  const [fieldErrors, setFieldErrors] = useState({
     name: "",
     email: "",
     password: "",
@@ -126,9 +132,55 @@ export default function RegisterPage() {
     script.textContent = JSON.stringify(registerSchema);
   }, [router]);
 
+  const validateField = (name, value) => {
+    let error = "";
+    
+    if (name === "name") {
+      if (!value) {
+        error = "Full name is required";
+      } else if (value.trim().length < 2) {
+        error = "Name must be at least 2 characters";
+      }
+    } else if (name === "email") {
+      if (!value) {
+        error = "Email is required";
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+        error = "Please enter a valid email address";
+      }
+    } else if (name === "password") {
+      if (!value) {
+        error = "Password is required";
+      } else if (value.length < 8) {
+        error = "Password must be at least 8 characters";
+      } else if (!/(?=.*[a-z])(?=.*[A-Z])/.test(value)) {
+        error = "Password must contain at least one uppercase and one lowercase letter";
+      } else if (!/(?=.*\d)/.test(value)) {
+        error = "Password must contain at least one number";
+      }
+    }
+    
+    return error;
+  };
+
   const handleChange = (event) => {
     const { name, value } = event.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // Clear field error when user starts typing
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+    
+    // Clear general error when user starts typing
+    if (error) {
+      setError("");
+    }
+  };
+
+  const handleBlur = (event) => {
+    const { name, value } = event.target;
+    const fieldError = validateField(name, value);
+    setFieldErrors((prev) => ({ ...prev, [name]: fieldError }));
   };
 
   const handleSubmit = async (event) => {
@@ -136,8 +188,19 @@ export default function RegisterPage() {
     setError("");
     setSuccess("");
 
-    if (!formData.name || !formData.email || !formData.password) {
-      setError("All fields are required.");
+    // Validate all fields
+    const nameError = validateField("name", formData.name);
+    const emailError = validateField("email", formData.email);
+    const passwordError = validateField("password", formData.password);
+    
+    setFieldErrors({
+      name: nameError,
+      email: emailError,
+      password: passwordError,
+    });
+
+    if (nameError || emailError || passwordError) {
+      setError("Please fix the errors above before submitting.");
       return;
     }
 
@@ -199,7 +262,7 @@ export default function RegisterPage() {
             </div>
             <div className="space-y-2">
               <h1 className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 bg-clip-text text-3xl font-bold text-transparent">
-                Create your account
+                Create hosting account
               </h1>
               <p className="text-sm text-slate-600">
                 Join the Zuha Hosts platform
@@ -209,115 +272,49 @@ export default function RegisterPage() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <label
-                htmlFor="name"
-                className="block text-sm font-semibold text-slate-700"
-              >
-                Full name
-              </label>
-              <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                  <svg
-                    className="h-5 w-5 text-slate-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                    />
-                  </svg>
-                </div>
-                <input
-                  id="name"
-                  name="name"
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={handleChange}
-                  className="w-full rounded-xl border border-slate-200 bg-white/50 py-3 pl-11 pr-4 text-sm text-slate-900 placeholder-slate-400 shadow-sm backdrop-blur-sm transition focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
-                  placeholder="John Doe"
-                />
-              </div>
-            </div>
+            <InputField
+              label="Full name"
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              placeholder="John Doe"
+              error={fieldErrors.name}
+              required
+              iconPrefix={<User className="h-5 w-5 text-slate-400" />}
+              inputClassName="rounded-xl border-slate-200 bg-white/50 py-3 pl-11 pr-4 text-slate-900 placeholder-slate-400 shadow-sm backdrop-blur-sm transition focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+            />
 
-            <div className="space-y-2">
-              <label
-                htmlFor="email"
-                className="block text-sm font-semibold text-slate-700"
-              >
-                Email address
-              </label>
-              <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                  <svg
-                    className="h-5 w-5 text-slate-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"
-                    />
-                  </svg>
-                </div>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full rounded-xl border border-slate-200 bg-white/50 py-3 pl-11 pr-4 text-sm text-slate-900 placeholder-slate-400 shadow-sm backdrop-blur-sm transition focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
-                  placeholder="you@zuhahosts.com"
-                />
-              </div>
-            </div>
+            <InputField
+              label="Email address"
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              placeholder="you@zuhahosts.com"
+              error={fieldErrors.email}
+              required
+              autoComplete="email"
+              iconPrefix={<Mail className="h-5 w-5 text-slate-400" />}
+              inputClassName="rounded-xl border-slate-200 bg-white/50 py-3 pl-11 pr-4 text-slate-900 placeholder-slate-400 shadow-sm backdrop-blur-sm transition focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+            />
 
-            <div className="space-y-2">
-              <label
-                htmlFor="password"
-                className="block text-sm font-semibold text-slate-700"
-              >
-                Password
-              </label>
-              <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                  <svg
-                    className="h-5 w-5 text-slate-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                    />
-                  </svg>
-                </div>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full rounded-xl border border-slate-200 bg-white/50 py-3 pl-11 pr-4 text-sm text-slate-900 placeholder-slate-400 shadow-sm backdrop-blur-sm transition focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
-                  placeholder="Choose a strong password"
-                />
-              </div>
-            </div>
+            <InputField
+              label="Password"
+              type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              placeholder="Choose a strong password"
+              error={fieldErrors.password}
+              required
+              autoComplete="new-password"
+              iconPrefix={<Lock className="h-5 w-5 text-slate-400" />}
+              inputClassName="rounded-xl border-slate-200 bg-white/50 py-3 pl-11 pr-4 text-slate-900 placeholder-slate-400 shadow-sm backdrop-blur-sm transition focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+            />
 
             {/* Terms and conditions */}
             <div className="flex items-start gap-2 text-sm">

@@ -17,6 +17,7 @@ import {
 import { loginUser, loginSuperadmin } from "@/lib/api";
 import { setAuthToken, setAuthUser, getAuthToken } from "@/lib/auth";
 import { getUserDashboard } from "@/utils/userTypes";
+import InputField from "@/components/common/InputField";
 
 const setMetaTags = () => {
   document.title = "Sign In - Zuha Hosts | Property Management Login";
@@ -109,6 +110,7 @@ const parseErrorMessage = (err) => {
 export default function LoginPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({ email: "", password: "" });
+  const [fieldErrors, setFieldErrors] = useState({ email: "", password: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -122,9 +124,45 @@ export default function LoginPage() {
     setMetaTags();
   }, [router]);
 
+  const validateField = (name, value) => {
+    let error = "";
+    
+    if (name === "email") {
+      if (!value) {
+        error = "Email is required";
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+        error = "Please enter a valid email address";
+      }
+    } else if (name === "password") {
+      if (!value) {
+        error = "Password is required";
+      } else if (value.length < 6) {
+        error = "Password must be at least 6 characters";
+      }
+    }
+    
+    return error;
+  };
+
   const handleChange = (event) => {
     const { name, value } = event.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // Clear field error when user starts typing
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+    
+    // Clear general error when user starts typing
+    if (error) {
+      setError("");
+    }
+  };
+
+  const handleBlur = (event) => {
+    const { name, value } = event.target;
+    const fieldError = validateField(name, value);
+    setFieldErrors((prev) => ({ ...prev, [name]: fieldError }));
   };
 
   const handleSubmit = async (event) => {
@@ -132,8 +170,17 @@ export default function LoginPage() {
     setError("");
     setSuccess(false);
 
-    if (!formData.email || !formData.password) {
-      setError("Email and password are required.");
+    // Validate all fields
+    const emailError = validateField("email", formData.email);
+    const passwordError = validateField("password", formData.password);
+    
+    setFieldErrors({
+      email: emailError,
+      password: passwordError,
+    });
+
+    if (emailError || passwordError) {
+      setError("Please fix the errors above before submitting.");
       return;
     }
 
@@ -213,57 +260,40 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <label
-                htmlFor="email"
-                className="block text-sm font-semibold text-slate-700"
-              >
-                Email
-              </label>
-              <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                  <Mail className="h-5 w-5 text-slate-400" />
-                </div>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="username"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full rounded-xl border border-slate-200 bg-white/50 py-3 pl-11 pr-4 text-sm text-slate-900 placeholder-slate-400 shadow-sm backdrop-blur-sm transition focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
-                  placeholder="Enter your email address"
-                />
-              </div>
+            <div className="relative">
+              <InputField
+                label="Email"
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                placeholder="Enter your email address"
+                error={fieldErrors.email}
+                required
+                autoComplete="username"
+                iconPrefix={<Mail className="h-5 w-5 text-slate-400" />}
+                inputClassName="rounded-xl border-slate-200 bg-white/50 py-3 pl-11 pr-4 text-slate-900 placeholder-slate-400 shadow-sm backdrop-blur-sm transition focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+              />
             </div>
 
-            <div className="space-y-2">
-              <label
-                htmlFor="password"
-                className="block text-sm font-semibold text-slate-700"
-              >
-                Password
-              </label>
-              <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                  <Lock className="h-5 w-5 text-slate-400" />
-                </div>
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  required
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full rounded-xl border border-slate-200 bg-white/50 py-3 pl-11 pr-12 text-sm text-slate-900 placeholder-slate-400 shadow-sm backdrop-blur-sm transition focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
-                  placeholder="••••••••"
-                />
+            <InputField
+              label="Password"
+              type={showPassword ? "text" : "password"}
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              placeholder="••••••••"
+              error={fieldErrors.password}
+              required
+              autoComplete="current-password"
+              iconPrefix={<Lock className="h-5 w-5 text-slate-400" />}
+              iconSuffix={
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 hover:text-slate-600 transition-colors"
+                  className="text-slate-400 hover:text-slate-600 transition-colors"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
@@ -272,8 +302,9 @@ export default function LoginPage() {
                     <Eye className="h-5 w-5" />
                   )}
                 </button>
-              </div>
-            </div>
+              }
+              inputClassName="rounded-xl border-slate-200 bg-white/50 py-3 pl-11 pr-12 text-slate-900 placeholder-slate-400 shadow-sm backdrop-blur-sm transition focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+            />
 
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center gap-2">

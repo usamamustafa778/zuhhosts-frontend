@@ -23,20 +23,23 @@ import {
   getAllGuests,
   createGuest,
   updateGuest,
+  getCurrencies,
 } from "@/lib/api";
+import { getDefaultCurrency, formatCurrency, getCurrencyMap } from "@/utils/currencyUtils";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
 
-const INITIAL_FORM_STATE = {
+const getInitialFormState = () => ({
   property_id: "",
   guest_id: "",
   start_date: "",
   end_date: "",
   amount: "",
+  currency: getDefaultCurrency(),
   discount: "0",
   payment_status: "unpaid",
   numberOfGuests: "1",
-};
+});
 
 const getBookingId = (booking) => booking.id || booking._id;
 
@@ -102,6 +105,10 @@ const calculateNights = (startDate, endDate) => {
   const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
   return nights || 0;
+};
+
+const formatAmount = (amount, currency = null) => {
+  return formatCurrency(amount, currency);
 };
 
 const getStatusColor = (status) => {
@@ -175,8 +182,8 @@ export default function BookingsPage() {
   const [filterPeriod, setFilterPeriod] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterPaymentStatus, setFilterPaymentStatus] = useState("");
-  const [createForm, setCreateForm] = useState(INITIAL_FORM_STATE);
-  const [editForm, setEditForm] = useState(INITIAL_FORM_STATE);
+  const [createForm, setCreateForm] = useState(() => getInitialFormState());
+  const [editForm, setEditForm] = useState(() => getInitialFormState());
   const [isCreatingNewGuest, setIsCreatingNewGuest] = useState(false);
   const [newGuestForm, setNewGuestForm] = useState({
     name: "",
@@ -186,6 +193,38 @@ export default function BookingsPage() {
   const [createIdCardFiles, setCreateIdCardFiles] = useState([]);
   const [editIdCardFiles, setEditIdCardFiles] = useState([]);
   const [viewBooking, setViewBooking] = useState(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [currencies, setCurrencies] = useState([]);
+
+  // Sync currency on mount and when it changes in local storage
+  useEffect(() => {
+    // Set currency from local storage on mount
+    const currentCurrency = getDefaultCurrency();
+    setCreateForm((prev) => ({
+      ...prev,
+      currency: currentCurrency,
+    }));
+
+    const handleCurrencyChange = () => {
+      const newCurrency = getDefaultCurrency();
+      setCreateForm((prev) => ({
+        ...prev,
+        currency: newCurrency,
+      }));
+    };
+
+    // Listen for currency changes
+    window.addEventListener("currency-change", handleCurrencyChange);
+    window.addEventListener("storage", (e) => {
+      if (e.key === "defaultCurrency") {
+        handleCurrencyChange();
+      }
+    });
+
+    return () => {
+      window.removeEventListener("currency-change", handleCurrencyChange);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -266,6 +305,17 @@ export default function BookingsPage() {
       setBookingsData(Array.isArray(bookings) ? bookings : []);
       setPropertiesData(Array.isArray(properties) ? properties : []);
       setGuestsData(Array.isArray(guests) ? guests : []);
+      
+      // Load currencies from local storage for edit modal
+      const currencyMap = getCurrencyMap();
+      setCurrencies(Object.entries(currencyMap).map(([code, name]) => ({ code, name })));
+      
+      // Set default currency from local storage (ensure it's current)
+      const defaultCurrency = getDefaultCurrency();
+      setCreateForm((prev) => ({
+        ...prev,
+        currency: defaultCurrency,
+      }));
     } catch (err) {
       setError(err.message || "Failed to load data");
     } finally {
@@ -318,6 +368,7 @@ export default function BookingsPage() {
         formData.append("start_date", createForm.start_date);
         formData.append("end_date", createForm.end_date);
         formData.append("amount", createForm.amount);
+        formData.append("currency", getDefaultCurrency());
         formData.append("discount", createForm.discount || "0");
         formData.append(
           "payment_status",
@@ -369,13 +420,14 @@ export default function BookingsPage() {
           ...createForm,
           guest_id: guestId,
           numberOfGuests,
+          currency: getDefaultCurrency(),
         });
         setBookingsData((prev) => [...prev, newBooking]);
       }
 
       toast.success("Booking created successfully!", { id: toastId });
       setCreateOpen(false);
-      setCreateForm(INITIAL_FORM_STATE);
+      setCreateForm(getInitialFormState());
       setCreateIdCardFiles([]);
       setIsCreatingNewGuest(false);
       setNewGuestForm({ name: "", phone: "" });
@@ -391,9 +443,10 @@ export default function BookingsPage() {
       e.preventDefault();
     }
 
-    if (!selectedBooking) return;
+    if (!selectedBooking || isUpdating) return;
 
-    const toastId = toast.loading("Updating booking...");
+    const toastId = toast.loading("Processing booking update...");
+    setIsUpdating(true);
 
     try {
       setError(null);
@@ -416,6 +469,7 @@ export default function BookingsPage() {
         formData.append("start_date", editForm.start_date);
         formData.append("end_date", editForm.end_date);
         formData.append("amount", editForm.amount);
+        formData.append("currency", editForm.currency || getDefaultCurrency());
         formData.append("discount", editForm.discount || "0");
         formData.append("payment_status", editForm.payment_status || "unpaid");
         formData.append("numberOfGuests", numberOfGuests.toString());
@@ -467,6 +521,7 @@ export default function BookingsPage() {
         const updatedBooking = await updateBooking(bookingId, {
           ...editForm,
           numberOfGuests,
+          currency: editForm.currency || getDefaultCurrency(),
         });
         setBookingsData((prev) =>
           prev.map((booking) =>
@@ -477,12 +532,14 @@ export default function BookingsPage() {
 
       toast.success("Booking updated successfully!", { id: toastId });
       setSelectedBooking(null);
-      setEditForm(INITIAL_FORM_STATE);
+      setEditForm(getInitialFormState());
       setEditIdCardFiles([]);
     } catch (err) {
       const errorMsg = formatErrorMessage(err);
       setError(errorMsg);
       toast.error(errorMsg, { id: toastId });
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -547,7 +604,7 @@ export default function BookingsPage() {
     }
   };
 
-  const openEditModal = (booking) => {
+  const openEditModal = async (booking) => {
     setSelectedBooking(booking);
     setEditForm({
       property_id: booking.property_id?.id || booking.property_id?._id || "",
@@ -555,22 +612,42 @@ export default function BookingsPage() {
       start_date: formatDateForInput(booking.start_date),
       end_date: formatDateForInput(booking.end_date),
       amount: booking.amount || "",
+      currency: booking.currency || getDefaultCurrency(), // Use booking's currency or default
       discount: booking.discount || "0",
       payment_status: booking.payment_status || "unpaid",
       numberOfGuests: booking.numberOfGuests || "1",
     });
     setEditIdCardFiles([]);
+    
+    // Load currencies from local storage first (for immediate display)
+    const currencyMap = getCurrencyMap();
+    const localCurrencies = Object.entries(currencyMap).map(([code, name]) => ({ code, name }));
+    if (localCurrencies.length > 0) {
+      setCurrencies(localCurrencies);
+    }
+    
+    // Fetch currencies from API when opening edit modal (to get latest list)
+    try {
+      const response = await getCurrencies();
+      const currenciesList = response.currencies || response || [];
+      if (Array.isArray(currenciesList) && currenciesList.length > 0) {
+        setCurrencies(currenciesList);
+      }
+    } catch (err) {
+      console.error("Error fetching currencies:", err);
+      // Keep local storage currencies if API fails
+    }
   };
 
   const closeEditModal = () => {
     setSelectedBooking(null);
-    setEditForm(INITIAL_FORM_STATE);
+    setEditForm(getInitialFormState());
     setEditIdCardFiles([]);
   };
 
   const closeCreateModal = () => {
     setCreateOpen(false);
-    setCreateForm(INITIAL_FORM_STATE);
+    setCreateForm(getInitialFormState());
     setCreateIdCardFiles([]);
     setIsCreatingNewGuest(false);
     setNewGuestForm({ name: "", phone: "" });
@@ -685,7 +762,7 @@ export default function BookingsPage() {
           key={`amount-${bookingId}`}
           className="font-semibold text-slate-900"
         >
-          ${booking.amount || 0}
+          {formatAmount(booking.amount, booking.currency)}
         </span>,
         <div key={`actions-${bookingId}`} className="flex gap-2">
           <button
@@ -962,9 +1039,9 @@ export default function BookingsPage() {
                     <div className="shrink-0 ml-3">
                       <div className="text-right">
                         <div className="text-lg font-bold text-slate-900">
-                          ${booking.amount || 0}
+                          {formatAmount(booking.amount, booking.currency)}
                         </div>
-                        <div className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${getPaymentStatusColor(
+                        <div className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${getPaymentStatusColor(
                           booking.payment_status || "unpaid"
                         )}`}>
                           {booking.payment_status === "partially-paid" ? "Partial" : booking.payment_status || "unpaid"}
@@ -1058,8 +1135,9 @@ export default function BookingsPage() {
         description="Update booking details without leaving the dashboard."
         isOpen={Boolean(selectedBooking)}
         onClose={closeEditModal}
-        primaryActionLabel="Update booking"
+        primaryActionLabel={isUpdating ? "Processing..." : "Update booking"}
         onPrimaryAction={handleUpdateBooking}
+        disabled={isUpdating}
       >
         <form className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
@@ -1081,6 +1159,7 @@ export default function BookingsPage() {
                 placeholder="Search guest by name, phone, or email..."
                 required
                 noOptionsMessage="No guests found"
+                disabled={isUpdating}
               />
             </div>
 
@@ -1092,13 +1171,14 @@ export default function BookingsPage() {
                 type="number"
                 min="1"
                 step="1"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 value={editForm.numberOfGuests}
                 onChange={(e) =>
                   setEditForm({ ...editForm, numberOfGuests: e.target.value })
                 }
                 placeholder="1"
                 required
+                disabled={isUpdating}
               />
             </div>
           </div>
@@ -1121,6 +1201,7 @@ export default function BookingsPage() {
               placeholder="Search property by name, address, or location..."
               required
               noOptionsMessage="No properties found"
+              disabled={isUpdating}
             />
           </div>
 
@@ -1131,12 +1212,13 @@ export default function BookingsPage() {
               </label>
               <input
                 type="date"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 value={editForm.start_date}
                 onChange={(e) =>
                   setEditForm({ ...editForm, start_date: e.target.value })
                 }
                 required
+                disabled={isUpdating}
               />
             </div>
             <div>
@@ -1145,32 +1227,60 @@ export default function BookingsPage() {
               </label>
               <input
                 type="date"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 value={editForm.end_date}
                 onChange={(e) =>
                   setEditForm({ ...editForm, end_date: e.target.value })
                 }
                 required
+                disabled={isUpdating}
               />
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
-                Amount (USD)
+                Currency *
+              </label>
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                value={editForm.currency || getDefaultCurrency()}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, currency: e.target.value })
+                }
+                required
+                disabled={isUpdating}
+              >
+                {currencies.length > 0 ? (
+                  currencies.map((currency) => (
+                    <option key={currency.code} value={currency.code}>
+                      {currency.name} ({currency.code})
+                    </option>
+                  ))
+                ) : (
+                  <option value={editForm.currency || getDefaultCurrency()}>
+                    {editForm.currency || getDefaultCurrency()}
+                  </option>
+                )}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Amount *
               </label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 value={editForm.amount}
                 onChange={(e) =>
                   setEditForm({ ...editForm, amount: e.target.value })
                 }
                 placeholder="0.00"
                 required
+                disabled={isUpdating}
               />
             </div>
             <div>
@@ -1182,12 +1292,13 @@ export default function BookingsPage() {
                 step="1"
                 min="0"
                 max="100"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 value={editForm.discount}
                 onChange={(e) =>
                   setEditForm({ ...editForm, discount: e.target.value })
                 }
                 placeholder="0"
+                disabled={isUpdating}
               />
             </div>
             <div>
@@ -1195,12 +1306,13 @@ export default function BookingsPage() {
                 Payment Status
               </label>
               <select
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 value={editForm.payment_status}
                 onChange={(e) =>
                   setEditForm({ ...editForm, payment_status: e.target.value })
                 }
                 required
+                disabled={isUpdating}
               >
                 <option value="unpaid">Unpaid</option>
                 <option value="partially-paid">Partially Paid</option>
@@ -1227,6 +1339,7 @@ export default function BookingsPage() {
               maxFiles={10}
               maxSizeMB={5}
               helpText="Upload new ID cards to replace existing ones. JPG, PNG, GIF, PDF accepted."
+              disabled={isUpdating}
             />
             {editIdCardFiles.length > 0 && (
               <p className="mt-2 text-xs text-amber-600 font-medium">
@@ -1412,7 +1525,7 @@ export default function BookingsPage() {
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
-                Amount (USD)
+                Amount *
               </label>
               <input
                 type="number"
@@ -1579,7 +1692,7 @@ export default function BookingsPage() {
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <span className="text-xs text-slate-500">Amount</span>
                   <p className="text-sm font-medium text-slate-800">
-                    ${viewBooking.amount || 0}
+                    {formatAmount(viewBooking.amount, viewBooking.currency)}
                   </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">

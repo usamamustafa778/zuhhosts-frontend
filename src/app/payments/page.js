@@ -12,6 +12,19 @@ import { getAllGuests } from "@/lib/api";
 import { getAllProperties } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
+import { formatCurrency } from "@/utils/currencyUtils";
+
+// Helper function to format payment type labels
+const getPaymentTypeLabel = (paymentType) => {
+  const labels = {
+    maintenance_work: "Maintenance work",
+    staff_payment: "Staff payment",
+    utility_bills: "Utility bills",
+    supplies: "Supplies",
+    refund: "Refund",
+  };
+  return labels[paymentType] || paymentType || "N/A";
+};
 
 export default function PaymentsPage() {
   const router = useRouter();
@@ -40,11 +53,15 @@ export default function PaymentsPage() {
     return "table";
   });
   const [formData, setFormData] = useState({
-    guest: "",
-    property: "",
+    property_id: "",
     amount: "",
-    method: "Card",
-    status: "Completed",
+    payment_type: "maintenance_work",
+    method: "cash",
+    date: new Date().toISOString().split('T')[0],
+    task_id: "",
+    booking_id: "",
+    paid_to: "",
+    paid_by: "",
     notes: "",
   });
 
@@ -87,26 +104,32 @@ export default function PaymentsPage() {
 
   const handleCreatePayment = async () => {
     try {
-      const selectedGuest = guestsData.find(g => (g.name || g.email) === formData.guest);
-      const selectedProperty = propertiesData.find(p => (p.name || p.propertyName) === formData.property);
-
       const paymentData = {
-        guestId: selectedGuest?.id || selectedGuest?._id,
-        propertyId: selectedProperty?.id || selectedProperty?._id,
         amount: parseFloat(formData.amount || 0),
+        payment_type: formData.payment_type,
         method: formData.method,
-        status: formData.status,
-        notes: formData.notes,
+        date: formData.date ? new Date(formData.date).toISOString() : undefined,
+        property_id: formData.property_id || undefined,
+        task_id: formData.task_id || undefined,
+        booking_id: formData.booking_id || undefined,
+        paid_to: formData.paid_to || undefined,
+        paid_by: formData.paid_by || undefined,
+        notes: formData.notes || undefined,
       };
+      
       const newPayment = await createPayment(paymentData);
       setPaymentsData((prev) => [...prev, newPayment]);
       setCreateOpen(false);
       setFormData({
-        guest: "",
-        property: "",
+        property_id: "",
         amount: "",
-        method: "Card",
-        status: "Completed",
+        payment_type: "maintenance_work",
+        method: "cash",
+        date: new Date().toISOString().split('T')[0],
+        task_id: "",
+        booking_id: "",
+        paid_to: "",
+        paid_by: "",
         notes: "",
       });
     } catch (err) {
@@ -131,21 +154,26 @@ export default function PaymentsPage() {
   }
 
   const rows = paymentsData.map((payment, index) => {
-          const paymentId = payment.id || payment._id || `payment-${index}`;
-          const guest = guestsData.find(g => (g.id || g._id) === payment.guestId || payment.guest) || {};
-          const property = propertiesData.find(p => (p.id || p._id) === payment.propertyId || payment.property) || {};
-          return {
-            id: paymentId,
-            cells: [
-              paymentId,
-              payment.guestName || guest.name || payment.guest || "N/A",
-              payment.propertyName || property.name || payment.property || "N/A",
-              `$${payment.amount || payment.total || 0}`,
-              payment.method || payment.paymentMethod || "N/A",
-              payment.date || payment.paymentDate || payment.createdAt || "N/A",
-              <StatusPill key={`status-${paymentId}`} label={payment.status || "Pending"} />,
-            ],
-          };
+    const paymentId = payment.id || payment._id || `payment-${index}`;
+    const property = payment.property_id 
+      ? (typeof payment.property_id === 'object' ? payment.property_id : propertiesData.find(p => (p.id || p._id) === payment.property_id))
+      : null;
+    const task = payment.task_id 
+      ? (typeof payment.task_id === 'object' ? payment.task_id : null)
+      : null;
+    
+    return {
+      id: paymentId,
+      cells: [
+        paymentId.slice(-8),
+        property ? (property.title || property.name || "N/A") : "N/A",
+        formatCurrency(payment.amount || 0, payment.currency || null),
+        getPaymentTypeLabel(payment.payment_type),
+        payment.method || "N/A",
+        payment.date ? new Date(payment.date).toLocaleDateString() : "N/A",
+        payment.paid_to || "N/A",
+      ],
+    };
   });
 
   return (
@@ -255,14 +283,14 @@ export default function PaymentsPage() {
             <div className="grid gap-3 md:grid-cols-2">
               {paymentsData.map((payment, index) => {
                 const paymentId = payment.id || payment._id || `payment-${index}`;
-                const guest = guestsData.find(g => (g.id || g._id) === payment.guestId || payment.guest) || {};
-                const property = propertiesData.find(p => (p.id || p._id) === payment.propertyId || payment.property) || {};
-                const guestName = payment.guestName || guest.name || payment.guest || "N/A";
-                const propertyName = payment.propertyName || property.name || payment.property || "N/A";
-                const amount = payment.amount || payment.total || 0;
-                const method = payment.method || payment.paymentMethod || "N/A";
-                const date = payment.date || payment.paymentDate || payment.createdAt || "N/A";
-                const status = payment.status || "Pending";
+                const property = payment.property_id 
+                  ? (typeof payment.property_id === 'object' ? payment.property_id : propertiesData.find(p => (p.id || p._id) === payment.property_id))
+                  : null;
+                const propertyName = property ? (property.title || property.name || "N/A") : "N/A";
+                const amount = payment.amount || 0;
+                const method = payment.method || "N/A";
+                const date = payment.date || payment.createdAt || "N/A";
+                const paymentType = getPaymentTypeLabel(payment.payment_type);
                 
                 return (
                   <div
@@ -273,10 +301,10 @@ export default function PaymentsPage() {
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-slate-900 truncate">{guestName}</h3>
-                          <StatusPill label={status} />
+                          <h3 className="font-semibold text-slate-900 truncate">{propertyName}</h3>
+                          <StatusPill label={paymentType} />
                         </div>
-                        <p className="text-sm text-slate-600 truncate">{propertyName}</p>
+                        <p className="text-sm text-slate-600 truncate">{payment.paid_to || "N/A"}</p>
                       </div>
                       
                       {/* Actions Dropdown */}
@@ -315,7 +343,7 @@ export default function PaymentsPage() {
                     <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100">
                       <div>
                         <span className="text-xs text-slate-500 block mb-1">Amount</span>
-                        <span className="text-lg font-semibold text-slate-900">${amount}</span>
+                        <span className="text-lg font-semibold text-slate-900">{formatCurrency(amount, payment.currency || null)}</span>
                       </div>
                       <div className="text-right">
                         <span className="text-xs text-slate-500 block mb-1">Method</span>
@@ -357,7 +385,7 @@ export default function PaymentsPage() {
             </div>
           ) : (
             <DataTable
-              headers={["ID", "Guest", "Property", "Amount", "Method", "Date", "Status"]}
+              headers={["ID", "Property", "Amount", "Type", "Method", "Date", "Paid To"]}
               rows={rows}
             />
           )}
@@ -371,11 +399,15 @@ export default function PaymentsPage() {
         onClose={() => {
           setCreateOpen(false);
           setFormData({
-            guest: "",
-            property: "",
+            property_id: "",
             amount: "",
-            method: "Card",
-            status: "Completed",
+            payment_type: "maintenance_work",
+            method: "cash",
+            date: new Date().toISOString().split('T')[0],
+            task_id: "",
+            booking_id: "",
+            paid_to: "",
+            paid_by: "",
             notes: "",
           });
         }}
@@ -384,45 +416,81 @@ export default function PaymentsPage() {
       >
         <div className="space-y-4">
           <FormField
-            name="guest"
-            label="Guest"
-            as="select"
-            value={formData.guest || (guestsData[0]?.name || guestsData[0]?.email || "")}
-            onChange={(e) => setFormData({ ...formData, guest: e.target.value })}
-            options={guestsData.map((guest) => guest.name || guest.email || "N/A")}
-          />
-          <FormField
-            name="property"
+            name="property_id"
             label="Property"
             as="select"
-            value={formData.property || (propertiesData[0]?.name || propertiesData[0]?.propertyName || "")}
-            onChange={(e) => setFormData({ ...formData, property: e.target.value })}
-            options={propertiesData.map((property) => property.name || property.propertyName || "N/A")}
+            value={formData.property_id}
+            onChange={(e) => setFormData({ ...formData, property_id: e.target.value })}
+            options={[
+              { value: "", label: "Select a property (optional)" },
+              ...propertiesData.map((property) => ({
+                value: property.id || property._id,
+                label: property.title || property.name || "N/A"
+              }))
+            ]}
           />
           <FormField 
             name="amount" 
             label="Amount" 
             type="number" 
+            step="0.01"
+            min="0"
             placeholder="0.00"
             value={formData.amount}
             onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+            required
           />
-          <FormField
-            name="method"
-            label="Method"
-            as="select"
-            value={formData.method}
-            onChange={(e) => setFormData({ ...formData, method: e.target.value })}
-            options={["Card", "Cash", "ACH", "Wire"]}
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              name="payment_type"
+              label="Type"
+              as="select"
+              value={formData.payment_type}
+              onChange={(e) => setFormData({ ...formData, payment_type: e.target.value })}
+              options={[
+                { value: "maintenance_work", label: "Maintenance work" },
+                { value: "staff_payment", label: "Staff payment" },
+                { value: "utility_bills", label: "Utility bills" },
+                { value: "supplies", label: "Supplies" },
+                { value: "refund", label: "Refund" },
+              ]}
+              required
+            />
+            <FormField
+              name="method"
+              label="Method"
+              as="select"
+              value={formData.method}
+              onChange={(e) => setFormData({ ...formData, method: e.target.value })}
+              options={["cash", "bank", "online"]}
+              required
+            />
+          </div>
           <FormField 
-            name="status" 
-            label="Status" 
-            as="select" 
-            value={formData.status}
-            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-            options={["Completed", "Pending", "Failed"]} 
+            name="date" 
+            label="Date" 
+            type="date"
+            value={formData.date}
+            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
           />
+          <div className="grid grid-cols-2 gap-4">
+            <FormField 
+              name="paid_to" 
+              label="Paid To" 
+              type="text"
+              placeholder="Person/entity name"
+              value={formData.paid_to}
+              onChange={(e) => setFormData({ ...formData, paid_to: e.target.value })}
+            />
+            <FormField 
+              name="paid_by" 
+              label="Paid By" 
+              type="text"
+              placeholder="Person/entity name"
+              value={formData.paid_by}
+              onChange={(e) => setFormData({ ...formData, paid_by: e.target.value })}
+            />
+          </div>
           <FormField 
             name="notes" 
             label="Notes" 
@@ -451,41 +519,36 @@ export default function PaymentsPage() {
               <p className="mt-1 text-sm text-slate-900">{selectedPayment.id || selectedPayment._id || "N/A"}</p>
             </div>
             <div>
-              <label className="text-xs font-semibold text-slate-500 uppercase">Guest</label>
-              <p className="mt-1 text-sm text-slate-900">
-                {selectedPayment.guestName || 
-                 guestsData.find(g => (g.id || g._id) === selectedPayment.guestId)?.name || 
-                 selectedPayment.guest || "N/A"}
-              </p>
-            </div>
-            <div>
               <label className="text-xs font-semibold text-slate-500 uppercase">Property</label>
               <p className="mt-1 text-sm text-slate-900">
-                {selectedPayment.propertyName || 
-                 propertiesData.find(p => (p.id || p._id) === selectedPayment.propertyId)?.name || 
-                 selectedPayment.property || "N/A"}
+                {selectedPayment.property_id 
+                  ? (typeof selectedPayment.property_id === 'object' 
+                      ? (selectedPayment.property_id.title || selectedPayment.property_id.name || "N/A")
+                      : (propertiesData.find(p => (p.id || p._id) === selectedPayment.property_id)?.title || 
+                         propertiesData.find(p => (p.id || p._id) === selectedPayment.property_id)?.name || "N/A"))
+                  : "N/A"}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-semibold text-slate-500 uppercase">Amount</label>
                 <p className="mt-1 text-lg font-semibold text-slate-900">
-                  ${selectedPayment.amount || selectedPayment.total || 0}
+                  {formatCurrency(selectedPayment.amount || 0, selectedPayment.currency || null)}
                 </p>
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase">Method</label>
-                <p className="mt-1 text-sm text-slate-900">
-                  {selectedPayment.method || selectedPayment.paymentMethod || "N/A"}
-                </p>
+                <label className="text-xs font-semibold text-slate-500 uppercase">Type</label>
+                <div className="mt-1">
+                  <StatusPill label={getPaymentTypeLabel(selectedPayment.payment_type)} />
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase">Status</label>
-                <div className="mt-1">
-                  <StatusPill label={selectedPayment.status || "Pending"} />
-                </div>
+                <label className="text-xs font-semibold text-slate-500 uppercase">Method</label>
+                <p className="mt-1 text-sm text-slate-900">
+                  {selectedPayment.method || "N/A"}
+                </p>
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-500 uppercase">Date</label>

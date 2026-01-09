@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import PhotoCarousel from "@/components/modules/PhotoCarousel";
 import DataTable from "@/components/common/DataTable";
 import Modal from "@/components/common/Modal";
 import FormField from "@/components/common/FormField";
+import Select from "@/components/common/Select";
 import StatusPill from "@/components/common/StatusPill";
 import PageLoader from "@/components/common/PageLoader";
+import FileUpload from "@/components/common/FileUpload";
 import {
   getAllProperties,
   createProperty,
@@ -17,23 +19,33 @@ import {
 } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
+import { API_BASE_URL } from "@/lib/api";
+import { formatCurrency } from "@/utils/currencyUtils";
 
 export default function PropertiesPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useRequireAuth();
-  
+
   // SEO
   useSEO({
     title: "Properties | Zuha Host",
-    description: "Manage your property listings. Add, edit, and monitor all your vacation rental properties.",
-    keywords: "properties, listings, vacation rentals, property management, rental properties",
+    description:
+      "Manage your property listings. Add, edit, and monitor all your vacation rental properties.",
+    keywords:
+      "properties, listings, vacation rentals, property management, rental properties",
   });
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [propertiesData, setPropertiesData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [viewMode, setViewMode] = useState("cards"); // "cards" or "table"
+  // Default view: table for desktop, list for mobile
+  const [viewMode, setViewMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth >= 768 ? "table" : "list";
+    }
+    return "table";
+  });
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     search: "",
@@ -48,32 +60,27 @@ export default function PropertiesPage() {
     description: "",
     price: "",
     location: "",
-    propertyType: "house",
-    bedrooms: "",
-    bathrooms: "",
+    propertyType: "House",
     area: "",
     status: "available",
   });
+  const [newImages, setNewImages] = useState([]);
+  const [existingImages, setExistingImages] = useState([]);
+  const [imagesToRemove, setImagesToRemove] = useState([]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    console.log(
-      "🟢 PropertiesPage: useEffect triggered, calling getAllProperties"
-    );
     const loadProperties = async () => {
       try {
         setIsLoading(true);
         setError(null);
-        console.log("🟢 PropertiesPage: Starting API call...");
         const data = await getAllProperties();
-        console.log(
-          "🟢 PropertiesPage: API call successful, data received:",
-          data
-        );
         setPropertiesData(Array.isArray(data) ? data : []);
       } catch (err) {
+        const errorMessage = err.message || "Failed to load properties";
         console.error("🔴 PropertiesPage: API call failed:", err);
-        setError(err.message || "Failed to load properties");
+        setError(errorMessage);
+        toast.error(errorMessage);
       } finally {
         setIsLoading(false);
       }
@@ -82,18 +89,35 @@ export default function PropertiesPage() {
     loadProperties();
   }, [isAuthenticated]);
 
+  // Handle window resize to update view mode on screen size change
+  useEffect(() => {
+    const handleResize = () => {
+      const isMobile = window.innerWidth < 768;
+      // Only auto-switch if user hasn't manually changed view
+      if (isMobile && viewMode === "table") {
+        setViewMode("list");
+      } else if (!isMobile && viewMode === "list") {
+        setViewMode("table");
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [viewMode]);
+
   const resetForm = () => {
     setFormData({
       title: "",
       description: "",
       price: "",
       location: "",
-      propertyType: "house",
-      bedrooms: "",
-      bathrooms: "",
+      propertyType: "House",
       area: "",
       status: "available",
     });
+    setNewImages([]);
+    setExistingImages([]);
+    setImagesToRemove([]);
   };
 
   const handleFormChange = (field, value) => {
@@ -101,7 +125,6 @@ export default function PropertiesPage() {
   };
 
   const validatePropertyForm = (data, isUpdate = false) => {
-    // For updates, only validate fields that are provided
     if (!isUpdate) {
       // Required fields for creation
       if (!data.title || data.title.trim().length < 3) {
@@ -138,6 +161,7 @@ export default function PropertiesPage() {
   };
 
   const handleCreateProperty = async () => {
+    let toastId;
     try {
       // Validate form
       const validationError = validatePropertyForm(formData, false);
@@ -146,29 +170,48 @@ export default function PropertiesPage() {
         return;
       }
 
+      // Validate image count
+      if (newImages.length > 5) {
+        toast.error("Maximum 5 images allowed per property");
+        return;
+      }
+
       // Convert string numbers to actual numbers
       const payload = {
         ...formData,
         price: Number(formData.price),
-        bedrooms: formData.bedrooms ? Number(formData.bedrooms) : 0,
-        bathrooms: formData.bathrooms ? Number(formData.bathrooms) : 0,
         area: Number(formData.area),
+        status: "available", // Always set to available for new properties
       };
 
-      const toastId = toast.loading("Creating property...");
-      const newProperty = await createProperty(payload);
+      toastId = toast.loading("Creating property...");
+      const newProperty = await createProperty(payload, newImages);
       setPropertiesData((prev) => [...prev, newProperty]);
       setCreateOpen(false);
       resetForm();
       toast.success("Property created successfully!", { id: toastId });
     } catch (err) {
-      toast.error(err.message || "Failed to create property");
+      const errorMessage = err.message || "Failed to create property";
+      if (toastId) {
+        toast.error(errorMessage, { id: toastId });
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
 
   const handleUpdateProperty = async () => {
+    let toastId;
     try {
       const propertyId = selectedProperty.id || selectedProperty._id;
+
+      // Validate image count (existing - removed + new)
+      const totalImages =
+        existingImages.length - imagesToRemove.length + newImages.length;
+      if (totalImages > 5) {
+        toast.error("Maximum 5 images allowed per property");
+        return;
+      }
 
       // Only include fields that have values
       const payload = {};
@@ -177,10 +220,6 @@ export default function PropertiesPage() {
       if (formData.price) payload.price = Number(formData.price);
       if (formData.location) payload.location = formData.location;
       if (formData.propertyType) payload.propertyType = formData.propertyType;
-      if (formData.bedrooms !== "")
-        payload.bedrooms = Number(formData.bedrooms);
-      if (formData.bathrooms !== "")
-        payload.bathrooms = Number(formData.bathrooms);
       if (formData.area) payload.area = Number(formData.area);
       if (formData.status) payload.status = formData.status;
 
@@ -191,8 +230,13 @@ export default function PropertiesPage() {
         return;
       }
 
-      const toastId = toast.loading("Updating property...");
-      const updatedProperty = await updateProperty(propertyId, payload);
+      toastId = toast.loading("Updating property...");
+      const updatedProperty = await updateProperty(
+        propertyId,
+        payload,
+        newImages,
+        imagesToRemove
+      );
       setPropertiesData((prev) =>
         prev.map((prop) =>
           prop.id === propertyId || prop._id === propertyId
@@ -204,22 +248,33 @@ export default function PropertiesPage() {
       resetForm();
       toast.success("Property updated successfully!", { id: toastId });
     } catch (err) {
-      toast.error(err.message || "Failed to update property");
+      const errorMessage = err.message || "Failed to update property";
+      if (toastId) {
+        toast.error(errorMessage, { id: toastId });
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
 
   const handleDeleteProperty = async (propertyId) => {
     if (!confirm("Are you sure you want to delete this property?")) return;
 
+    let toastId;
     try {
-      const toastId = toast.loading("Deleting property...");
+      toastId = toast.loading("Deleting property...");
       await deleteProperty(propertyId);
       setPropertiesData((prev) =>
         prev.filter((prop) => (prop.id || prop._id) !== propertyId)
       );
       toast.success("Property deleted successfully!", { id: toastId });
     } catch (err) {
-      toast.error(err.message || "Failed to delete property");
+      const errorMessage = err.message || "Failed to delete property";
+      if (toastId) {
+        toast.error(errorMessage, { id: toastId });
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
 
@@ -230,12 +285,13 @@ export default function PropertiesPage() {
       description: property.description || "",
       price: property.price?.toString() || "",
       location: property.location || "",
-      propertyType: property.propertyType || "house",
-      bedrooms: property.bedrooms?.toString() || "",
-      bathrooms: property.bathrooms?.toString() || "",
+      propertyType: property.propertyType || "House",
       area: property.area?.toString() || "",
       status: property.status || "available",
     });
+    setExistingImages(property.images || []);
+    setNewImages([]);
+    setImagesToRemove([]);
   };
 
   const closeEditModal = () => {
@@ -318,25 +374,26 @@ export default function PropertiesPage() {
     return <PageLoader message="Loading properties..." />;
   }
 
-  if (error) {
-    return (
-      <div className="rounded-3xl border border-rose-100 bg-rose-50/80 p-8 text-center text-rose-600">
-        {error}
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto max-w-7xl space-y-8">
-      <Toaster position="top-right" />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.back()}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0 lg:hidden"
           >
-            <svg className="w-6 h-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <svg
+              className="w-6 h-6 text-slate-900"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
           <h1 className="mt-2 text-3xl font-semibold text-slate-900">
@@ -373,13 +430,15 @@ export default function PropertiesPage() {
           </button>
 
           <div className="flex rounded-full border border-slate-200 p-1">
+            {/* Blog Card View */}
             <button
               className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                viewMode === "cards"
+                viewMode === "blog"
                   ? "bg-slate-900 text-white"
                   : "text-slate-600 hover:bg-slate-50"
               }`}
-              onClick={() => setViewMode("cards")}
+              onClick={() => setViewMode("blog")}
+              title="Blog Cards"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -396,6 +455,32 @@ export default function PropertiesPage() {
                 />
               </svg>
             </button>
+            {/* List View */}
+            <button
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                viewMode === "list"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+              onClick={() => setViewMode("list")}
+              title="List View"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </button>
+            {/* Table View */}
             <button
               className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
                 viewMode === "table"
@@ -403,6 +488,7 @@ export default function PropertiesPage() {
                   : "text-slate-600 hover:bg-slate-50"
               }`}
               onClick={() => setViewMode("table")}
+              title="Table View"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -420,20 +506,12 @@ export default function PropertiesPage() {
               </svg>
             </button>
           </div>
-          {/* Mobile: Add button */}
+          {/* Add Property button - same for all screens */}
           <button
-            className="sm:hidden rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+            className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 transition-colors"
             onClick={() => setCreateOpen(true)}
           >
-            Add
-          </button>
-
-          {/* Desktop: Add property and Import buttons */}
-          <button
-            className="hidden sm:inline-block rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-            onClick={() => setCreateOpen(true)}
-          >
-            Add property
+            Add Property
           </button>
           <button className="hidden sm:inline-block rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
             Import Property
@@ -456,7 +534,7 @@ export default function PropertiesPage() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 pt-4">
             {/* Search */}
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">
@@ -472,42 +550,36 @@ export default function PropertiesPage() {
             </div>
 
             {/* Property Type */}
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
-                Property Type
-              </label>
-              <select
-                value={filters.propertyType}
-                onChange={(e) =>
-                  handleFilterChange("propertyType", e.target.value)
-                }
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
-              >
-                <option value="">All Types</option>
-                <option value="house">House</option>
-                <option value="apartment">Apartment</option>
-                <option value="villa">Villa</option>
-                <option value="land">Land</option>
-                <option value="commercial">Commercial</option>
-              </select>
-            </div>
+            <Select
+              label="Property Type"
+              value={filters.propertyType}
+              onChange={(value) => handleFilterChange("propertyType", value)}
+              placeholder="All Types"
+              options={[
+                { value: "", label: "All Types" },
+                "Apartment",
+                "House",
+                "Secondary unit",
+                "Unique space",
+                "Bed and breakfast",
+                "Boutique hotel",
+              ]}
+            />
 
             {/* Status */}
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
-                Status
-              </label>
-              <select
-                value={filters.status}
-                onChange={(e) => handleFilterChange("status", e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
-              >
-                <option value="">All Status</option>
-                <option value="available">Available</option>
-                <option value="rented">Rented</option>
-                <option value="sold">Sold</option>
-              </select>
-            </div>
+            <Select
+              label="Status"
+              value={filters.status}
+              onChange={(value) => handleFilterChange("status", value)}
+              placeholder="All Status"
+              options={[
+                { value: "", label: "All Status" },
+                "available",
+                "rented",
+                "sold",
+                "unavailable",
+              ]}
+            />
 
             {/* Min Price */}
             <div>
@@ -570,57 +642,147 @@ export default function PropertiesPage() {
         </div>
       )}
 
-      {viewMode === "cards" && (
-        <section className="grid gap-4 md:grid-cols-2">
+      {/* Blog Card View - Large cards with full-width image */}
+      {viewMode === "blog" && (
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredProperties.map((property) => {
             const propertyId = property.id || property._id;
-            const photos =
-              property.photos || (property.photo ? [property.photo] : []);
+            const images =
+              property.images && property.images.length > 0
+                ? property.images.map((img) => `${API_BASE_URL}${img}`)
+                : property.photos || (property.photo ? [property.photo] : []);
+
             return (
               <div
                 key={propertyId}
-                className="flex flex-col gap-4 rounded-3xl border border-slate-100 bg-white p-4 shadow-sm"
+                className="flex flex-col rounded-3xl border border-slate-100 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => openEditModal(property)}
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-slate-900">
-                      {property.title || property.name || property.propertyName}
-                    </h3>
-                    <p className="text-sm text-slate-500">
-                      {property.location || property.address}
-                    </p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      {property.bedrooms || 0} bed • {property.bathrooms || 0}{" "}
-                      bath • {property.area || 0} sq ft
-                    </p>
+                {/* Full-width Image */}
+                <div className="relative w-full h-56">
+                  {images.length > 0 ? (
+                    <>
+                      <img
+                        src={images[0]}
+                        alt={
+                          property.title ||
+                          property.name ||
+                          property.propertyName
+                        }
+                        className="w-full h-full object-cover"
+                      />
+                      {images.length > 1 && (
+                        <div className="absolute bottom-3 right-3 bg-black/70 text-white text-xs px-2 py-1 rounded-full">
+                          +{images.length - 1}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-center w-full h-full bg-slate-100">
+                      <svg
+                        className="h-12 w-12 text-slate-300"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                    </div>
+                  )}
+                  {/* Status Badge */}
+                  <div className="absolute top-3 left-3">
+                    <StatusPill label={property.status || "available"} />
                   </div>
-                  <div className="text-right text-sm text-slate-500">
-                    <p className="text-xs uppercase text-slate-400">Price</p>
-                    <p className="text-2xl font-semibold text-slate-900">
-                      ${property.price || 0}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      {property.propertyType || "house"}
+                </div>
+
+                {/* Property Info */}
+                <div className="p-4">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-1">
+                    {property.title || property.name || property.propertyName}
+                  </h3>
+                  <p className="text-sm text-slate-500 mb-3">
+                    {property.propertyType || "House"} in{" "}
+                    {property.location || property.address}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-lg font-semibold text-slate-900">
+                      {formatCurrency(property.price || 0, property.currency || null)}
+                      <span className="text-sm font-normal text-slate-500">
+                        {" "}
+                        / night
+                      </span>
                     </p>
                   </div>
                 </div>
-                {photos.length > 0 && <PhotoCarousel photos={photos} />}
-                <div className="flex items-center justify-between text-sm text-slate-500">
-                  <StatusPill label={property.status || "available"} />
-                  <div className="flex gap-2">
-                    <button
-                      className="text-slate-900 underline-offset-2 hover:underline"
-                      onClick={() => openEditModal(property)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="text-rose-600 underline-offset-2 hover:underline"
-                      onClick={() => handleDeleteProperty(propertyId)}
-                    >
-                      Delete
-                    </button>
-                  </div>
+              </div>
+            );
+          })}
+        </section>
+      )}
+
+      {/* List View - Compact horizontal layout */}
+      {viewMode === "list" && (
+        <section className="space-y-3">
+          {filteredProperties.map((property) => {
+            const propertyId = property.id || property._id;
+            const images =
+              property.images && property.images.length > 0
+                ? property.images.map((img) => `${API_BASE_URL}${img}`)
+                : property.photos || (property.photo ? [property.photo] : []);
+
+            return (
+              <div
+                key={propertyId}
+                className="flex gap-2 items-center rounded-2xl border border-slate-100 bg-white p-1.5 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => openEditModal(property)}
+              >
+                {/* Small Thumbnail */}
+                <div className="shrink-0 w-12 h-12">
+                  {images.length > 0 ? (
+                    <div className="relative w-full h-full rounded-lg overflow-hidden">
+                      <img
+                        src={images[0]}
+                        alt={
+                          property.title ||
+                          property.name ||
+                          property.propertyName
+                        }
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center w-full h-full bg-slate-100 rounded-lg">
+                      <svg
+                        className="h-4 w-4 text-slate-300"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+
+                {/* Property Details */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-medium text-slate-900 truncate">
+                    {property.title || property.name || property.propertyName}
+                  </h3>
+                  <p className="text-sm text-slate-500 truncate">
+                    {property.propertyType || "House"} in{" "}
+                    {property.location || property.address}
+                  </p>
                 </div>
               </div>
             );
@@ -653,10 +815,10 @@ export default function PropertiesPage() {
                   property.title || property.name || property.propertyName,
                   hostName,
                   property.location || property.address,
-                  property.propertyType || "house",
+                  property.propertyType || "House",
                   `${property.bedrooms || 0} / ${property.bathrooms || 0}`,
                   `${property.area || 0} sq ft`,
-                  `$${property.price || 0}`,
+                  formatCurrency(property.price || 0, property.currency || null),
                   <StatusPill
                     key="status"
                     label={property.status || "available"}
@@ -690,28 +852,192 @@ export default function PropertiesPage() {
         primaryActionLabel="Update property"
         primaryAction={handleUpdateProperty}
       >
-        <FormField
-          label="Title"
-          value={formData.title}
-          onChange={(e) => handleFormChange("title", e.target.value)}
-          placeholder="e.g. Beautiful Beach House"
-        />
-        <div>
-          <FormField
-            label="Description"
-            as="textarea"
-            rows={3}
-            value={formData.description}
-            onChange={(e) => handleFormChange("description", e.target.value)}
-            placeholder="Describe the property..."
-          />
-          <p className="mt-1 text-xs text-slate-500">
-            {formData.description.length}/10 characters minimum
-          </p>
+        {/* Images and Top Fields Section */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          {/* Images Box - Left Side */}
+          <div className="shrink-0">
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Property Images (
+              {existingImages.length - imagesToRemove.length + newImages.length}
+              /5)
+            </label>
+            <div className="grid grid-cols-2 gap-2 w-48">
+              {/* Existing Images */}
+              {existingImages
+                .filter((img) => !imagesToRemove.includes(img))
+                .map((image, index) => (
+                  <div
+                    key={`existing-${index}`}
+                    className="relative group aspect-square rounded-lg overflow-hidden border-2 border-slate-200"
+                  >
+                    <img
+                      src={`${API_BASE_URL}${image}`}
+                      alt={`Property ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setImagesToRemove((prev) => [...prev, image])
+                      }
+                      className="absolute top-1 right-1 rounded-full bg-rose-500 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600"
+                      aria-label="Remove image"
+                    >
+                      <svg
+                        className="h-3 w-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+
+              {/* New Images */}
+              {newImages.map((file, index) => (
+                <div
+                  key={`new-${index}`}
+                  className="relative group aspect-square rounded-lg overflow-hidden border-2 border-blue-300"
+                >
+                  <img
+                    src={URL.createObjectURL(file)}
+                    alt={`New ${index + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewImages((prev) =>
+                        prev.filter((_, i) => i !== index)
+                      );
+                    }}
+                    className="absolute top-1 right-1 rounded-full bg-rose-500 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600"
+                    aria-label="Remove image"
+                  >
+                    <svg
+                      className="h-3 w-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                  <div className="absolute bottom-1 left-1 bg-blue-500 text-white text-[10px] px-1 rounded">
+                    New
+                  </div>
+                </div>
+              ))}
+
+              {/* Add More Button */}
+              {existingImages.length -
+                imagesToRemove.length +
+                newImages.length <
+                5 && (
+                <div className="aspect-square">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      const remaining =
+                        5 -
+                        (existingImages.length -
+                          imagesToRemove.length +
+                          newImages.length);
+                      const filesToAdd = files.slice(0, remaining);
+
+                      // Validate file sizes
+                      const maxSizeBytes = 5 * 1024 * 1024;
+                      const oversized = filesToAdd.filter(
+                        (f) => f.size > maxSizeBytes
+                      );
+
+                      if (oversized.length > 0) {
+                        toast.error(`Some files exceed 5MB limit`);
+                        return;
+                      }
+
+                      setNewImages((prev) => [...prev, ...filesToAdd]);
+                      e.target.value = "";
+                    }}
+                    className="hidden"
+                    id="add-more-images-edit"
+                  />
+                  <label
+                    htmlFor="add-more-images-edit"
+                    className="flex items-center justify-center w-full h-full rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors"
+                  >
+                    <svg
+                      className="h-8 w-8 text-slate-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                  </label>
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              Max 5 images, 5MB each
+            </p>
+            {imagesToRemove.length > 0 && (
+              <p className="text-xs text-rose-600 mt-1">
+                {imagesToRemove.length} marked for removal
+              </p>
+            )}
+          </div>
+
+          {/* Title and Description - Right Side */}
+          <div className="flex-1 space-y-4">
+            <FormField
+              label="Title"
+              value={formData.title}
+              onChange={(e) => handleFormChange("title", e.target.value)}
+              placeholder="e.g. Beautiful Beach House"
+            />
+            <div>
+              <FormField
+                label="Description"
+                as="textarea"
+                rows={4}
+                value={formData.description}
+                onChange={(e) =>
+                  handleFormChange("description", e.target.value)
+                }
+                placeholder="Describe the property..."
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                {formData.description.length}/10 characters minimum
+              </p>
+            </div>
+          </div>
         </div>
+
+        {/* Rest of the Form */}
         <div className="grid grid-cols-2 gap-4">
           <FormField
-            label="Price (per night)"
+            label="Price Per Night (USD)"
             type="number"
             value={formData.price}
             onChange={(e) => handleFormChange("price", e.target.value)}
@@ -731,36 +1057,25 @@ export default function PropertiesPage() {
           onChange={(e) => handleFormChange("location", e.target.value)}
           placeholder="123 Ocean Drive, Miami, FL"
         />
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
+        <div className="grid grid-cols-2 gap-4 pt-4">
+          <Select
             label="Property Type"
-            as="select"
             value={formData.propertyType}
-            onChange={(e) => handleFormChange("propertyType", e.target.value)}
-            options={["house", "apartment", "villa", "land", "commercial"]}
+            onChange={(value) => handleFormChange("propertyType", value)}
+            options={[
+              "Apartment",
+              "House",
+              "Secondary unit",
+              "Unique space",
+              "Bed and breakfast",
+              "Boutique hotel",
+            ]}
           />
-          <FormField
+          <Select
             label="Status"
-            as="select"
             value={formData.status}
-            onChange={(e) => handleFormChange("status", e.target.value)}
-            options={["available", "rented", "sold"]}
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            label="Bedrooms"
-            type="number"
-            value={formData.bedrooms}
-            onChange={(e) => handleFormChange("bedrooms", e.target.value)}
-            placeholder="3"
-          />
-          <FormField
-            label="Bathrooms"
-            type="number"
-            value={formData.bathrooms}
-            onChange={(e) => handleFormChange("bathrooms", e.target.value)}
-            placeholder="2"
+            onChange={(value) => handleFormChange("status", value)}
+            options={["available", "rented", "sold", "unavailable"]}
           />
         </div>
       </Modal>
@@ -773,31 +1088,140 @@ export default function PropertiesPage() {
         primaryActionLabel="Create property"
         primaryAction={handleCreateProperty}
       >
-        <div>
-          <FormField
-            label="Title *"
-            value={formData.title}
-            onChange={(e) => handleFormChange("title", e.target.value)}
-            placeholder="e.g. Beautiful Beach House"
-          />
-          <p className="mt-1 text-xs text-slate-500">Minimum 3 characters</p>
+        {/* Images and Top Fields Section */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          {/* Images Box - Left Side */}
+          <div className="shrink-0">
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Property Images ({newImages.length}/5)
+            </label>
+            <div className="grid grid-cols-2 gap-2 w-48">
+              {newImages.map((file, index) => (
+                <div
+                  key={index}
+                  className="relative group aspect-square rounded-lg overflow-hidden border-2 border-slate-200"
+                >
+                  <img
+                    src={URL.createObjectURL(file)}
+                    alt={`Upload ${index + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewImages((prev) =>
+                        prev.filter((_, i) => i !== index)
+                      );
+                    }}
+                    className="absolute top-1 right-1 rounded-full bg-rose-500 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600"
+                    aria-label="Remove image"
+                  >
+                    <svg
+                      className="h-3 w-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+              {/* Add More Button */}
+              {newImages.length < 5 && (
+                <div className="aspect-square">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      const remaining = 5 - newImages.length;
+                      const filesToAdd = files.slice(0, remaining);
+
+                      // Validate file sizes
+                      const maxSizeBytes = 5 * 1024 * 1024;
+                      const oversized = filesToAdd.filter(
+                        (f) => f.size > maxSizeBytes
+                      );
+
+                      if (oversized.length > 0) {
+                        toast.error(`Some files exceed 5MB limit`);
+                        return;
+                      }
+
+                      setNewImages((prev) => [...prev, ...filesToAdd]);
+                      e.target.value = "";
+                    }}
+                    className="hidden"
+                    id="add-more-images-create"
+                  />
+                  <label
+                    htmlFor="add-more-images-create"
+                    className="flex items-center justify-center w-full h-full rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors"
+                  >
+                    <svg
+                      className="h-8 w-8 text-slate-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                  </label>
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              Max 5 images, 5MB each
+            </p>
+          </div>
+
+          {/* Title and Description - Right Side */}
+          <div className="flex-1 space-y-4">
+            <div>
+              <FormField
+                label="Title *"
+                value={formData.title}
+                onChange={(e) => handleFormChange("title", e.target.value)}
+                placeholder="e.g. Beautiful Beach House"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Minimum 3 characters
+              </p>
+            </div>
+            <div>
+              <FormField
+                label="Description *"
+                as="textarea"
+                rows={4}
+                value={formData.description}
+                onChange={(e) =>
+                  handleFormChange("description", e.target.value)
+                }
+                placeholder="Describe the property..."
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                {formData.description.length}/10 characters minimum
+              </p>
+            </div>
+          </div>
         </div>
-        <div>
-          <FormField
-            label="Description *"
-            as="textarea"
-            rows={3}
-            value={formData.description}
-            onChange={(e) => handleFormChange("description", e.target.value)}
-            placeholder="Describe the property..."
-          />
-          <p className="mt-1 text-xs text-slate-500">
-            {formData.description.length}/10 characters minimum
-          </p>
-        </div>
+
+        {/* Rest of the Form */}
         <div className="grid grid-cols-2 gap-4">
           <FormField
-            label="Price * (per night)"
+            label="Price per night (USD)"
             type="number"
             value={formData.price}
             onChange={(e) => handleFormChange("price", e.target.value)}
@@ -811,44 +1235,28 @@ export default function PropertiesPage() {
             placeholder="2000"
           />
         </div>
+
         <FormField
           label="Location *"
           value={formData.location}
           onChange={(e) => handleFormChange("location", e.target.value)}
           placeholder="123 Ocean Drive, Miami, FL"
         />
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            label="Property Type"
-            as="select"
-            value={formData.propertyType}
-            onChange={(e) => handleFormChange("propertyType", e.target.value)}
-            options={["house", "apartment", "villa", "land", "commercial"]}
-          />
-          <FormField
-            label="Status"
-            as="select"
-            value={formData.status}
-            onChange={(e) => handleFormChange("status", e.target.value)}
-            options={["available", "rented", "sold"]}
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            label="Bedrooms"
-            type="number"
-            value={formData.bedrooms}
-            onChange={(e) => handleFormChange("bedrooms", e.target.value)}
-            placeholder="3"
-          />
-          <FormField
-            label="Bathrooms"
-            type="number"
-            value={formData.bathrooms}
-            onChange={(e) => handleFormChange("bathrooms", e.target.value)}
-            placeholder="2"
-          />
-        </div>
+
+        <Select
+          label="Property Type"
+          value={formData.propertyType}
+          onChange={(value) => handleFormChange("propertyType", value)}
+          className="pt-4"
+          options={[
+            "Apartment",
+            "House",
+            "Secondary unit",
+            "Unique space",
+            "Bed and breakfast",
+            "Boutique hotel",
+          ]}
+        />
       </Modal>
     </div>
   );

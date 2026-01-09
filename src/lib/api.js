@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 console.log("🔧 API_BASE_URL configured as:", API_BASE_URL);
 
@@ -54,16 +54,68 @@ async function fetchWithAuth(url, options = {}, requireAuth = true) {
 
 async function handleResponse(response, fallbackMessage) {
   if (!response.ok) {
+    // Clone the response so we can read it multiple times if needed
+    const clonedResponse = response.clone();
+    
     // Try to parse JSON error first
     try {
       const errorData = await response.json();
-      throw new Error(errorData.error || errorData.message || fallbackMessage);
+      
+      // Extract error message from various possible fields
+      let errorMessage = fallbackMessage;
+      
+      if (errorData) {
+        if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        } else if (typeof errorData === 'object') {
+          errorMessage = errorData.error || 
+                        errorData.message || 
+                        errorData.msg ||
+                        errorData.errorMessage ||
+                        (errorData.errors && Array.isArray(errorData.errors) ? errorData.errors.join(', ') : null) ||
+                        fallbackMessage;
+        }
+      }
+      
+      throw new Error(errorMessage);
     } catch (parseError) {
-      // If JSON parsing fails, try text
+      // If we successfully parsed JSON and got a specific error message, use it
+      if (parseError.message && parseError.message !== fallbackMessage && parseError.name === 'Error') {
+        throw parseError;
+      }
+      
+      // If JSON parsing failed, try reading as text
       try {
-        const text = await response.text();
-        throw new Error(text || fallbackMessage);
-      } catch {
+        const text = await clonedResponse.text();
+        let errorMessage = fallbackMessage;
+        
+        // Try to parse the text as JSON if it looks like JSON
+        if (text && text.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(text);
+            errorMessage = parsed.error || 
+                          parsed.message || 
+                          parsed.msg || 
+                          parsed.errorMessage ||
+                          text ||
+                          fallbackMessage;
+          } catch {
+            errorMessage = text || fallbackMessage;
+          }
+        } else if (text) {
+          errorMessage = text;
+        }
+        
+        throw new Error(errorMessage);
+      } catch (textError) {
+        // If we got a specific error message from text, use it
+        if (textError.message && textError.message !== fallbackMessage) {
+          throw textError;
+        }
+        // Fall back to the original parseError if it has a specific message
+        if (parseError.message && parseError.message !== fallbackMessage) {
+          throw parseError;
+        }
         throw new Error(fallbackMessage);
       }
     }
@@ -83,7 +135,37 @@ export async function getPropertyById(id) {
   return handleResponse(res, "Failed to fetch property");
 }
 
-export async function createProperty(data) {
+export async function createProperty(data, images = []) {
+  // If images are provided, use FormData
+  if (images && images.length > 0) {
+    const formData = new FormData();
+    
+    // Append all property data
+    Object.keys(data).forEach(key => {
+      formData.append(key, data[key]);
+    });
+    
+    // Append images
+    images.forEach((image) => {
+      formData.append('images', image);
+    });
+    
+    const token = getToken();
+    const headers = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    // Don't set Content-Type - browser will set it with boundary for FormData
+    
+    const res = await fetch(`${API_BASE_URL}/properties`, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+    return handleResponse(res, "Failed to create property");
+  }
+  
+  // Otherwise use JSON
   const res = await fetchWithAuth(`${API_BASE_URL}/properties`, {
     method: "POST",
     body: JSON.stringify(data),
@@ -91,7 +173,44 @@ export async function createProperty(data) {
   return handleResponse(res, "Failed to create property");
 }
 
-export async function updateProperty(id, data) {
+export async function updateProperty(id, data, images = [], imagesToRemove = []) {
+  // If images are provided or images need to be removed, use FormData
+  if ((images && images.length > 0) || (imagesToRemove && imagesToRemove.length > 0)) {
+    const formData = new FormData();
+    
+    // Append all property data
+    Object.keys(data).forEach(key => {
+      formData.append(key, data[key]);
+    });
+    
+    // Append new images
+    if (images && images.length > 0) {
+      images.forEach((image) => {
+        formData.append('images', image);
+      });
+    }
+    
+    // Append images to remove
+    if (imagesToRemove && imagesToRemove.length > 0) {
+      formData.append('imagesToRemove', JSON.stringify(imagesToRemove));
+    }
+    
+    const token = getToken();
+    const headers = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    // Don't set Content-Type - browser will set it with boundary for FormData
+    
+    const res = await fetch(`${API_BASE_URL}/properties/${id}`, {
+      method: "PUT",
+      headers,
+      body: formData,
+    });
+    return handleResponse(res, "Failed to update property");
+  }
+  
+  // Otherwise use JSON
   const res = await fetchWithAuth(`${API_BASE_URL}/properties/${id}`, {
     method: "PUT",
     body: JSON.stringify(data),
@@ -298,6 +417,7 @@ export async function updateBookingPaymentStatus(id, paymentStatus) {
  * @param {string} params.groupBy - Group by field (property, month, etc.)
  * @param {string} params.property_id - Filter by property ID
  * @param {string} params.payment_status - Filter by payment status (paid, pending, etc.)
+ * @param {string} params.currency - Filter by currency code (e.g., "USD", "PKR", "INR")
  * @returns {Promise<Object>} Earnings data
  */
 export async function getEarnings(params = {}) {
@@ -321,6 +441,9 @@ export async function getEarnings(params = {}) {
   if (params.payment_status) {
     queryParams.append('payment_status', params.payment_status);
   }
+  if (params.currency) {
+    queryParams.append('currency', params.currency);
+  }
 
   const url = `${API_BASE_URL}/bookings/earnings${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
   console.log("🔵 API Call: getEarnings", url);
@@ -329,9 +452,28 @@ export async function getEarnings(params = {}) {
   return handleResponse(res, "Failed to fetch earnings");
 }
 
-export async function getAllPayments() {
-  console.log("🔵 API Call: getAllPayments", `${API_BASE_URL}/payments`);
-  const res = await fetchWithAuth(`${API_BASE_URL}/payments`);
+/**
+ * Get all payments with optional filters
+ * @param {Object} filters - Optional filters
+ * @param {string} filters.task_id - Filter by task ID
+ * @param {string} filters.booking_id - Filter by booking ID
+ * @param {string} filters.property_id - Filter by property ID
+ * @param {string} filters.payment_type - Filter by payment type (expense, income)
+ * @param {string} filters.method - Filter by payment method (cash, bank, online)
+ * @returns {Promise<Array>} Array of payments
+ */
+export async function getAllPayments(filters = {}) {
+  const queryParams = new URLSearchParams();
+  
+  if (filters.task_id) queryParams.append('task_id', filters.task_id);
+  if (filters.booking_id) queryParams.append('booking_id', filters.booking_id);
+  if (filters.property_id) queryParams.append('property_id', filters.property_id);
+  if (filters.payment_type) queryParams.append('payment_type', filters.payment_type);
+  if (filters.method) queryParams.append('method', filters.method);
+  
+  const url = `${API_BASE_URL}/payments${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+  console.log("🔵 API Call: getAllPayments", url);
+  const res = await fetchWithAuth(url);
   console.log("🔵 API Response:", res.status, res.statusText);
   return handleResponse(res, "Failed to fetch payments");
 }
@@ -341,6 +483,21 @@ export async function getPaymentById(id) {
   return handleResponse(res, "Failed to fetch payment");
 }
 
+/**
+ * Create a payment
+ * @param {Object} data - Payment data
+ * @param {number} data.amount - Payment amount (required, ≥ 0)
+ * @param {string} data.payment_type - Payment type: 'expense' or 'income' (required)
+ * @param {string} data.method - Payment method: 'cash', 'bank', or 'online' (required)
+ * @param {string} [data.date] - Payment date (ISO 8601, optional, defaults to now)
+ * @param {string} [data.task_id] - Task ID (optional)
+ * @param {string} [data.booking_id] - Booking ID (optional)
+ * @param {string} [data.property_id] - Property ID (optional)
+ * @param {string} [data.paid_to] - Person/entity paid to (optional)
+ * @param {string} [data.paid_by] - Person/entity who paid (optional)
+ * @param {string} [data.notes] - Additional notes (optional)
+ * @returns {Promise<Object>} Created payment object
+ */
 export async function createPayment(data) {
   const res = await fetchWithAuth(`${API_BASE_URL}/payments`, {
     method: "POST",
@@ -498,6 +655,25 @@ export async function getTasksByStatus(status) {
   return handleResponse(res, "Failed to fetch tasks by status");
 }
 
+/**
+ * Create a task with optional payment
+ * @param {Object} data - Task data
+ * @param {string} data.property_id - Property ID (required)
+ * @param {string} data.title - Task title (required, min 3 chars)
+ * @param {string} data.description - Task description (required, min 5 chars)
+ * @param {string} data.assigned_to - Assigned user ID (required)
+ * @param {string} [data.status] - Task status: 'pending', 'in_progress', 'completed', 'cancelled' (optional)
+ * @param {Object} [data.payment] - Optional payment object
+ * @param {number} data.payment.amount - Payment amount (required if payment provided)
+ * @param {string} data.payment.payment_type - Payment type: 'expense' or 'income' (required if payment provided)
+ * @param {string} data.payment.method - Payment method: 'cash', 'bank', or 'online' (required if payment provided)
+ * @param {string} [data.payment.date] - Payment date (optional)
+ * @param {string} [data.payment.booking_id] - Booking ID (optional)
+ * @param {string} [data.payment.paid_to] - Person/entity paid to (optional)
+ * @param {string} [data.payment.paid_by] - Person/entity who paid (optional)
+ * @param {string} [data.payment.notes] - Payment notes (optional)
+ * @returns {Promise<Object>} Created task object with payment if provided
+ */
 export async function createTask(data) {
   const res = await fetchWithAuth(`${API_BASE_URL}/tasks`, {
     method: "POST",
@@ -506,6 +682,27 @@ export async function createTask(data) {
   return handleResponse(res, "Failed to create task");
 }
 
+/**
+ * Update a task with optional payment
+ * @param {string} id - Task ID
+ * @param {Object} data - Task data (all fields optional)
+ * @param {string} [data.property_id] - Property ID
+ * @param {string} [data.title] - Task title (min 3 chars)
+ * @param {string} [data.description] - Task description (min 5 chars)
+ * @param {string} [data.assigned_to] - Assigned user ID
+ * @param {string} [data.status] - Task status
+ * @param {Object} [data.payment] - Optional payment object (creates or updates existing payment)
+ * @param {number} data.payment.amount - Payment amount (required if payment provided)
+ * @param {string} data.payment.payment_type - Payment type: 'maintenance_work', 'staff_payment', 'utility_bills', 'supplies', or 'refund' (required if payment provided)
+ * @param {string} data.payment.method - Payment method: 'cash', 'bank', or 'online' (required if payment provided)
+ * @param {string} [data.payment.status] - Payment status: 'paid' or 'unpaid' (optional, defaults to 'unpaid')
+ * @param {string} [data.payment.date] - Payment date (optional)
+ * @param {string} [data.payment.booking_id] - Booking ID (optional)
+ * @param {string} [data.payment.paid_to] - Person/entity paid to (optional)
+ * @param {string} [data.payment.paid_by] - Person/entity who paid (optional)
+ * @param {string} [data.payment.notes] - Payment notes (optional)
+ * @returns {Promise<Object>} Updated task object with payment if provided
+ */
 export async function updateTask(id, data) {
   const res = await fetchWithAuth(`${API_BASE_URL}/tasks/${id}`, {
     method: "PUT",
@@ -772,6 +969,32 @@ export async function updateUserPassword(currentPassword, newPassword) {
     body: JSON.stringify({ currentPassword, newPassword }),
   });
   return handleResponse(res, "Failed to update password");
+}
+
+/**
+ * Get available currencies
+ * Endpoint: GET /api/users/currencies
+ * Returns list of all supported currencies with codes and names
+ * @returns {Promise<Object>} Object with currencies array and default currency
+ */
+export async function getCurrencies() {
+  const res = await fetchWithAuth(`${API_BASE_URL}/users/currencies`);
+  return handleResponse(res, "Failed to fetch currencies");
+}
+
+/**
+ * Update user's default currency
+ * Endpoint: PUT /api/users/profile/currency or PATCH /api/users/profile/currency
+ * Updates the user's default currency preference
+ * @param {string} currency - Currency code (e.g., "USD", "PKR", "INR")
+ * @returns {Promise<Object>} Updated user object
+ */
+export async function updateDefaultCurrency(currency) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/users/profile/currency`, {
+    method: "PUT",
+    body: JSON.stringify({ currency }),
+  });
+  return handleResponse(res, "Failed to update default currency");
 }
 
 // ============================================

@@ -3,14 +3,19 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "@/hooks/useAuth";
-import { getUserProfile } from "@/lib/api";
+import { getCurrencies } from "@/lib/api";
+import { useCurrency } from "@/hooks/useCurrency";
+import { setCurrencyMap } from "@/utils/currencyUtils";
 import { useSEO } from "@/hooks/useSEO";
+import toast from "react-hot-toast";
 
 export default function ProfilePage() {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useRequireAuth();
+  const { currency, currencyName, updateCurrency, isLoading: updatingCurrency } = useCurrency();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [currencies, setCurrencies] = useState([]);
 
   // SEO
   useSEO({
@@ -22,22 +27,45 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
       fetchUserData();
+      fetchCurrencies();
     }
   }, [isLoading, isAuthenticated]);
 
   const fetchUserData = async () => {
     try {
       setLoading(true);
-      const response = await getUserProfile();
-      const userData = response.user || response;
-      setUser(userData);
+      // User data is already in local storage from auth, but we can fetch if needed
+      setUser(null);
     } catch (err) {
       console.error("Failed to load user data:", err);
-      // Don't throw error, just set user to null
-      // The page can still be displayed without user data
       setUser(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCurrencies = async () => {
+    try {
+      const response = await getCurrencies();
+      const currenciesList = response.currencies || [];
+      setCurrencies(currenciesList);
+      
+      // Store currency map in local storage for use across the app
+      setCurrencyMap(currenciesList);
+    } catch (err) {
+      console.error("Failed to load currencies:", err);
+    }
+  };
+
+  const handleCurrencyChange = async (e) => {
+    const newCurrency = e.target.value;
+
+    try {
+      await updateCurrency(newCurrency);
+      toast.success("Default currency updated successfully!");
+    } catch (err) {
+      console.error("Failed to update currency:", err);
+      toast.error(err.message || "Failed to update currency. Please try again.");
     }
   };
 
@@ -150,6 +178,63 @@ export default function ProfilePage() {
             </button>
           </div>
         )}
+
+        {/* Currency Selector */}
+        <div className="mb-6 rounded-2xl bg-white border border-slate-200 p-6 lg:p-8 shadow-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center">
+              <svg className="w-5 h-5 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h2 className="text-xl font-semibold text-slate-900">Default currency</h2>
+              <p className="text-sm text-slate-600 mt-1">
+                This currency will be used as the default when creating new payments, bookings, or properties.
+              </p>
+            </div>
+          </div>
+
+          <div className="relative">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 z-10">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <select
+              value={currency}
+              onChange={handleCurrencyChange}
+              disabled={updatingCurrency || loading}
+              className="w-full rounded-xl border border-slate-300 bg-white pl-12 pr-12 py-3.5 text-slate-900 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20 transition-all appearance-none cursor-pointer disabled:bg-slate-50 disabled:cursor-not-allowed"
+            >
+              {currencies.length > 0 ? (
+                currencies.map((currency) => (
+                  <option key={currency.code} value={currency.code}>
+                    {currency.name} ({currency.code})
+                  </option>
+                ))
+              ) : (
+                <option value="USD">US Dollar (USD)</option>
+              )}
+            </select>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none flex items-center gap-2">
+              {updatingCurrency && (
+                <svg className="w-5 h-5 animate-spin text-slate-400" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              )}
+              <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+          {currencyName && (
+            <p className="text-xs text-slate-500 mt-3">
+              Current default: {currencyName}
+            </p>
+          )}
+        </div>
 
         {/* Settings List */}
         <div className="space-y-0 lg:rounded-2xl lg:border lg:border-slate-200 lg:bg-white lg:shadow-sm border-t border-slate-200 -mx-4 lg:mx-0 lg:overflow-hidden">

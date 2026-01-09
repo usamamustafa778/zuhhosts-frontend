@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Combobox from "./Combobox";
 
 // Common country codes
@@ -29,40 +29,51 @@ const COUNTRY_CODES = [
 
 // Parse existing value to extract country code and number
 const parsePhoneValue = (phoneValue) => {
-  if (!phoneValue) return { code: "+1", number: "" };
+  if (!phoneValue || phoneValue.trim() === "") return { code: "+1", number: "" };
+  
+  // Sort country codes by length (longest first) to handle cases like +1 vs +123
+  const sortedCodes = [...COUNTRY_CODES].sort((a, b) => b.code.length - a.code.length);
   
   // Check if value already starts with a country code
-  for (const country of COUNTRY_CODES) {
+  for (const country of sortedCodes) {
     if (phoneValue.startsWith(country.code)) {
+      const remainder = phoneValue.substring(country.code.length).trim();
       return {
         code: country.code,
-        number: phoneValue.substring(country.code.length).trim(),
+        number: remainder,
       };
     }
   }
   
-  // Default to +1 if no code found
-  return { code: "+1", number: phoneValue };
+  // Default to +1 if no code found (treat as just a number)
+  return { code: "+1", number: phoneValue.trim() };
 };
 
-export default function PhoneInput({ value, onChange, placeholder, className = "", required = false }) {
+export default function PhoneInput({ value, onChange, placeholder, className = "", required = false, error = null }) {
   const parsed = parsePhoneValue(value);
   const [selectedCode, setSelectedCode] = useState(parsed.code);
   const [phoneNumber, setPhoneNumber] = useState(parsed.number);
+  const lastValueRef = useRef(value);
 
-  // Update when value prop changes
+  // Update when value prop changes (important for edit mode)
   useEffect(() => {
-    const newParsed = parsePhoneValue(value);
+    // Only update if value actually changed from external source (not from our own onChange)
+    if (value !== lastValueRef.current) {
+      lastValueRef.current = value;
+      const newParsed = parsePhoneValue(value || "");
     setSelectedCode(newParsed.code);
     setPhoneNumber(newParsed.number);
+    }
   }, [value]);
 
   const handleCodeChange = (code) => {
     setSelectedCode(code);
     // Combine new code with existing number
     const fullPhone = code + (phoneNumber ? ` ${phoneNumber}` : "");
+    const formattedValue = fullPhone.trim() || "";
+    lastValueRef.current = formattedValue;
     if (onChange) {
-      onChange({ target: { value: fullPhone } });
+      onChange({ target: { value: formattedValue } });
     }
   };
 
@@ -71,46 +82,57 @@ export default function PhoneInput({ value, onChange, placeholder, className = "
     setPhoneNumber(number);
     // Combine selected code with new number
     const fullPhone = selectedCode + (number ? ` ${number}` : "");
+    const formattedValue = fullPhone.trim() || "";
+    lastValueRef.current = formattedValue;
     if (onChange) {
-      onChange({ target: { value: fullPhone } });
+      onChange({ target: { value: formattedValue } });
     }
   };
 
   const selectedCountry = COUNTRY_CODES.find((c) => c.code === selectedCode);
 
   return (
-    <div className={`flex gap-2 ${className}`}>
-      {/* Country Code Selector using Combobox */}
-      <div className="w-[140px] shrink-0">
-        <Combobox
-          value={selectedCode}
-          onChange={handleCodeChange}
-          options={COUNTRY_CODES}
-          getOptionLabel={(country) => `${country.flag} ${country.code}`}
-          getOptionValue={(country) => country.code}
-          getOptionDescription={(country) => country.name}
-          renderOption={(country) => (
-            <div className="flex items-center gap-2">
-              <span className="text-base">{country.flag}</span>
-              <span className="font-medium text-slate-700">{country.code}</span>
-              <span className="text-xs text-slate-500 ml-auto">{country.country}</span>
-            </div>
-          )}
-          placeholder={`${selectedCountry?.flag || "🇺🇸"} ${selectedCode}`}
-          className="text-sm"
-          noOptionsMessage="No country found"
+    <div className={className}>
+      <div className="flex gap-2">
+        {/* Country Code Selector using Combobox */}
+        <div className="w-[140px] shrink-0">
+          <Combobox
+            value={selectedCode}
+            onChange={handleCodeChange}
+            options={COUNTRY_CODES}
+            getOptionLabel={(country) => `${country.flag} ${country.code}`}
+            getOptionValue={(country) => country.code}
+            getOptionDescription={(country) => country.name}
+            renderOption={(country) => (
+              <div className="flex items-center gap-2">
+                <span className="text-base">{country.flag}</span>
+                <span className="font-medium text-slate-700">{country.code}</span>
+                <span className="text-xs text-slate-500 ml-auto">{country.country}</span>
+              </div>
+            )}
+            placeholder={`${selectedCountry?.flag || "🇺🇸"} ${selectedCode}`}
+            className="text-sm"
+            noOptionsMessage="No country found"
+          />
+        </div>
+
+        {/* Phone Number Input */}
+        <input
+          type="tel"
+          value={phoneNumber}
+          onChange={handleNumberChange}
+          placeholder={placeholder || "123 456 7890"}
+          className={`flex-1 rounded-lg border px-3 py-2 text-sm focus:outline-none transition-colors ${
+            error
+              ? "border-rose-300 focus:border-rose-400 focus:ring-2 focus:ring-rose-200"
+              : "border-slate-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+          }`}
+          required={required}
         />
       </div>
-
-      {/* Phone Number Input */}
-      <input
-        type="tel"
-        value={phoneNumber}
-        onChange={handleNumberChange}
-        placeholder={placeholder || "123 456 7890"}
-        className={`flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900`}
-        required={required}
-      />
+      {error && (
+        <p className="mt-1 text-xs text-rose-600">{error}</p>
+      )}
     </div>
   );
 }

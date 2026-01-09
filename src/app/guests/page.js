@@ -7,7 +7,7 @@ import DataTable from "@/components/common/DataTable";
 import Modal from "@/components/common/Modal";
 import PageLoader from "@/components/common/PageLoader";
 import PhoneInput from "@/components/common/PhoneInput";
-import { getAllGuests, createGuest, updateGuest, deleteGuest } from "@/lib/api";
+import { getAllGuests, createGuest, updateGuest, deleteGuest, API_BASE_URL } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
 
@@ -199,7 +199,7 @@ export default function GuestsPage() {
             : null;
         console.log("📤 Sending FormData to API...", { hasToken: !!token });
 
-        const response = await fetch("http://localhost:5001/api/guests", {
+        const response = await fetch(`${API_BASE_URL}/guests`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -275,7 +275,7 @@ export default function GuestsPage() {
             ? localStorage.getItem("luxeboard.authToken")
             : null;
         const response = await fetch(
-          `http://localhost:5001/api/guests/${guestId}`,
+          `${API_BASE_URL}/guests/${guestId}`,
           {
             method: "PUT",
             headers: {
@@ -416,7 +416,7 @@ export default function GuestsPage() {
           ? localStorage.getItem("luxeboard.authToken")
           : null;
       const response = await fetch(
-        `http://localhost:5001/api/guests/${guestId}/bookings`,
+        `${API_BASE_URL}/guests/${guestId}/bookings`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -685,10 +685,10 @@ export default function GuestsPage() {
               {paginated.map((guest, index) => {
                 const guestId = guest.id || guest._id || `guest-${index}`;
                 const profilePicUrl = guest.profilePicture
-                  ? `http://localhost:5001${guest.profilePicture}`
+                  ? `${API_BASE_URL}${guest.profilePicture}`
                   : null;
                 const idCardUrl = guest.idCard
-                  ? `http://localhost:5001${guest.idCard}`
+                  ? `${API_BASE_URL}${guest.idCard}`
                   : null;
                 const createdDate = guest.createdAt
                   ? new Date(guest.createdAt).toLocaleDateString()
@@ -843,10 +843,10 @@ export default function GuestsPage() {
             ? new Date(guest.createdAt).toLocaleDateString()
             : "N/A";
           const profilePicUrl = guest.profilePicture
-            ? `http://localhost:5001${guest.profilePicture}`
+            ? `${API_BASE_URL}${guest.profilePicture}`
             : null;
           const idCardUrl = guest.idCard
-            ? `http://localhost:5001${guest.idCard}`
+            ? `${API_BASE_URL}${guest.idCard}`
             : null;
 
           // Calculate serial number based on current page
@@ -989,7 +989,7 @@ export default function GuestsPage() {
                 {selectedGuest.profilePicture && (
                   <div className="text-center">
                     <img
-                      src={`http://localhost:5001${selectedGuest.profilePicture}`}
+                      src={`${API_BASE_URL}${selectedGuest.profilePicture}`}
                       alt="Current Profile"
                       className="h-20 w-20 rounded-full object-cover border-2 border-slate-200 mb-1"
                     />
@@ -999,7 +999,7 @@ export default function GuestsPage() {
                 {selectedGuest.idCard && (
                   <div className="text-center">
                     <a
-                      href={`http://localhost:5001${selectedGuest.idCard}`}
+                      href={`${API_BASE_URL}${selectedGuest.idCard}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-sm text-blue-600 hover:underline"
@@ -1300,7 +1300,7 @@ export default function GuestsPage() {
               <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
                 {bookingHistoryData.guest.profilePicture ? (
                   <img
-                    src={`http://localhost:5001${bookingHistoryData.guest.profilePicture}`}
+                    src={`${API_BASE_URL}${bookingHistoryData.guest.profilePicture}`}
                     alt={bookingHistoryData.guest.name}
                     className="h-20 w-20 rounded-full object-cover border-2 border-slate-200 shrink-0"
                   />
@@ -1328,19 +1328,19 @@ export default function GuestsPage() {
                 {bookingHistoryData.guest.idCard ? (
                   <div className="space-y-2">
                     <a
-                      href={`http://localhost:5001${bookingHistoryData.guest.idCard}`}
+                      href={`${API_BASE_URL}${bookingHistoryData.guest.idCard}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="block"
                     >
                       <img
-                        src={`http://localhost:5001${bookingHistoryData.guest.idCard}`}
+                        src={`${API_BASE_URL}${bookingHistoryData.guest.idCard}`}
                         alt="ID Card"
                         className="w-full h-32 object-contain border border-slate-200 rounded-lg bg-white"
                       />
                     </a>
                     <a
-                      href={`http://localhost:5001${bookingHistoryData.guest.idCard}`}
+                      href={`${API_BASE_URL}${bookingHistoryData.guest.idCard}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
