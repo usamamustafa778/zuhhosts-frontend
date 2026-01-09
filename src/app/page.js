@@ -916,7 +916,7 @@ export default function LandingPage() {
           <div className="absolute bottom-0 left-0 h-96 w-96 rounded-full bg-gradient-to-tr from-blue-600/20 to-cyan-600/20 blur-3xl"></div>
         </div>
 
-        <div className={`${sectionContainer} text-center`}>
+        <div className={`${sectionContainer} relative z-10 text-center`}>
           <h2 className="mb-6 text-3xl font-bold text-white sm:text-4xl lg:text-5xl">
             Ready to Transform Your Operations?
           </h2>
@@ -925,10 +925,10 @@ export default function LandingPage() {
             to manage their properties.
           </p>
 
-          <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <div className="relative z-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
               href="/register"
-              className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-base font-semibold text-slate-900 shadow-2xl transition hover:bg-slate-50"
+              className="relative z-10 inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-base font-semibold text-slate-900 shadow-2xl transition hover:bg-slate-50 hover:scale-105 active:scale-95 cursor-pointer"
             >
               Start Your Free Trial
               <svg
