@@ -1524,3 +1524,170 @@ export async function rejectSubscription(id, data) {
   });
   return handleResponse(res, "Failed to reject subscription");
 }
+
+// ============================================
+// User Subscription API Functions
+// ============================================
+
+/**
+ * Get user's active subscription
+ * Endpoint: GET /api/subscriptions/my-active
+ * @returns {Promise<Object>} Active subscription info
+ */
+export async function getMyActiveSubscription() {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.authToken")
+      : null;
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const res = await fetch(`${API_BASE_URL}/api/subscriptions/my-active`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleResponse(res, "Failed to fetch active subscription");
+}
+
+/**
+ * Get user's subscriptions with optional filters
+ * Endpoint: GET /api/subscriptions/my-subscriptions
+ * @param {Object} filters - Optional filters
+ * @param {string} filters.status - Filter by status
+ * @param {string} filters.package - Filter by package
+ * @param {string} filters.paymentStatus - Filter by payment status
+ * @returns {Promise<Object>} Object with count and subscriptions array
+ */
+export async function getMySubscriptions(filters = {}) {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.authToken")
+      : null;
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const queryParams = new URLSearchParams();
+  if (filters.status) queryParams.append("status", filters.status);
+  if (filters.package) queryParams.append("package", filters.package);
+  if (filters.paymentStatus) queryParams.append("paymentStatus", filters.paymentStatus);
+
+  const url = `${API_BASE_URL}/api/subscriptions/my-subscriptions${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleResponse(res, "Failed to fetch subscriptions");
+}
+
+/**
+ * Get user's subscription by ID
+ * Endpoint: GET /api/subscriptions/my-subscriptions/:id
+ * @param {string} id - Subscription ID
+ * @returns {Promise<Object>} Subscription object
+ */
+export async function getMySubscriptionById(id) {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.authToken")
+      : null;
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const res = await fetch(`${API_BASE_URL}/api/subscriptions/my-subscriptions/${id}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleResponse(res, "Failed to fetch subscription");
+}
+
+/**
+ * Create subscription
+ * Endpoint: POST /api/subscriptions/create
+ * @param {Object} data - Subscription data
+ * @param {string} data.package - Package type (basic, big_businesses, enterprise)
+ * @param {string} [data.notes] - Optional notes
+ * @param {File} [data.paymentScreenshot] - Payment screenshot file
+ * @returns {Promise<Object>} Created subscription object
+ */
+export async function createSubscription(data) {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.authToken")
+      : null;
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  // Check if paymentScreenshot is provided (FormData scenario)
+  const hasFile = data.paymentScreenshot instanceof File;
+
+  if (hasFile) {
+    const formData = new FormData();
+    formData.append("package", data.package);
+    if (data.notes) formData.append("notes", data.notes);
+    if (data.paymentScreenshot) formData.append("paymentScreenshot", data.paymentScreenshot);
+
+    const res = await fetch(`${API_BASE_URL}/api/subscriptions/create`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+    return handleResponse(res, "Failed to create subscription");
+  } else {
+    const res = await fetch(`${API_BASE_URL}/api/subscriptions/create`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        package: data.package,
+        notes: data.notes || "",
+      }),
+    });
+    return handleResponse(res, "Failed to create subscription");
+  }
+}
+
+/**
+ * Upload payment screenshot for subscription
+ * Endpoint: POST /api/subscriptions/:id/upload-screenshot
+ * @param {string} id - Subscription ID
+ * @param {File} file - Payment screenshot file
+ * @returns {Promise<Object>} Updated subscription object
+ */
+export async function uploadPaymentScreenshot(id, file) {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.authToken")
+      : null;
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const formData = new FormData();
+  formData.append("paymentScreenshot", file);
+
+  const res = await fetch(`${API_BASE_URL}/api/subscriptions/${id}/upload-screenshot`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+  return handleResponse(res, "Failed to upload payment screenshot");
+}

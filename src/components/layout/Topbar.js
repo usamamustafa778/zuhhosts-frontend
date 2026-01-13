@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserSubscriptions } from "@/hooks/useUserSubscriptions";
 import { getAllHosts, impersonateHost, stopImpersonation, search } from "@/lib/api";
 
 export default function Topbar({ onMenuToggle }) {
   const router = useRouter();
-  const { user, logout: authLogout, isAuthenticated, isSuperAdmin, login } = useAuth();
+  const { user, logout: authLogout, isAuthenticated, isSuperAdmin, login, isHost } = useAuth();
+  const { activeSubscription, hasActiveSubscription, loadActiveSubscription } = useUserSubscriptions();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isHostSwitcherOpen, setIsHostSwitcherOpen] = useState(false);
   const [hosts, setHosts] = useState([]);
@@ -29,6 +31,13 @@ export default function Topbar({ onMenuToggle }) {
   // Show host switcher if original user is superadmin (even while impersonating)
   // OR if user is currently a superadmin
   const showHostSwitcher = isSuperAdmin || user?.originalRole === 'superadmin' || isImpersonating;
+
+  // Load subscription on mount for non-superadmin users
+  useEffect(() => {
+    if (isAuthenticated && !isSuperAdmin && isHost) {
+      loadActiveSubscription();
+    }
+  }, [isAuthenticated, isSuperAdmin, isHost]);
 
   useEffect(() => {
     if (!isProfileOpen) return;
@@ -375,6 +384,31 @@ export default function Topbar({ onMenuToggle }) {
 
       {/* Desktop Topbar */}
       <div className="hidden lg:block border-b border-slate-200 px-8 py-3">
+        {/* Subscription Status Banner - Show for active or rejected subscriptions */}
+        {isAuthenticated && !isSuperAdmin && hasActiveSubscription && activeSubscription && 
+         (activeSubscription.status === "approved" || activeSubscription.status === "rejected") && (
+          <div className={`mb-3 rounded-lg px-4 py-2 ${
+            activeSubscription.status === "approved" 
+              ? "bg-emerald-50 border border-emerald-200" 
+              : "bg-rose-50 border border-rose-200"
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-slate-900">
+                  {activeSubscription.status === "approved" ? "✓ Active Subscription" : "✗ Subscription Rejected"}
+                </span>
+                <span className="text-xs text-slate-600 capitalize">
+                  {activeSubscription.package?.replace("_", " ")} Plan
+                </span>
+                {activeSubscription.status === "approved" && activeSubscription.maxProperties && (
+                  <span className="text-xs text-slate-500">
+                    • {activeSubscription.maxProperties === -1 ? "Unlimited" : activeSubscription.maxProperties} properties
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         <div className="flex items-center gap-3">
           <div className="relative flex-1" ref={searchRef}>
             <div className="relative flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm">

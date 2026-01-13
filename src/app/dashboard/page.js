@@ -6,11 +6,24 @@ import Link from "next/link";
 import { useAuth, useRequireAuth } from "@/hooks/useAuth";
 import { getAllBookings, getAllProperties, search } from "@/lib/api";
 import { useSEO } from "@/hooks/useSEO";
+import { useUserSubscriptions } from "@/hooks/useUserSubscriptions";
+import SubscriptionPackages from "@/components/modules/SubscriptionPackages";
+import UserSubscriptionStatus from "@/components/modules/UserSubscriptionStatus";
+import PendingSubscriptionRequest from "@/components/modules/PendingSubscriptionRequest";
 
 export default function DashboardPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading, user } = useRequireAuth();
   const { isHost } = useAuth();
+  const {
+    activeSubscription,
+    hasActiveSubscription,
+    pendingSubscription,
+    isLoading: subscriptionLoading,
+    loadActiveSubscription,
+    create: createSubscription,
+    uploadScreenshot,
+  } = useUserSubscriptions();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [todaysBookings, setTodaysBookings] = useState([]);
@@ -33,6 +46,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && user) {
+      // Load subscription status for all authenticated users
+      loadActiveSubscription();
+
       // Fetch stats for hosts
       if (isHost) {
         fetchHostStats();
@@ -114,42 +130,42 @@ export default function DashboardPage() {
   const getAvailablePropertiesCount = () => {
     const total = allProperties.length;
     if (total === 0) return 0;
-    
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     // Get property IDs that have active bookings today
     const bookedPropertyIdsToday = new Set();
-    
+
     allBookings.forEach((booking) => {
       if (!booking.start_date || !booking.end_date) return;
-      
+
       const startDate = new Date(booking.start_date);
       const endDate = new Date(booking.end_date);
       startDate.setHours(0, 0, 0, 0);
       endDate.setHours(0, 0, 0, 0);
-      
+
       // Check if today falls within the booking period
       if (today >= startDate && today <= endDate) {
-        const propertyId = booking.property_id?._id || 
-                          booking.property_id?.id || 
-                          booking.propertyId ||
-                          booking.property_id;
+        const propertyId = booking.property_id?._id ||
+          booking.property_id?.id ||
+          booking.propertyId ||
+          booking.property_id;
         if (propertyId) {
           bookedPropertyIdsToday.add(propertyId.toString());
         }
       }
     });
-    
+
     // Count properties that are available (status is "available" AND not booked today)
     const availableCount = allProperties.filter((property) => {
       const propertyId = (property.id || property._id)?.toString();
       const isStatusAvailable = property.status === "available";
       const isNotBookedToday = !bookedPropertyIdsToday.has(propertyId);
-      
+
       return isStatusAvailable && isNotBookedToday;
     }).length;
-    
+
     return availableCount;
   };
 
@@ -206,7 +222,7 @@ export default function DashboardPage() {
     setIsSearchOpen(false);
     setSearchQuery("");
     setSearchResults(null);
-    
+
     switch (type) {
       case "property":
         router.push(`/properties`);
@@ -248,6 +264,42 @@ export default function DashboardPage() {
   if (isHost) {
     return (
       <div className="mx-auto max-w-4xl space-y-6 lg:space-y-12 py-0 lg:py-4">
+        {/* Subscription Section */}
+        {!subscriptionLoading && (
+          <>
+            {pendingSubscription ? (
+              <PendingSubscriptionRequest
+                subscription={pendingSubscription}
+                onUploadScreenshot={async (id, file) => {
+                  await uploadScreenshot(id, file);
+                  await loadActiveSubscription();
+                }}
+                isLoading={subscriptionLoading}
+              />
+            ) : !hasActiveSubscription ? (
+              <div className="rounded-2xl border-2 border-amber-200 bg-amber-50/50 p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h2 className="text-xl font-semibold text-slate-900 mb-1">
+                      Subscribe to a Plan
+                    </h2>
+                    <p className="text-sm text-slate-600">
+                      Choose a subscription plan to start managing your properties
+                    </p>
+                  </div>
+                </div>
+                <SubscriptionPackages
+                  onCreateSubscription={async (packageType, notes, paymentScreenshot) => {
+                    await createSubscription(packageType, notes, paymentScreenshot);
+                    await loadActiveSubscription();
+                  }}
+                  isLoading={subscriptionLoading}
+                />
+              </div>
+            ) : null}
+          </>
+        )}
+
         {/* Mobile Search Bar */}
         <div className="lg:hidden relative" ref={searchRef}>
           <div className="relative flex items-center rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-500 shadow-sm">
@@ -390,21 +442,19 @@ export default function DashboardPage() {
           <div className="flex gap-2 lg:gap-4">
             <button
               onClick={() => setActiveView("today")}
-              className={`rounded-full px-4 lg:px-6 py-2 lg:py-2.5 text-sm font-medium transition ${
-                activeView === "today"
+              className={`rounded-full px-4 lg:px-6 py-2 lg:py-2.5 text-sm font-medium transition ${activeView === "today"
                   ? "bg-slate-900 text-white"
                   : "bg-slate-100 text-slate-900 hover:bg-slate-200"
-              }`}
+                }`}
             >
               Today
             </button>
             <button
               onClick={() => setActiveView("upcoming")}
-              className={`rounded-full px-4 lg:px-6 py-2 lg:py-2.5 text-sm font-medium transition ${
-                activeView === "upcoming"
+              className={`rounded-full px-4 lg:px-6 py-2 lg:py-2.5 text-sm font-medium transition ${activeView === "upcoming"
                   ? "bg-slate-900 text-white"
                   : "bg-slate-100 text-slate-900 hover:bg-slate-200"
-              }`}
+                }`}
             >
               Upcoming
             </button>
@@ -458,7 +508,7 @@ export default function DashboardPage() {
                       const today = new Date();
                       startDate.setHours(0, 0, 0, 0);
                       today.setHours(0, 0, 0, 0);
-                      
+
                       if (startDate.getTime() === today.getTime()) {
                         // Show check-in time if available, otherwise show "All day"
                         return booking.check_in_time || "4:00 PM";
@@ -477,7 +527,7 @@ export default function DashboardPage() {
                         const today = new Date();
                         startDate.setHours(0, 0, 0, 0);
                         today.setHours(0, 0, 0, 0);
-                        
+
                         // If check-in is today and there are multiple guests, show +N indicator
                         if (startDate.getTime() === today.getTime() && numberOfGuests > 1) {
                           return (
@@ -499,7 +549,7 @@ export default function DashboardPage() {
                         startDate.setHours(0, 0, 0, 0);
                         endDate.setHours(0, 0, 0, 0);
                         today.setHours(0, 0, 0, 0);
-                        
+
                         // If check-in is today, show "group of X checks in"
                         if (startDate.getTime() === today.getTime()) {
                           if (numberOfGuests > 1) {
@@ -508,7 +558,7 @@ export default function DashboardPage() {
                             return `${guestName} checks in`;
                           }
                         }
-                        
+
                         // If checkout is today, show "checks out"
                         if (endDate.getTime() === today.getTime()) {
                           if (numberOfGuests > 1) {
@@ -517,7 +567,7 @@ export default function DashboardPage() {
                             return `${guestName} checks out`;
                           }
                         }
-                        
+
                         // Otherwise, show "stays for one more day" (ongoing stay)
                         return `${guestName} stays for one more day`;
                       })()}
@@ -651,6 +701,42 @@ export default function DashboardPage() {
           your properties, bookings, guests, and tasks.
         </p>
       </div>
+
+      {/* Subscription Section */}
+      {!subscriptionLoading && (
+        <>
+          {pendingSubscription ? (
+            <PendingSubscriptionRequest
+              subscription={pendingSubscription}
+              onUploadScreenshot={async (id, file) => {
+                await uploadScreenshot(id, file);
+                await loadActiveSubscription();
+              }}
+              isLoading={subscriptionLoading}
+            />
+          ) : !hasActiveSubscription ? (
+            <div className="rounded-2xl border-2 border-amber-200 bg-amber-50/50 p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-900 mb-1">
+                    Subscribe to a Plan
+                  </h2>
+                  <p className="text-sm text-slate-600">
+                    Choose a subscription plan to start managing your properties
+                  </p>
+                </div>
+              </div>
+              <SubscriptionPackages
+                onCreateSubscription={async (packageType, notes, paymentScreenshot) => {
+                  await createSubscription(packageType, notes, paymentScreenshot);
+                  await loadActiveSubscription();
+                }}
+                isLoading={subscriptionLoading}
+              />
+            </div>
+          ) : null}
+        </>
+      )}
 
       {/* Quick Actions */}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
