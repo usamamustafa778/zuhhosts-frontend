@@ -40,7 +40,7 @@ function createHeaders(requireAuth = true) {
  */
 async function fetchWithAuth(url, options = {}, requireAuth = true) {
   const headers = createHeaders(requireAuth);
-  
+
   // Merge with any additional headers from options
   if (options.headers) {
     Object.assign(headers, options.headers);
@@ -56,56 +56,56 @@ async function handleResponse(response, fallbackMessage) {
   if (!response.ok) {
     // Clone the response so we can read it multiple times if needed
     const clonedResponse = response.clone();
-    
+
     // Try to parse JSON error first
     try {
       const errorData = await response.json();
-      
+
       // Extract error message from various possible fields
       let errorMessage = fallbackMessage;
-      
+
       if (errorData) {
         if (typeof errorData === 'string') {
           errorMessage = errorData;
         } else if (typeof errorData === 'object') {
-          errorMessage = errorData.error || 
-                        errorData.message || 
-                        errorData.msg ||
-                        errorData.errorMessage ||
-                        (errorData.errors && Array.isArray(errorData.errors) ? errorData.errors.join(', ') : null) ||
-                        fallbackMessage;
+          errorMessage = errorData.error ||
+            errorData.message ||
+            errorData.msg ||
+            errorData.errorMessage ||
+            (errorData.errors && Array.isArray(errorData.errors) ? errorData.errors.join(', ') : null) ||
+            fallbackMessage;
         }
       }
-      
+
       throw new Error(errorMessage);
     } catch (parseError) {
       // If we successfully parsed JSON and got a specific error message, use it
       if (parseError.message && parseError.message !== fallbackMessage && parseError.name === 'Error') {
         throw parseError;
       }
-      
+
       // If JSON parsing failed, try reading as text
       try {
         const text = await clonedResponse.text();
         let errorMessage = fallbackMessage;
-        
+
         // Try to parse the text as JSON if it looks like JSON
         if (text && text.trim().startsWith('{')) {
           try {
             const parsed = JSON.parse(text);
-            errorMessage = parsed.error || 
-                          parsed.message || 
-                          parsed.msg || 
-                          parsed.errorMessage ||
-                          text ||
-                          fallbackMessage;
+            errorMessage = parsed.error ||
+              parsed.message ||
+              parsed.msg ||
+              parsed.errorMessage ||
+              text ||
+              fallbackMessage;
           } catch {
             errorMessage = text || fallbackMessage;
           }
         } else if (text) {
           errorMessage = text;
         }
-        
+
         throw new Error(errorMessage);
       } catch (textError) {
         // If we got a specific error message from text, use it
@@ -139,24 +139,24 @@ export async function createProperty(data, images = []) {
   // If images are provided, use FormData
   if (images && images.length > 0) {
     const formData = new FormData();
-    
+
     // Append all property data
     Object.keys(data).forEach(key => {
       formData.append(key, data[key]);
     });
-    
+
     // Append images
     images.forEach((image) => {
       formData.append('images', image);
     });
-    
+
     const token = getToken();
     const headers = {};
     if (token) {
       headers.Authorization = `Bearer ${token}`;
     }
     // Don't set Content-Type - browser will set it with boundary for FormData
-    
+
     const res = await fetch(`${API_BASE_URL}/properties`, {
       method: "POST",
       headers,
@@ -164,7 +164,7 @@ export async function createProperty(data, images = []) {
     });
     return handleResponse(res, "Failed to create property");
   }
-  
+
   // Otherwise use JSON
   const res = await fetchWithAuth(`${API_BASE_URL}/properties`, {
     method: "POST",
@@ -177,31 +177,31 @@ export async function updateProperty(id, data, images = [], imagesToRemove = [])
   // If images are provided or images need to be removed, use FormData
   if ((images && images.length > 0) || (imagesToRemove && imagesToRemove.length > 0)) {
     const formData = new FormData();
-    
+
     // Append all property data
     Object.keys(data).forEach(key => {
       formData.append(key, data[key]);
     });
-    
+
     // Append new images
     if (images && images.length > 0) {
       images.forEach((image) => {
         formData.append('images', image);
       });
     }
-    
+
     // Append images to remove
     if (imagesToRemove && imagesToRemove.length > 0) {
       formData.append('imagesToRemove', JSON.stringify(imagesToRemove));
     }
-    
+
     const token = getToken();
     const headers = {};
     if (token) {
       headers.Authorization = `Bearer ${token}`;
     }
     // Don't set Content-Type - browser will set it with boundary for FormData
-    
+
     const res = await fetch(`${API_BASE_URL}/properties/${id}`, {
       method: "PUT",
       headers,
@@ -209,7 +209,7 @@ export async function updateProperty(id, data, images = [], imagesToRemove = [])
     });
     return handleResponse(res, "Failed to update property");
   }
-  
+
   // Otherwise use JSON
   const res = await fetchWithAuth(`${API_BASE_URL}/properties/${id}`, {
     method: "PUT",
@@ -336,7 +336,7 @@ export async function getBookingById(id) {
 export async function createBooking(data) {
   // Check if data contains files (FormData scenario)
   const isFormData = data instanceof FormData;
-  
+
   const token = getToken();
   if (!token) {
     throw new Error("No authentication token found");
@@ -362,7 +362,7 @@ export async function createBooking(data) {
 export async function updateBooking(id, data) {
   // Check if data contains files (FormData scenario)
   const isFormData = data instanceof FormData;
-  
+
   const token = getToken();
   if (!token) {
     throw new Error("No authentication token found");
@@ -422,7 +422,7 @@ export async function updateBookingPaymentStatus(id, paymentStatus) {
  */
 export async function getEarnings(params = {}) {
   const queryParams = new URLSearchParams();
-  
+
   if (params.period) {
     queryParams.append('period', params.period);
   }
@@ -464,13 +464,13 @@ export async function getEarnings(params = {}) {
  */
 export async function getAllPayments(filters = {}) {
   const queryParams = new URLSearchParams();
-  
+
   if (filters.task_id) queryParams.append('task_id', filters.task_id);
   if (filters.booking_id) queryParams.append('booking_id', filters.booking_id);
   if (filters.property_id) queryParams.append('property_id', filters.property_id);
   if (filters.payment_type) queryParams.append('payment_type', filters.payment_type);
   if (filters.method) queryParams.append('method', filters.method);
-  
+
   const url = `${API_BASE_URL}/payments${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
   console.log("🔵 API Call: getAllPayments", url);
   const res = await fetchWithAuth(url);
@@ -1274,12 +1274,12 @@ export async function getHostsList() {
         Authorization: `Bearer ${token}`,
       },
     });
-    
+
     // If endpoint doesn't exist (404) or forbidden (403), return empty array gracefully
     if (res.status === 404 || res.status === 403) {
       return [];
     }
-    
+
     return handleResponse(res, "Failed to fetch hosts list");
   } catch (error) {
     // Network error or other issues - return empty array
@@ -1325,4 +1325,202 @@ export async function search(query, type = null, limit = 10) {
 
   const res = await fetchWithAuth(url);
   return handleResponse(res, "Failed to search");
+}
+
+// ============================================
+// Subscription API Functions (Superadmin)
+// ============================================
+
+/**
+ * Get subscription statistics
+ * Endpoint: GET /api/subscriptions/statistics
+ * @returns {Promise<Object>} Subscription statistics
+ */
+export async function getSubscriptionStatistics() {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.authToken")
+      : null;
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const res = await fetch(`${API_BASE_URL}/api/subscriptions/statistics`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleResponse(res, "Failed to fetch subscription statistics");
+}
+
+/**
+ * Get all subscriptions with optional filters
+ * Endpoint: GET /api/subscriptions/all
+ * @param {Object} filters - Optional filters
+ * @param {string} filters.status - Filter by status (trial, pending, approved, rejected, expired)
+ * @param {string} filters.package - Filter by package (free_trial, basic, big_businesses, enterprise)
+ * @param {string} filters.paymentStatus - Filter by payment status (paid, unpaid)
+ * @returns {Promise<Object>} Object with count and subscriptions array
+ */
+export async function getAllSubscriptions(filters = {}) {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.authToken")
+      : null;
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const queryParams = new URLSearchParams();
+  if (filters.status) queryParams.append("status", filters.status);
+  if (filters.package) queryParams.append("package", filters.package);
+  if (filters.paymentStatus) queryParams.append("paymentStatus", filters.paymentStatus);
+
+  const url = `${API_BASE_URL}/api/subscriptions/all${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleResponse(res, "Failed to fetch subscriptions");
+}
+
+/**
+ * Get subscription by ID
+ * Endpoint: GET /api/subscriptions/:id
+ * @param {string} id - Subscription ID
+ * @returns {Promise<Object>} Subscription object
+ */
+export async function getSubscriptionById(id) {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.authToken")
+      : null;
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const res = await fetch(`${API_BASE_URL}/api/subscriptions/${id}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleResponse(res, "Failed to fetch subscription");
+}
+
+/**
+ * Update subscription
+ * Endpoint: PUT /api/subscriptions/:id
+ * @param {string} id - Subscription ID
+ * @param {Object} data - Update data
+ * @param {string} [data.package] - Package type
+ * @param {number} [data.price] - Price
+ * @param {string} [data.notes] - Notes
+ * @returns {Promise<Object>} Updated subscription object
+ */
+export async function updateSubscription(id, data) {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.authToken")
+      : null;
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const res = await fetch(`${API_BASE_URL}/api/subscriptions/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, "Failed to update subscription");
+}
+
+/**
+ * Delete subscription
+ * Endpoint: DELETE /api/subscriptions/:id
+ * @param {string} id - Subscription ID
+ * @returns {Promise<Object>} Success message
+ */
+export async function deleteSubscription(id) {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.authToken")
+      : null;
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const res = await fetch(`${API_BASE_URL}/api/subscriptions/${id}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleResponse(res, "Failed to delete subscription");
+}
+
+/**
+ * Approve subscription
+ * Endpoint: POST /api/subscriptions/:id/approve
+ * @param {string} id - Subscription ID
+ * @param {Object} data - Approval data
+ * @param {string} [data.notes] - Approval notes
+ * @returns {Promise<Object>} Updated subscription object
+ */
+export async function approveSubscription(id, data = {}) {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.authToken")
+      : null;
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const res = await fetch(`${API_BASE_URL}/api/subscriptions/${id}/approve`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, "Failed to approve subscription");
+}
+
+/**
+ * Reject subscription
+ * Endpoint: POST /api/subscriptions/:id/reject
+ * @param {string} id - Subscription ID
+ * @param {Object} data - Rejection data
+ * @param {string} data.rejectionReason - Reason for rejection
+ * @returns {Promise<Object>} Updated subscription object
+ */
+export async function rejectSubscription(id, data) {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.authToken")
+      : null;
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const res = await fetch(`${API_BASE_URL}/api/subscriptions/${id}/reject`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, "Failed to reject subscription");
 }

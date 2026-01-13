@@ -3,10 +3,10 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { 
-  Building2, 
-  X, 
-  ChevronLeft, 
+import {
+  Building2,
+  X,
+  ChevronLeft,
   ChevronRight,
   Coins,
   User,
@@ -20,7 +20,8 @@ import {
   Shield,
   Lock,
   Key,
-  UserCog
+  UserCog,
+  Receipt
 } from "lucide-react";
 import { roleMenus } from "@/data/dummyData";
 import { useAuth } from "@/hooks/useAuth";
@@ -40,7 +41,8 @@ const iconMap = {
   Lock,
   Key,
   UserCog,
-  Coins
+  Coins,
+  Receipt
 };
 
 const groupBySection = (items = []) =>
@@ -63,10 +65,10 @@ export default function Sidebar({
   const pathname = usePathname();
   const router = useRouter();
   const { user, userType, isSuperAdmin, isHost, permissions, logout } = useAuth();
-  
+
   const groupedMenus = useMemo(() => {
     let menuKey = "Admin";
-    
+
     if (isSuperAdmin) {
       menuKey = "superadmin";
     } else if (isHost) {
@@ -74,18 +76,18 @@ export default function Sidebar({
     } else if (userType === "team_member") {
       menuKey = user?.role?.name || user?.role || "staff";
     }
-    
+
     const navItems = roleMenus[menuKey] || roleMenus.Admin;
-    
+
     const filteredItems = navItems.filter((item) => {
       if (!item.permission) return true;
       if (isSuperAdmin) return true;
       return hasPermission(permissions, item.permission);
     });
-    
+
     return groupBySection(filteredItems);
   }, [user, userType, isSuperAdmin, isHost, permissions]);
-  
+
   const [collapsedSections, setCollapsedSections] = useState(new Set());
 
   const handleSectionToggle = (section) => {
@@ -118,11 +120,9 @@ export default function Sidebar({
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex h-screen flex-col bg-white border-r border-slate-200 shadow-xl transition-all duration-300 ease-out lg:static lg:translate-x-0 ${
-          isVisible ? "translate-x-0" : "-translate-x-full"
-        } ${collapsed ? "lg:w-[72px] w-[72px]" : "lg:w-64 w-64"} ${
-          isDisabled ? "opacity-50 pointer-events-none" : ""
-        }`}
+        className={`fixed inset-y-0 left-0 z-40 flex h-screen flex-col bg-white border-r border-slate-200 shadow-xl transition-all duration-300 ease-out lg:static lg:translate-x-0 ${isVisible ? "translate-x-0" : "-translate-x-full"
+          } ${collapsed ? "lg:w-[72px] w-[72px]" : "lg:w-64 w-64"} ${isDisabled ? "opacity-50 pointer-events-none" : ""
+          }`}
       >
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between h-16 px-4 border-b border-slate-200">
@@ -143,7 +143,7 @@ export default function Sidebar({
               <Building2 className="w-5 h-5 text-white" strokeWidth={2.5} />
             </div>
           )}
-          
+
           {!collapsed && (
             <button
               className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
@@ -166,7 +166,7 @@ export default function Sidebar({
             <ChevronLeft className="w-3.5 h-3.5" strokeWidth={3} />
           </button>
         )}
-        
+
         {collapsed && (
           <button
             className="hidden lg:flex absolute top-[70px] -right-3 z-50 h-6 w-6 items-center justify-center rounded-full bg-white border-2 border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
@@ -190,13 +190,13 @@ export default function Sidebar({
                     </h3>
                   </div>
                 )}
-                
+
                 {collapsed && (
                   <div className="mb-1 px-4">
                     <div className="h-px bg-slate-200" />
                   </div>
                 )}
-                
+
                 {(!collapsedSections.has(section) || collapsed) && (
                   <div className={collapsed ? "space-y-1" : "space-y-0.5 lg:mb-0 mb-0"}>
                     {items.map((item) => {
@@ -206,11 +206,10 @@ export default function Sidebar({
                         <Link
                           key={item.href}
                           href={isDisabled ? "#" : item.href}
-                          className={`group relative flex items-center gap-3 lg:mx-1 mx-2 px-3 lg:py-2.5 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
-                            isActive
+                          className={`group relative flex items-center gap-3 lg:mx-1 mx-2 px-3 lg:py-2.5 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${isActive
                               ? "bg-rose-50 text-rose-700"
                               : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-                          } ${collapsed ? "justify-center" : ""}`}
+                            } ${collapsed ? "justify-center" : ""}`}
                           onClick={(e) => {
                             if (isDisabled) {
                               e.preventDefault();
@@ -227,7 +226,7 @@ export default function Sidebar({
                             <span className="absolute left-1/2 -translate-x-1/2 bottom-0 h-1 w-7 bg-rose-600 rounded-t-full" />
                           )}
                           {IconComponent && (
-                            <IconComponent 
+                            <IconComponent
                               className={`w-[18px] h-[18px] shrink-0 ${isActive ? 'opacity-100' : 'opacity-70'}`}
                               strokeWidth={2}
                             />
@@ -238,7 +237,7 @@ export default function Sidebar({
                         </Link>
                       );
                     })}
-                    
+
                     {/* Add Logout button after Profile in Account section */}
                     {section === "Account" && (
                       <button
@@ -246,12 +245,11 @@ export default function Sidebar({
                           handleLogout();
                         }}
                         disabled={isDisabled}
-                        className={`group relative flex items-center gap-3 lg:mx-1 mx-2 px-3 lg:py-2.5 py-2 rounded-lg text-sm font-medium transition-all duration-150 text-rose-700 hover:bg-rose-50 hover:text-rose-800 disabled:opacity-50 disabled:cursor-not-allowed ${
-                          collapsed ? "justify-center" : ""
-                        }`}
+                        className={`group relative flex items-center gap-3 lg:mx-1 mx-2 px-3 lg:py-2.5 py-2 rounded-lg text-sm font-medium transition-all duration-150 text-rose-700 hover:bg-rose-50 hover:text-rose-800 disabled:opacity-50 disabled:cursor-not-allowed ${collapsed ? "justify-center" : ""
+                          }`}
                         title={collapsed ? "Logout" : undefined}
                       >
-                        <LogOut 
+                        <LogOut
                           className="w-[18px] h-[18px] shrink-0 opacity-70"
                           strokeWidth={2}
                         />

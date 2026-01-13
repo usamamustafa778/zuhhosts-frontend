@@ -17,6 +17,13 @@ export const roleMenus = {
       permission: "Hosts",
     },
     {
+      label: "Subscriptions",
+      href: "/superadmin/subscriptions",
+      icon: "Receipt",
+      section: "System Management",
+      permission: null,
+    },
+    {
       label: "Properties",
       href: "/properties",
       icon: "LayoutDashboard",
