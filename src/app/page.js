@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getAuthToken } from "@/lib/auth";
 import { getStructuredData } from "./seo-metadata";
+import { PACKAGES } from "@/components/modules/SubscriptionPackages";
+import { formatCurrency } from "@/utils/currencyUtils";
 
 export default function LandingPage() {
   const router = useRouter();
@@ -181,6 +183,12 @@ export default function LandingPage() {
                 className="text-sm font-semibold text-slate-700 transition hover:text-rose-600"
               >
                 Features
+              </a>
+              <a
+                href="#pricing"
+                className="text-sm font-semibold text-slate-700 transition hover:text-rose-600"
+              >
+                Pricing
               </a>
               <a
                 href="#testimonials"
@@ -693,8 +701,123 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Pricing Section */}
+      <section id="pricing" className="bg-slate-50 py-24">
+        <div className={sectionContainer}>
+          <div className="text-center mb-16">
+            <h2 className={sectionTitle}>Simple, Transparent Pricing</h2>
+            <p className={sectionDescription}>
+              Choose the perfect plan for your property management needs. Start
+              free and upgrade as you grow.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {Object.entries(PACKAGES).map(([key, pkg]) => (
+              <div
+                key={key}
+                className={`rounded-2xl border-2 bg-white p-6 transition-all ${key === "basic"
+                  ? "border-rose-500 shadow-xl scale-105"
+                  : "border-slate-200 hover:border-rose-500 hover:shadow-lg"
+                  }`}
+              >
+                {key === "basic" && (
+                  <div className="mb-4 text-center">
+                    <span className="inline-block rounded-full bg-gradient-to-r from-rose-500 to-pink-600 px-3 py-1 text-xs font-semibold text-white">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+                <div className="text-center mb-4">
+                  <h3 className="text-xl font-bold text-slate-900 mb-2">
+                    {pkg.name}
+                  </h3>
+                  <div className="text-3xl font-bold text-rose-600 mb-1">
+                    {pkg.price === 0 ? (
+                      <span>Free</span>
+                    ) : (
+                      <>
+                        {formatCurrency(pkg.price, "USD")}
+                        <span className="text-sm font-normal text-slate-500">
+                          /month
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <p className="text-sm text-slate-600">
+                    {pkg.maxProperties === -1
+                      ? "Unlimited"
+                      : `Up to ${pkg.maxProperties}`}{" "}
+                    properties
+                  </p>
+                </div>
+
+                <ul className="space-y-2 mb-6">
+                  {pkg.features.map((feature, index) => (
+                    <li
+                      key={index}
+                      className="flex items-start gap-2 text-sm text-slate-700"
+                    >
+                      <svg
+                        className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <Link
+                  href="/register"
+                  className={`w-full block text-center rounded-full px-4 py-2.5 text-sm font-semibold transition-colors ${key === "basic"
+                    ? "bg-gradient-to-r from-rose-500 to-pink-600 text-white hover:shadow-lg hover:shadow-rose-500/30"
+                    : "bg-slate-900 text-white hover:bg-slate-800"
+                    }`}
+                >
+                  {pkg.price === 0 ? "Start Free Trial" : "Get Started"}
+                </Link>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-12 text-center">
+            <p className="text-sm text-slate-600 mb-4">
+              All plans include a free 1-month trial. No credit card required.
+            </p>
+            <Link
+              href="/register"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-rose-600 hover:text-rose-700 transition"
+            >
+              View all features
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 7l5 5m0 0l-5 5m5-5H6"
+                />
+              </svg>
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* Testimonials Section */}
-      <section id="testimonials" className="bg-slate-50 py-24">
+      <section id="testimonials" className="bg-white py-24">
         <div className={sectionContainer}>
           <div className="text-center mb-16">
             <h2 className={sectionTitle}>Loved by Property Managers</h2>
