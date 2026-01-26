@@ -38,6 +38,7 @@ export default function PropertiesPage() {
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [propertiesData, setPropertiesData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState(null);
   // Default view: table for desktop, list for mobile
   const [viewMode, setViewMode] = useState(() => {
@@ -133,13 +134,15 @@ export default function PropertiesPage() {
       if (!data.description || data.description.trim().length < 10) {
         return "Description must be at least 10 characters long";
       }
-      if (!data.price || Number(data.price) < 0) {
+      const priceNum = Number(data.price);
+      if (!data.price || isNaN(priceNum) || priceNum <= 0) {
         return "Price must be a positive number";
       }
       if (!data.location || data.location.trim().length === 0) {
         return "Location is required";
       }
-      if (!data.area || Number(data.area) < 0) {
+      const areaNum = Number(data.area);
+      if (!data.area || isNaN(areaNum) || areaNum <= 0) {
         return "Area must be a positive number";
       }
     } else {
@@ -150,22 +153,44 @@ export default function PropertiesPage() {
       if (data.description && data.description.trim().length < 10) {
         return "Description must be at least 10 characters long";
       }
-      if (data.price && Number(data.price) < 0) {
-        return "Price must be a positive number";
+      if (data.price) {
+        const priceNum = Number(data.price);
+        if (isNaN(priceNum) || priceNum < 0) {
+          return "Price must be a positive number";
+        }
       }
-      if (data.area && Number(data.area) < 0) {
-        return "Area must be a positive number";
+      if (data.area) {
+        const areaNum = Number(data.area);
+        if (isNaN(areaNum) || areaNum < 0) {
+          return "Area must be a positive number";
+        }
       }
     }
     return null;
   };
 
-  const handleCreateProperty = async () => {
+  const handleCreateProperty = async (e) => {
+    console.log("🔵 handleCreateProperty START - Function called!", { 
+      isCreating, 
+      formData, 
+      newImages,
+      event: e 
+    });
+    
+    if (isCreating) {
+      console.log("⚠️ Already creating, returning early");
+      return; // Prevent double submission
+    }
+    
     let toastId;
     try {
+      console.log("🔵 handleCreateProperty - Starting validation", { formData, newImages });
+      setIsCreating(true);
+      
       // Validate form
       const validationError = validatePropertyForm(formData, false);
       if (validationError) {
+        console.log("❌ Validation error:", validationError);
         toast.error(validationError);
         return;
       }
@@ -184,19 +209,24 @@ export default function PropertiesPage() {
         status: "available", // Always set to available for new properties
       };
 
+      console.log("🔵 Creating property with payload:", payload);
       toastId = toast.loading("Creating property...");
       const newProperty = await createProperty(payload, newImages);
+      console.log("✅ Property created:", newProperty);
       setPropertiesData((prev) => [...prev, newProperty]);
       setCreateOpen(false);
       resetForm();
       toast.success("Property created successfully!", { id: toastId });
     } catch (err) {
+      console.error("❌ Error creating property:", err);
       const errorMessage = err.message || "Failed to create property";
       if (toastId) {
         toast.error(errorMessage, { id: toastId });
       } else {
         toast.error(errorMessage);
       }
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -300,8 +330,10 @@ export default function PropertiesPage() {
   };
 
   const closeCreateModal = () => {
+    if (isCreating) return; // Prevent closing during submission
     setCreateOpen(false);
     resetForm();
+    setIsCreating(false);
   };
 
   const handleFilterChange = (field, value) => {
@@ -1086,7 +1118,8 @@ export default function PropertiesPage() {
         isOpen={isCreateOpen}
         onClose={closeCreateModal}
         primaryActionLabel="Create property"
-        primaryAction={handleCreateProperty}
+        onPrimaryAction={handleCreateProperty}
+        disabled={isCreating}
       >
         {/* Images and Top Fields Section */}
         <div className="flex flex-col sm:flex-row gap-4">
@@ -1221,7 +1254,7 @@ export default function PropertiesPage() {
         {/* Rest of the Form */}
         <div className="grid grid-cols-2 gap-4">
           <FormField
-            label="Price per night (USD)"
+            label="Price per night (USD) *"
             type="number"
             value={formData.price}
             onChange={(e) => handleFormChange("price", e.target.value)}

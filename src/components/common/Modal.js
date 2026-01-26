@@ -14,11 +14,30 @@ export default function Modal({
 }) {
   if (!isOpen) return null;
 
-  const handlePrimaryAction = async () => {
-    if (onPrimaryAction) {
-      await onPrimaryAction();
-    } else if (primaryAction) {
-      await primaryAction();
+  const handlePrimaryAction = async (e) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    
+    if (disabled) {
+      console.log("⚠️ Modal: Action disabled, ignoring click");
+      return;
+    }
+    
+    console.log("🔵 Modal: Primary action clicked", { onPrimaryAction, primaryAction });
+    
+    try {
+      if (onPrimaryAction) {
+        console.log("🔵 Modal: Calling onPrimaryAction");
+        await onPrimaryAction();
+      } else if (primaryAction) {
+        console.log("🔵 Modal: Calling primaryAction");
+        await primaryAction();
+      } else {
+        console.warn("⚠️ Modal: No primary action handler provided");
+      }
+    } catch (error) {
+      console.error("❌ Modal: Error in primary action:", error);
+      throw error; // Re-throw so parent can handle
     }
   };
 
@@ -52,6 +71,7 @@ export default function Modal({
         </div>
         <div className="sticky bottom-0 bg-white rounded-b-3xl border-t border-slate-100 py-4 px-6 flex justify-end gap-3">
           <button
+            type="button"
             className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={onClose}
             disabled={disabled}
@@ -60,6 +80,7 @@ export default function Modal({
           </button>
           {(primaryActionLabel || primaryAction || onPrimaryAction) && (
             <button 
+              type="button"
               className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-slate-900 flex items-center gap-2"
               onClick={handlePrimaryAction}
               disabled={disabled}
