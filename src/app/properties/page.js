@@ -61,7 +61,7 @@ export default function PropertiesPage() {
     description: "",
     price: "",
     location: "",
-    propertyType: "House",
+    propertyType: "house",
     area: "",
     status: "available",
   });
@@ -112,7 +112,7 @@ export default function PropertiesPage() {
       description: "",
       price: "",
       location: "",
-      propertyType: "House",
+      propertyType: "house",
       area: "",
       status: "available",
     });
@@ -170,23 +170,23 @@ export default function PropertiesPage() {
   };
 
   const handleCreateProperty = async (e) => {
-    console.log("🔵 handleCreateProperty START - Function called!", { 
-      isCreating, 
-      formData, 
+    console.log("🔵 handleCreateProperty START - Function called!", {
+      isCreating,
+      formData,
       newImages,
-      event: e 
+      event: e
     });
-    
+
     if (isCreating) {
       console.log("⚠️ Already creating, returning early");
       return; // Prevent double submission
     }
-    
+
     let toastId;
     try {
       console.log("🔵 handleCreateProperty - Starting validation", { formData, newImages });
       setIsCreating(true);
-      
+
       // Validate form
       const validationError = validatePropertyForm(formData, false);
       if (validationError) {
@@ -201,11 +201,12 @@ export default function PropertiesPage() {
         return;
       }
 
-      // Convert string numbers to actual numbers
+      // Convert string numbers to actual numbers and propertyType to lowercase
       const payload = {
         ...formData,
         price: Number(formData.price),
         area: Number(formData.area),
+        propertyType: formData.propertyType ? formData.propertyType.toLowerCase() : "house",
         status: "available", // Always set to available for new properties
       };
 
@@ -249,7 +250,7 @@ export default function PropertiesPage() {
       if (formData.description) payload.description = formData.description;
       if (formData.price) payload.price = Number(formData.price);
       if (formData.location) payload.location = formData.location;
-      if (formData.propertyType) payload.propertyType = formData.propertyType;
+      if (formData.propertyType) payload.propertyType = formData.propertyType.toLowerCase();
       if (formData.area) payload.area = Number(formData.area);
       if (formData.status) payload.status = formData.status;
 
@@ -315,7 +316,7 @@ export default function PropertiesPage() {
       description: property.description || "",
       price: property.price?.toString() || "",
       location: property.location || "",
-      propertyType: property.propertyType || "House",
+      propertyType: property.propertyType || "house",
       area: property.area?.toString() || "",
       status: property.status || "available",
     });
@@ -464,11 +465,10 @@ export default function PropertiesPage() {
           <div className="flex rounded-full border border-slate-200 p-1">
             {/* Blog Card View */}
             <button
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                viewMode === "blog"
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "blog"
+                ? "bg-slate-900 text-white"
+                : "text-slate-600 hover:bg-slate-50"
+                }`}
               onClick={() => setViewMode("blog")}
               title="Blog Cards"
             >
@@ -489,11 +489,10 @@ export default function PropertiesPage() {
             </button>
             {/* List View */}
             <button
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                viewMode === "list"
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "list"
+                ? "bg-slate-900 text-white"
+                : "text-slate-600 hover:bg-slate-50"
+                }`}
               onClick={() => setViewMode("list")}
               title="List View"
             >
@@ -514,11 +513,10 @@ export default function PropertiesPage() {
             </button>
             {/* Table View */}
             <button
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                viewMode === "table"
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "table"
+                ? "bg-slate-900 text-white"
+                : "text-slate-600 hover:bg-slate-50"
+                }`}
               onClick={() => setViewMode("table")}
               title="Table View"
             >
@@ -589,12 +587,11 @@ export default function PropertiesPage() {
               placeholder="All Types"
               options={[
                 { value: "", label: "All Types" },
-                "Apartment",
-                "House",
-                "Secondary unit",
-                "Unique space",
-                "Bed and breakfast",
-                "Boutique hotel",
+                { value: "house", label: "House" },
+                { value: "apartment", label: "Apartment" },
+                { value: "villa", label: "Villa" },
+                { value: "land", label: "Land" },
+                { value: "commercial", label: "Commercial" },
               ]}
             />
 
@@ -738,7 +735,9 @@ export default function PropertiesPage() {
                     {property.title || property.name || property.propertyName}
                   </h3>
                   <p className="text-sm text-slate-500 mb-3">
-                    {property.propertyType || "House"} in{" "}
+                    {property.propertyType
+                      ? property.propertyType.charAt(0).toUpperCase() + property.propertyType.slice(1)
+                      : "House"} in{" "}
                     {property.location || property.address}
                   </p>
                   <div className="flex items-center justify-between">
@@ -812,7 +811,9 @@ export default function PropertiesPage() {
                     {property.title || property.name || property.propertyName}
                   </h3>
                   <p className="text-sm text-slate-500 truncate">
-                    {property.propertyType || "House"} in{" "}
+                    {property.propertyType
+                      ? property.propertyType.charAt(0).toUpperCase() + property.propertyType.slice(1)
+                      : "House"} in{" "}
                     {property.location || property.address}
                   </p>
                 </div>
@@ -847,7 +848,9 @@ export default function PropertiesPage() {
                   property.title || property.name || property.propertyName,
                   hostName,
                   property.location || property.address,
-                  property.propertyType || "House",
+                  property.propertyType
+                    ? property.propertyType.charAt(0).toUpperCase() + property.propertyType.slice(1)
+                    : "House",
                   `${property.bedrooms || 0} / ${property.bathrooms || 0}`,
                   `${property.area || 0} sq ft`,
                   formatCurrency(property.price || 0, property.currency || null),
@@ -978,57 +981,57 @@ export default function PropertiesPage() {
                 imagesToRemove.length +
                 newImages.length <
                 5 && (
-                <div className="aspect-square">
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                    multiple
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files || []);
-                      const remaining =
-                        5 -
-                        (existingImages.length -
-                          imagesToRemove.length +
-                          newImages.length);
-                      const filesToAdd = files.slice(0, remaining);
+                  <div className="aspect-square">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                      multiple
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        const remaining =
+                          5 -
+                          (existingImages.length -
+                            imagesToRemove.length +
+                            newImages.length);
+                        const filesToAdd = files.slice(0, remaining);
 
-                      // Validate file sizes
-                      const maxSizeBytes = 5 * 1024 * 1024;
-                      const oversized = filesToAdd.filter(
-                        (f) => f.size > maxSizeBytes
-                      );
+                        // Validate file sizes
+                        const maxSizeBytes = 5 * 1024 * 1024;
+                        const oversized = filesToAdd.filter(
+                          (f) => f.size > maxSizeBytes
+                        );
 
-                      if (oversized.length > 0) {
-                        toast.error(`Some files exceed 5MB limit`);
-                        return;
-                      }
+                        if (oversized.length > 0) {
+                          toast.error(`Some files exceed 5MB limit`);
+                          return;
+                        }
 
-                      setNewImages((prev) => [...prev, ...filesToAdd]);
-                      e.target.value = "";
-                    }}
-                    className="hidden"
-                    id="add-more-images-edit"
-                  />
-                  <label
-                    htmlFor="add-more-images-edit"
-                    className="flex items-center justify-center w-full h-full rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors"
-                  >
-                    <svg
-                      className="h-8 w-8 text-slate-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
+                        setNewImages((prev) => [...prev, ...filesToAdd]);
+                        e.target.value = "";
+                      }}
+                      className="hidden"
+                      id="add-more-images-edit"
+                    />
+                    <label
+                      htmlFor="add-more-images-edit"
+                      className="flex items-center justify-center w-full h-full rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 4v16m8-8H4"
-                      />
-                    </svg>
-                  </label>
-                </div>
-              )}
+                      <svg
+                        className="h-8 w-8 text-slate-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 4v16m8-8H4"
+                        />
+                      </svg>
+                    </label>
+                  </div>
+                )}
             </div>
             <p className="text-xs text-slate-500 mt-2">
               Max 5 images, 5MB each
@@ -1095,12 +1098,11 @@ export default function PropertiesPage() {
             value={formData.propertyType}
             onChange={(value) => handleFormChange("propertyType", value)}
             options={[
-              "Apartment",
-              "House",
-              "Secondary unit",
-              "Unique space",
-              "Bed and breakfast",
-              "Boutique hotel",
+              { value: "house", label: "House" },
+              { value: "apartment", label: "Apartment" },
+              { value: "villa", label: "Villa" },
+              { value: "land", label: "Land" },
+              { value: "commercial", label: "Commercial" },
             ]}
           />
           <Select
@@ -1282,12 +1284,11 @@ export default function PropertiesPage() {
           onChange={(value) => handleFormChange("propertyType", value)}
           className="pt-4"
           options={[
-            "Apartment",
-            "House",
-            "Secondary unit",
-            "Unique space",
-            "Bed and breakfast",
-            "Boutique hotel",
+            { value: "house", label: "House" },
+            { value: "apartment", label: "Apartment" },
+            { value: "villa", label: "Villa" },
+            { value: "land", label: "Land" },
+            { value: "commercial", label: "Commercial" },
           ]}
         />
       </Modal>
