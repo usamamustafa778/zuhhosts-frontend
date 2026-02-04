@@ -11,10 +11,12 @@ import {
   EditSubscriptionModal,
   ApproveSubscriptionModal,
   RejectSubscriptionModal,
+  CreateSubscriptionModal,
 } from "@/components/modules/SubscriptionModals";
 import { useSubscriptions } from "@/hooks/useSubscriptions";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
+import { getAllUsers } from "@/lib/api";
 
 const PAGE_SIZE = 10;
 
@@ -33,6 +35,7 @@ export default function SubscriptionsPage() {
     remove,
     approve,
     reject,
+    create,
   } = useSubscriptions();
 
   // SEO
@@ -48,7 +51,10 @@ export default function SubscriptionsPage() {
   const [isApproveOpen, setIsApproveOpen] = useState(false);
   const [isRejectOpen, setIsRejectOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [filters, setFilters] = useState({
     status: "",
     package: "",
@@ -70,6 +76,16 @@ export default function SubscriptionsPage() {
     rejectionReason: "",
   });
 
+  const [createForm, setCreateForm] = useState({
+    userId: "",
+    package: "",
+    price: "",
+    status: "pending",
+    paymentStatus: "unpaid",
+    autoApprove: false,
+    notes: "",
+  });
+
   useEffect(() => {
     if (!isAuthenticated) return;
     if (!isSuperAdmin) {
@@ -78,7 +94,25 @@ export default function SubscriptionsPage() {
     }
     loadStatistics();
     loadSubscriptions();
+    loadUsers();
   }, [isAuthenticated, isSuperAdmin, router]);
+
+  // Load users for the create subscription modal
+  const loadUsers = async () => {
+    try {
+      setIsLoadingUsers(true);
+      const data = await getAllUsers();
+      if (Array.isArray(data)) {
+        setUsers(data);
+      } else if (data.users && Array.isArray(data.users)) {
+        setUsers(data.users);
+      }
+    } catch (err) {
+      console.error("Error loading users:", err);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
 
   // Reload when filters change
   useEffect(() => {
@@ -228,6 +262,43 @@ export default function SubscriptionsPage() {
     setRejectForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const openCreateModal = () => {
+    setCreateForm({
+      userId: "",
+      package: "",
+      price: "",
+      status: "pending",
+      paymentStatus: "unpaid",
+      autoApprove: false,
+      notes: "",
+    });
+    setIsCreateOpen(true);
+  };
+
+  const handleCreate = async (data) => {
+    try {
+      await create(data);
+      setIsCreateOpen(false);
+      setCreateForm({
+        userId: "",
+        package: "",
+        price: "",
+        status: "pending",
+        paymentStatus: "unpaid",
+        autoApprove: false,
+        notes: "",
+      });
+      loadSubscriptions(filters);
+      loadStatistics();
+    } catch (err) {
+      console.error("Error creating subscription:", err);
+    }
+  };
+
+  const handleCreateFormChange = (field, value) => {
+    setCreateForm((prev) => ({ ...prev, [field]: value }));
+  };
+
   if (authLoading || !isAuthenticated) {
     return <PageLoader message="Checking your access..." />;
   }
@@ -261,6 +332,26 @@ export default function SubscriptionsPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
+            <button
+              className="rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 flex items-center gap-2 transition-colors"
+              onClick={openCreateModal}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              Add Subscription
+            </button>
             <button
               className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-2"
               onClick={() => setShowFilters(!showFilters)}
@@ -389,6 +480,27 @@ export default function SubscriptionsPage() {
         onSubmit={handleReject}
         formData={rejectForm}
         onFormChange={handleRejectFormChange}
+      />
+
+      <CreateSubscriptionModal
+        isOpen={isCreateOpen}
+        onClose={() => {
+          setIsCreateOpen(false);
+          setCreateForm({
+            userId: "",
+            package: "",
+            price: "",
+            status: "pending",
+            paymentStatus: "unpaid",
+            autoApprove: false,
+            notes: "",
+          });
+        }}
+        onSubmit={handleCreate}
+        formData={createForm}
+        onFormChange={handleCreateFormChange}
+        users={users}
+        isLoading={isLoading}
       />
     </div>
   );

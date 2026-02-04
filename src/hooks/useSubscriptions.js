@@ -9,6 +9,7 @@ import {
   deleteSubscription,
   approveSubscription,
   rejectSubscription,
+  createSubscriptionForUser,
 } from "@/lib/api";
 
 export function useSubscriptions() {
@@ -177,6 +178,27 @@ export function useSubscriptions() {
     }
   }, []);
 
+  // Create subscription for user (superadmin only)
+  const create = useCallback(async (data) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const result = await createSubscriptionForUser(data);
+      if (result.success && result.subscription) {
+        setSubscriptions((prev) => [result.subscription, ...prev]);
+        setCount((prev) => prev + 1);
+        return result.subscription;
+      }
+      return result;
+    } catch (err) {
+      setError(err.message || "Failed to create subscription");
+      console.error("Error creating subscription:", err);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   return {
     statistics,
     subscriptions,
@@ -190,6 +212,7 @@ export function useSubscriptions() {
     remove,
     approve,
     reject,
+    create,
   };
 }
 

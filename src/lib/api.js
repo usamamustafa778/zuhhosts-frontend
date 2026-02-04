@@ -1525,6 +1525,72 @@ export async function rejectSubscription(id, data) {
   return handleResponse(res, "Failed to reject subscription");
 }
 
+/**
+ * Create subscription for user (superadmin only)
+ * Endpoint: POST /api/subscriptions/admin/create
+ * @param {Object} data - Subscription data
+ * @param {string} data.userId - User ID to create subscription for
+ * @param {string} data.package - Package type (free_trial, basic, big_businesses, enterprise)
+ * @param {number} [data.price] - Optional custom price
+ * @param {string} [data.notes] - Optional notes
+ * @param {string} [data.status] - Optional status (default: pending)
+ * @param {string} [data.paymentStatus] - Optional payment status (default: unpaid)
+ * @param {boolean} [data.autoApprove] - Auto-approve subscription
+ * @param {File} [data.paymentScreenshot] - Payment screenshot file
+ * @returns {Promise<Object>} Created subscription object
+ */
+export async function createSubscriptionForUser(data) {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.authToken")
+      : null;
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  // Check if paymentScreenshot is provided (FormData scenario)
+  const hasFile = data.paymentScreenshot instanceof File;
+
+  if (hasFile) {
+    const formData = new FormData();
+    formData.append("userId", data.userId);
+    formData.append("package", data.package);
+    if (data.price !== undefined) formData.append("price", data.price);
+    if (data.notes) formData.append("notes", data.notes);
+    if (data.status) formData.append("status", data.status);
+    if (data.paymentStatus) formData.append("paymentStatus", data.paymentStatus);
+    if (data.autoApprove !== undefined) formData.append("autoApprove", data.autoApprove);
+    if (data.paymentScreenshot) formData.append("paymentScreenshot", data.paymentScreenshot);
+
+    const res = await fetch(`${API_BASE_URL}/api/subscriptions/admin/create`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+    return handleResponse(res, "Failed to create subscription");
+  } else {
+    const res = await fetch(`${API_BASE_URL}/api/subscriptions/admin/create`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        userId: data.userId,
+        package: data.package,
+        price: data.price,
+        notes: data.notes || "",
+        status: data.status,
+        paymentStatus: data.paymentStatus,
+        autoApprove: data.autoApprove,
+      }),
+    });
+    return handleResponse(res, "Failed to create subscription");
+  }
+}
+
 // ============================================
 // User Subscription API Functions
 // ============================================
