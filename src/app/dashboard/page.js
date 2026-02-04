@@ -13,7 +13,7 @@ import PendingSubscriptionRequest from "@/components/modules/PendingSubscription
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading, user } = useRequireAuth();
+  const { isAuthenticated, isLoading, user, isSuperAdmin } = useRequireAuth();
   const { isHost } = useAuth();
   const {
     activeSubscription,
@@ -264,8 +264,8 @@ export default function DashboardPage() {
   if (isHost) {
     return (
       <div className="mx-auto max-w-4xl space-y-6 lg:space-y-12 py-0 lg:py-4">
-        {/* Subscription Section */}
-        {!subscriptionLoading && (
+        {/* Subscription Section - Hide for superadmin */}
+        {!isSuperAdmin && !subscriptionLoading && (
           <>
             {pendingSubscription ? (
               <PendingSubscriptionRequest
@@ -443,8 +443,8 @@ export default function DashboardPage() {
             <button
               onClick={() => setActiveView("today")}
               className={`rounded-full px-4 lg:px-6 py-2 lg:py-2.5 text-sm font-medium transition ${activeView === "today"
-                  ? "bg-slate-900 text-white"
-                  : "bg-slate-100 text-slate-900 hover:bg-slate-200"
+                ? "bg-slate-900 text-white"
+                : "bg-slate-100 text-slate-900 hover:bg-slate-200"
                 }`}
             >
               Today
@@ -452,8 +452,8 @@ export default function DashboardPage() {
             <button
               onClick={() => setActiveView("upcoming")}
               className={`rounded-full px-4 lg:px-6 py-2 lg:py-2.5 text-sm font-medium transition ${activeView === "upcoming"
-                  ? "bg-slate-900 text-white"
-                  : "bg-slate-100 text-slate-900 hover:bg-slate-200"
+                ? "bg-slate-900 text-white"
+                : "bg-slate-100 text-slate-900 hover:bg-slate-200"
                 }`}
             >
               Upcoming
@@ -702,8 +702,8 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Subscription Section */}
-      {!subscriptionLoading && (
+      {/* Subscription Section - Hide for superadmin */}
+      {!isSuperAdmin && !subscriptionLoading && (
         <>
           {pendingSubscription ? (
             <PendingSubscriptionRequest
