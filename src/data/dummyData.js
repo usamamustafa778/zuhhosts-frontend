@@ -24,6 +24,13 @@ export const roleMenus = {
       permission: null,
     },
     {
+      label: "Merchants",
+      href: "/merchants",
+      icon: "Store",
+      section: "System Management",
+      permission: null,
+    },
+    {
       label: "Properties",
       href: "/properties",
       icon: "LayoutDashboard",
@@ -104,6 +111,13 @@ export const roleMenus = {
       permission: null,
     },
     {
+      label: "Merchants",
+      href: "/merchants",
+      icon: "Store",
+      section: "Overview",
+      permission: null,
+    },
+    {
       label: "Properties",
       href: "/properties",
       icon: "LayoutDashboard",
@@ -166,6 +180,13 @@ export const roleMenus = {
       label: "Dashboard",
       href: "/dashboard",
       icon: "Home",
+      section: "Overview",
+      permission: null,
+    },
+    {
+      label: "Merchants",
+      href: "/merchants",
+      icon: "Store",
       section: "Overview",
       permission: null,
     },

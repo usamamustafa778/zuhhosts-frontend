@@ -1757,3 +1757,177 @@ export async function uploadPaymentScreenshot(id, file) {
   });
   return handleResponse(res, "Failed to upload payment screenshot");
 }
+
+// ============================================
+// Merchant API Functions
+// ============================================
+
+/**
+ * Get all merchants
+ * Endpoint: GET /api/merchants
+ * @param {Object} filters - Optional filters
+ * @param {string} filters.status - Filter by status (active, inactive, suspended)
+ * @param {string} filters.search - Search by merchant name
+ * @returns {Promise<Object>} Object with count and merchants array
+ */
+export async function getAllMerchants(filters = {}) {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.authToken")
+      : null;
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const queryParams = new URLSearchParams();
+  if (filters.status) queryParams.append("status", filters.status);
+  if (filters.search) queryParams.append("search", filters.search);
+
+  const url = `${API_BASE_URL}/api/merchants${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleResponse(res, "Failed to fetch merchants");
+}
+
+/**
+ * Get merchant by ID
+ * Endpoint: GET /api/merchants/:id
+ * @param {string} id - Merchant ID
+ * @returns {Promise<Object>} Merchant object
+ */
+export async function getMerchantById(id) {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.authToken")
+      : null;
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const res = await fetch(`${API_BASE_URL}/api/merchants/${id}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleResponse(res, "Failed to fetch merchant");
+}
+
+/**
+ * Create merchant
+ * Endpoint: POST /api/merchants
+ * @param {Object} data - Merchant data
+ * @param {string} data.name - Merchant name (required)
+ * @param {string} [data.description] - Merchant description
+ * @param {string} [data.status] - Status (active, inactive, suspended)
+ * @param {string} [data.logo] - Logo image path
+ * @param {string} [data.website] - Website URL
+ * @param {string} [data.email] - Contact email
+ * @param {string} [data.phone] - Contact phone
+ * @param {Object} [data.address] - Address object
+ * @param {Object} [data.settings] - Settings object
+ * @param {Object} [data.metadata] - Metadata object
+ * @returns {Promise<Object>} Created merchant object
+ */
+export async function createMerchant(data) {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.authToken")
+      : null;
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const res = await fetch(`${API_BASE_URL}/api/merchants`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, "Failed to create merchant");
+}
+
+/**
+ * Update merchant
+ * Endpoint: PUT /api/merchants/:id
+ * @param {string} id - Merchant ID
+ * @param {Object} data - Update data
+ * @returns {Promise<Object>} Updated merchant object
+ */
+export async function updateMerchant(id, data) {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.authToken")
+      : null;
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const res = await fetch(`${API_BASE_URL}/api/merchants/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, "Failed to update merchant");
+}
+
+/**
+ * Delete merchant
+ * Endpoint: DELETE /api/merchants/:id
+ * @param {string} id - Merchant ID
+ * @returns {Promise<Object>} Success message
+ */
+export async function deleteMerchant(id) {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.authToken")
+      : null;
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const res = await fetch(`${API_BASE_URL}/api/merchants/${id}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleResponse(res, "Failed to delete merchant");
+}
+
+/**
+ * Get merchant statistics
+ * Endpoint: GET /api/merchants/:id/statistics
+ * @param {string} id - Merchant ID
+ * @returns {Promise<Object>} Merchant statistics object
+ */
+export async function getMerchantStatistics(id) {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.authToken")
+      : null;
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const res = await fetch(`${API_BASE_URL}/api/merchants/${id}/statistics`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleResponse(res, "Failed to fetch merchant statistics");
+}
