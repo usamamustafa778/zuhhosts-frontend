@@ -6,24 +6,11 @@ import Link from "next/link";
 import { useAuth, useRequireAuth } from "@/hooks/useAuth";
 import { getAllBookings, getAllProperties, search } from "@/lib/api";
 import { useSEO } from "@/hooks/useSEO";
-import { useUserSubscriptions } from "@/hooks/useUserSubscriptions";
-import SubscriptionPackages from "@/components/modules/SubscriptionPackages";
-import UserSubscriptionStatus from "@/components/modules/UserSubscriptionStatus";
-import PendingSubscriptionRequest from "@/components/modules/PendingSubscriptionRequest";
 
 export default function DashboardPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading, user, isSuperAdmin } = useRequireAuth();
   const { isHost } = useAuth();
-  const {
-    activeSubscription,
-    hasActiveSubscription,
-    pendingSubscription,
-    isLoading: subscriptionLoading,
-    loadActiveSubscription,
-    create: createSubscription,
-    uploadScreenshot,
-  } = useUserSubscriptions();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [todaysBookings, setTodaysBookings] = useState([]);
@@ -46,9 +33,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && user) {
-      // Load subscription status for all authenticated users
-      loadActiveSubscription();
-
       // Fetch stats for hosts
       if (isHost) {
         fetchHostStats();
@@ -264,42 +248,6 @@ export default function DashboardPage() {
   if (isHost) {
     return (
       <div className="mx-auto max-w-4xl space-y-6 lg:space-y-12 py-0 lg:py-4">
-        {/* Subscription Section - Hide for superadmin */}
-        {!isSuperAdmin && !subscriptionLoading && (
-          <>
-            {pendingSubscription ? (
-              <PendingSubscriptionRequest
-                subscription={pendingSubscription}
-                onUploadScreenshot={async (id, file) => {
-                  await uploadScreenshot(id, file);
-                  await loadActiveSubscription();
-                }}
-                isLoading={subscriptionLoading}
-              />
-            ) : !hasActiveSubscription ? (
-              <div className="rounded-2xl border-2 border-amber-200 bg-amber-50/50 p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h2 className="text-xl font-semibold text-slate-900 mb-1">
-                      Subscribe to a Plan
-                    </h2>
-                    <p className="text-sm text-slate-600">
-                      Choose a subscription plan to start managing your properties
-                    </p>
-                  </div>
-                </div>
-                <SubscriptionPackages
-                  onCreateSubscription={async (packageType, notes, paymentScreenshot) => {
-                    await createSubscription(packageType, notes, paymentScreenshot);
-                    await loadActiveSubscription();
-                  }}
-                  isLoading={subscriptionLoading}
-                />
-              </div>
-            ) : null}
-          </>
-        )}
-
         {/* Mobile Search Bar */}
         <div className="lg:hidden relative" ref={searchRef}>
           <div className="relative flex items-center rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-500 shadow-sm">
@@ -653,26 +601,76 @@ export default function DashboardPage() {
             </div>
           ))}
 
-        {/* Your Follow-ups */}
+        {/* Quick Actions Grid */}
         <div className="space-y-4 lg:space-y-6">
           <h2 className="text-2xl lg:text-3xl font-semibold text-slate-900">
-            Your follow-ups
+            Quick Actions
           </h2>
 
-          <div className="grid gap-3 lg:gap-4">
-            {/* Quick action cards */}
+          <div className="grid gap-3 lg:gap-4 sm:grid-cols-2">
             <button
-              onClick={() => router.push("/tasks")}
+              onClick={() => router.push("/check-in-out")}
               className="rounded-2xl lg:rounded-3xl border border-slate-200 bg-white p-5 lg:p-6 text-left transition hover:shadow-md"
             >
               <div className="flex items-start justify-between">
                 <div>
                   <div className="flex items-center gap-2 text-slate-900">
-                    <span className="text-xl lg:text-2xl">✅</span>
-                    <h3 className="font-semibold text-base lg:text-lg">Tasks</h3>
+                    <span className="text-xl lg:text-2xl">🚪</span>
+                    <h3 className="font-semibold text-base lg:text-lg">Check-In / Out</h3>
                   </div>
                   <p className="mt-2 text-sm text-slate-600">
-                    Review pending tasks
+                    Manage arrivals and departures
+                  </p>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => router.push("/housekeeping")}
+              className="rounded-2xl lg:rounded-3xl border border-slate-200 bg-white p-5 lg:p-6 text-left transition hover:shadow-md"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2 text-slate-900">
+                    <span className="text-xl lg:text-2xl">✨</span>
+                    <h3 className="font-semibold text-base lg:text-lg">Housekeeping</h3>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Track cleaning tasks
+                  </p>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => router.push("/analytics")}
+              className="rounded-2xl lg:rounded-3xl border border-slate-200 bg-white p-5 lg:p-6 text-left transition hover:shadow-md"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2 text-slate-900">
+                    <span className="text-xl lg:text-2xl">📊</span>
+                    <h3 className="font-semibold text-base lg:text-lg">Analytics</h3>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-600">
+                    View performance metrics
+                  </p>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => router.push("/website")}
+              className="rounded-2xl lg:rounded-3xl border border-slate-200 bg-white p-5 lg:p-6 text-left transition hover:shadow-md"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2 text-slate-900">
+                    <span className="text-xl lg:text-2xl">🌐</span>
+                    <h3 className="font-semibold text-base lg:text-lg">Public Website</h3>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Manage your booking site
                   </p>
                 </div>
               </div>
@@ -701,42 +699,6 @@ export default function DashboardPage() {
           your properties, bookings, guests, and tasks.
         </p>
       </div>
-
-      {/* Subscription Section - Hide for superadmin */}
-      {!isSuperAdmin && !subscriptionLoading && (
-        <>
-          {pendingSubscription ? (
-            <PendingSubscriptionRequest
-              subscription={pendingSubscription}
-              onUploadScreenshot={async (id, file) => {
-                await uploadScreenshot(id, file);
-                await loadActiveSubscription();
-              }}
-              isLoading={subscriptionLoading}
-            />
-          ) : !hasActiveSubscription ? (
-            <div className="rounded-2xl border-2 border-amber-200 bg-amber-50/50 p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-slate-900 mb-1">
-                    Subscribe to a Plan
-                  </h2>
-                  <p className="text-sm text-slate-600">
-                    Choose a subscription plan to start managing your properties
-                  </p>
-                </div>
-              </div>
-              <SubscriptionPackages
-                onCreateSubscription={async (packageType, notes, paymentScreenshot) => {
-                  await createSubscription(packageType, notes, paymentScreenshot);
-                  await loadActiveSubscription();
-                }}
-                isLoading={subscriptionLoading}
-              />
-            </div>
-          ) : null}
-        </>
-      )}
 
       {/* Quick Actions */}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

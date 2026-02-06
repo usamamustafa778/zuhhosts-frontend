@@ -78,7 +78,12 @@ export function useAuth() {
     if (user.role === "superadmin" || user.role?.name === "superadmin") {
       return "superadmin";
     }
-    if (user.host === true || user.isHost === true) {
+    if (
+      user.role === "host" ||
+      user.role?.name === "host" ||
+      user.host === true ||
+      user.isHost === true
+    ) {
       return "host";
     }
     if (user.hostId) {

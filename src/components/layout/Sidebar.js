@@ -22,7 +22,10 @@ import {
   Key,
   UserCog,
   Receipt,
-  Store
+  Sparkles,
+  TrendingUp,
+  Globe,
+  DoorOpen
 } from "lucide-react";
 import { roleMenus } from "@/data/dummyData";
 import { useAuth } from "@/hooks/useAuth";
@@ -44,7 +47,10 @@ const iconMap = {
   UserCog,
   Coins,
   Receipt,
-  Store
+  Sparkles,
+  TrendingUp,
+  Globe,
+  DoorOpen
 };
 
 const groupBySection = (items = []) =>

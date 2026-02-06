@@ -78,7 +78,16 @@ export default function PropertiesPage() {
         const data = await getAllProperties();
         setPropertiesData(Array.isArray(data) ? data : []);
       } catch (err) {
-        const errorMessage = err.message || "Failed to load properties";
+        let errorMessage = err.message || "Failed to load properties";
+        
+        // Provide more helpful error messages for common backend issues
+        if (errorMessage.includes("is not a function")) {
+          errorMessage = "Backend API error: Please contact support or check backend logs";
+          console.error("🔴 Backend Error:", err.message);
+        } else if (errorMessage.includes("fetch")) {
+          errorMessage = "Unable to connect to server. Please check your connection.";
+        }
+        
         console.error("🔴 PropertiesPage: API call failed:", err);
         setError(errorMessage);
         toast.error(errorMessage);
@@ -407,6 +416,46 @@ export default function PropertiesPage() {
     return <PageLoader message="Loading properties..." />;
   }
 
+  // Show error state if there's an error loading properties
+  if (error) {
+    return (
+      <div className="mx-auto max-w-2xl">
+        <div className="rounded-3xl border-2 border-rose-200 bg-rose-50 p-8 text-center">
+          <div className="text-5xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-semibold text-slate-900 mb-2">
+            Unable to Load Properties
+          </h2>
+          <p className="text-slate-600 mb-6">{error}</p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => window.location.reload()}
+              className="rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+            >
+              Retry
+            </button>
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="rounded-full border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+            >
+              Go to Dashboard
+            </button>
+          </div>
+          {error.includes("Backend") && (
+            <div className="mt-6 p-4 bg-white rounded-lg border border-rose-200">
+              <p className="text-xs text-slate-600 font-mono text-left">
+                <strong>Technical Details:</strong><br />
+                This appears to be a backend server error. Please ensure:<br />
+                1. Backend server is running<br />
+                2. API endpoint is correctly configured<br />
+                3. Backend dependencies are up to date
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-7xl space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -539,7 +588,7 @@ export default function PropertiesPage() {
           {/* Add Property button - same for all screens */}
           <button
             className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 transition-colors"
-            onClick={() => setCreateOpen(true)}
+            onClick={() => router.push("/properties/new")}
           >
             Add Property
           </button>

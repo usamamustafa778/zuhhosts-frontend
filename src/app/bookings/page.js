@@ -39,6 +39,8 @@ const getInitialFormState = () => ({
   discount: "0",
   payment_status: "unpaid",
   numberOfGuests: "1",
+  bookingSource: "walkin",
+  otaReference: "",
 });
 
 const getBookingId = (booking) => booking.id || booking._id;
@@ -130,6 +132,28 @@ const getPaymentStatusColor = (paymentStatus) => {
     refunded: "bg-slate-100 text-slate-700",
   };
   return colors[paymentStatus] || "bg-slate-100 text-slate-700";
+};
+
+const getSourceColor = (source) => {
+  const colors = {
+    walkin: "bg-purple-100 text-purple-700",
+    airbnb: "bg-pink-100 text-pink-700",
+    bookingcom: "bg-blue-100 text-blue-700",
+    direct_website: "bg-green-100 text-green-700",
+    other: "bg-slate-100 text-slate-700",
+  };
+  return colors[source] || "bg-slate-100 text-slate-700";
+};
+
+const getSourceLabel = (source) => {
+  const labels = {
+    walkin: "Walk-in",
+    airbnb: "Airbnb",
+    bookingcom: "Booking.com",
+    direct_website: "Direct Website",
+    other: "Other",
+  };
+  return labels[source] || source;
 };
 
 const generateCalendarData = (bookingsData) => {
@@ -1578,6 +1602,53 @@ export default function BookingsPage() {
                 <option value="refunded">Refunded</option>
               </select>
             </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Booking Source *
+              </label>
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={createForm.bookingSource}
+                onChange={(e) =>
+                  setCreateForm({
+                    ...createForm,
+                    bookingSource: e.target.value,
+                  })
+                }
+                required
+              >
+                <option value="walkin">Walk-in</option>
+                <option value="airbnb">Airbnb</option>
+                <option value="bookingcom">Booking.com</option>
+                <option value="direct_website">Direct Website</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            {(createForm.bookingSource === "airbnb" || 
+              createForm.bookingSource === "bookingcom" || 
+              createForm.bookingSource === "other") && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  OTA Reference / Booking ID
+                </label>
+                <input
+                  type="text"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={createForm.otaReference}
+                  onChange={(e) =>
+                    setCreateForm({
+                      ...createForm,
+                      otaReference: e.target.value,
+                    })
+                  }
+                  placeholder="e.g. HMABCD1234"
+                />
+              </div>
+            )}
           </div>
 
           <div>

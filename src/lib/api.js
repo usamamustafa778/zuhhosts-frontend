@@ -1759,175 +1759,587 @@ export async function uploadPaymentScreenshot(id, file) {
 }
 
 // ============================================
-// Merchant API Functions
+// Tenant Management API Functions
 // ============================================
 
 /**
- * Get all merchants
- * Endpoint: GET /api/merchants
- * @param {Object} filters - Optional filters
- * @param {string} filters.status - Filter by status (active, inactive, suspended)
- * @param {string} filters.search - Search by merchant name
- * @returns {Promise<Object>} Object with count and merchants array
+ * Get current user's tenant information
+ * Endpoint: GET /api/tenants/me
+ * API returns { success, data: { tenant, subscription, user } }
+ * @returns {Promise<Object>} Tenant object (id, name, slug, businessType, country, status, etc.)
  */
-export async function getAllMerchants(filters = {}) {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("luxeboard.authToken")
-      : null;
-  if (!token) {
-    throw new Error("No authentication token found");
-  }
+export async function getMyTenant() {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/tenants/me`);
+  const body = await handleResponse(res, "Failed to fetch tenant information");
+  // Unwrap: API may return { success, data: { tenant, subscription, user } }
+  const tenant = body?.data?.tenant ?? body?.tenant;
+  return tenant != null ? tenant : body;
+}
 
+/**
+ * Create a new tenant (during onboarding)
+ * Endpoint: POST /api/tenants
+ * @param {Object} data - Tenant data
+ * @param {string} data.name - Tenant name (required)
+ * @param {string} data.country - Country (required)
+ * @param {string} data.businessType - Business type: 'hotel', 'airbnb', 'both' (required)
+ * @returns {Promise<Object>} Created tenant object
+ */
+export async function createTenant(data) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/tenants`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, "Failed to create tenant");
+}
+
+/**
+ * Tenant Setup - For users who don't have a tenant yet
+ * This resolves the TENANT_REQUIRED error (403 Forbidden)
+ * Endpoint: POST /api/tenants/setup
+ * @param {Object} data - Optional tenant data
+ * @param {string} data.name - Tenant name (optional, defaults to "{user.name}'s Business")
+ * @param {string} data.country - Country (optional, defaults to "Pakistan")
+ * @param {string} data.businessType - Business type (optional, defaults to "hotel")
+ * @returns {Promise<Object>} { tenant, subscription, user }
+ */
+export async function setupTenant(data = {}) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/tenants/setup`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, "Failed to setup tenant");
+}
+
+/**
+ * Update tenant information
+ * Endpoint: PUT /api/tenants/:id
+ * @param {string} id - Tenant ID
+ * @param {Object} data - Update data
+ * @returns {Promise<Object>} Updated tenant object
+ */
+export async function updateTenant(id, data) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/tenants/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, "Failed to update tenant");
+}
+
+// ============================================
+// Hotel Property Model API Functions
+// ============================================
+
+/**
+ * Add a floor to a hotel property
+ * Endpoint: POST /api/properties/:propertyId/floors
+ * @param {string} propertyId - Property ID
+ * @param {Object} data - Floor data
+ * @param {string} data.floorNumber - Floor number (required)
+ * @param {string} [data.name] - Floor name (optional)
+ * @returns {Promise<Object>} Updated property with new floor
+ */
+export async function addFloor(propertyId, data) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/properties/${propertyId}/floors`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, "Failed to add floor");
+}
+
+/**
+ * Add a room to a property (hotel model)
+ * Endpoint: POST /api/properties/:propertyId/rooms
+ * @param {string} propertyId - Property ID
+ * @param {Object} data - Room data
+ * @param {string} data.roomNumber - Room number (required)
+ * @param {string} data.roomType - Room type (e.g., 'deluxe', 'standard', 'suite')
+ * @param {number} data.price - Price per night (required)
+ * @param {number} [data.maxOccupancy] - Maximum occupancy (optional)
+ * @param {string} [data.floorId] - Floor ID (optional)
+ * @returns {Promise<Object>} Created room object
+ */
+export async function addRoom(propertyId, data) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/properties/${propertyId}/rooms`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, "Failed to add room");
+}
+
+/**
+ * Get all rooms for a property
+ * Endpoint: GET /api/properties/:propertyId/rooms
+ * @param {string} propertyId - Property ID
+ * @param {string} [startDate] - Filter available rooms from start date
+ * @param {string} [endDate] - Filter available rooms to end date
+ * @returns {Promise<Array>} Array of room objects
+ */
+export async function getRooms(propertyId, startDate = null, endDate = null) {
+  let url = `${API_BASE_URL}/api/properties/${propertyId}/rooms`;
+  if (startDate && endDate) {
+    url += `?startDate=${startDate}&endDate=${endDate}`;
+  }
+  const res = await fetchWithAuth(url);
+  return handleResponse(res, "Failed to fetch rooms");
+}
+
+/**
+ * Update a room
+ * Endpoint: PUT /api/properties/:propertyId/rooms/:roomId
+ * @param {string} propertyId - Property ID
+ * @param {string} roomId - Room ID
+ * @param {Object} data - Update data
+ * @returns {Promise<Object>} Updated room object
+ */
+export async function updateRoom(propertyId, roomId, data) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/properties/${propertyId}/rooms/${roomId}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, "Failed to update room");
+}
+
+/**
+ * Delete a room
+ * Endpoint: DELETE /api/properties/:propertyId/rooms/:roomId
+ * @param {string} propertyId - Property ID
+ * @param {string} roomId - Room ID
+ * @returns {Promise<Object>} Success message
+ */
+export async function deleteRoom(propertyId, roomId) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/properties/${propertyId}/rooms/${roomId}`, {
+    method: "DELETE",
+  });
+  return handleResponse(res, "Failed to delete room");
+}
+
+// ============================================
+// Airbnb Property Model API Functions
+// ============================================
+
+/**
+ * Add a unit to a property (Airbnb model)
+ * Endpoint: POST /api/properties/:propertyId/units
+ * @param {string} propertyId - Property ID
+ * @param {Object} data - Unit data
+ * @param {string} [data.unitName] - Unit name (optional)
+ * @param {number} data.price - Price per night (required)
+ * @param {number} [data.maxOccupancy] - Maximum occupancy (optional)
+ * @returns {Promise<Object>} Created unit object
+ */
+export async function addUnit(propertyId, data) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/properties/${propertyId}/units`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, "Failed to add unit");
+}
+
+/**
+ * Get all units for a property
+ * Endpoint: GET /api/properties/:propertyId/units
+ * @param {string} propertyId - Property ID
+ * @param {string} [startDate] - Filter available units from start date
+ * @param {string} [endDate] - Filter available units to end date
+ * @returns {Promise<Array>} Array of unit objects
+ */
+export async function getUnits(propertyId, startDate = null, endDate = null) {
+  let url = `${API_BASE_URL}/api/properties/${propertyId}/units`;
+  if (startDate && endDate) {
+    url += `?startDate=${startDate}&endDate=${endDate}`;
+  }
+  const res = await fetchWithAuth(url);
+  return handleResponse(res, "Failed to fetch units");
+}
+
+/**
+ * Update a unit
+ * Endpoint: PUT /api/properties/:propertyId/units/:unitId
+ * @param {string} propertyId - Property ID
+ * @param {string} unitId - Unit ID
+ * @param {Object} data - Update data
+ * @returns {Promise<Object>} Updated unit object
+ */
+export async function updateUnit(propertyId, unitId, data) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/properties/${propertyId}/units/${unitId}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, "Failed to update unit");
+}
+
+/**
+ * Delete a unit
+ * Endpoint: DELETE /api/properties/:propertyId/units/:unitId
+ * @param {string} propertyId - Property ID
+ * @param {string} unitId - Unit ID
+ * @returns {Promise<Object>} Success message
+ */
+export async function deleteUnit(propertyId, unitId) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/properties/${propertyId}/units/${unitId}`, {
+    method: "DELETE",
+  });
+  return handleResponse(res, "Failed to delete unit");
+}
+
+// ============================================
+// Check-In / Check-Out API Functions
+// ============================================
+
+/**
+ * Check-in a booking
+ * Endpoint: PATCH /api/bookings/:id/check-in
+ * @param {string} id - Booking ID
+ * @param {Object} data - Check-in data
+ * @param {string} [data.verificationNotes] - Verification notes
+ * @returns {Promise<Object>} Updated booking object
+ */
+export async function checkInBooking(id, data = {}) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/bookings/${id}/check-in`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, "Failed to check-in booking");
+}
+
+/**
+ * Check-out a booking
+ * Endpoint: PATCH /api/bookings/:id/check-out
+ * @param {string} id - Booking ID
+ * @param {Object} data - Check-out data
+ * @param {number} [data.finalCharges] - Final charges
+ * @param {string} [data.checkoutNotes] - Checkout notes
+ * @returns {Promise<Object>} Updated booking object
+ */
+export async function checkOutBooking(id, data = {}) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/bookings/${id}/check-out`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, "Failed to check-out booking");
+}
+
+// ============================================
+// Housekeeping / Operations API Functions
+// ============================================
+
+/**
+ * Get housekeeping dashboard data
+ * Endpoint: GET /api/housekeeping/dashboard
+ * @returns {Promise<Object>} Dashboard statistics
+ */
+export async function getHousekeepingDashboard() {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/housekeeping/dashboard`);
+  return handleResponse(res, "Failed to fetch housekeeping dashboard");
+}
+
+/**
+ * Get all housekeeping tasks
+ * Endpoint: GET /api/housekeeping/tasks
+ * @param {Object} filters - Optional filters
+ * @param {string} [filters.status] - Filter by status (pending, in_progress, completed)
+ * @param {string} [filters.propertyId] - Filter by property ID
+ * @returns {Promise<Array>} Array of tasks
+ */
+export async function getHousekeepingTasks(filters = {}) {
   const queryParams = new URLSearchParams();
   if (filters.status) queryParams.append("status", filters.status);
-  if (filters.search) queryParams.append("search", filters.search);
-
-  const url = `${API_BASE_URL}/api/merchants${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
-  const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  return handleResponse(res, "Failed to fetch merchants");
+  if (filters.propertyId) queryParams.append("propertyId", filters.propertyId);
+  
+  const url = `${API_BASE_URL}/api/housekeeping/tasks${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+  const res = await fetchWithAuth(url);
+  return handleResponse(res, "Failed to fetch housekeeping tasks");
 }
 
 /**
- * Get merchant by ID
- * Endpoint: GET /api/merchants/:id
- * @param {string} id - Merchant ID
- * @returns {Promise<Object>} Merchant object
+ * Start a housekeeping task
+ * Endpoint: PATCH /api/housekeeping/tasks/:id/start
+ * @param {string} id - Task ID
+ * @returns {Promise<Object>} Updated task object
  */
-export async function getMerchantById(id) {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("luxeboard.authToken")
-      : null;
+export async function startHousekeepingTask(id) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/housekeeping/tasks/${id}/start`, {
+    method: "PATCH",
+  });
+  return handleResponse(res, "Failed to start housekeeping task");
+}
+
+/**
+ * Complete a housekeeping task
+ * Endpoint: PATCH /api/housekeeping/tasks/:id/complete
+ * @param {string} id - Task ID
+ * @param {Object} data - Completion data
+ * @param {string} [data.notes] - Completion notes
+ * @returns {Promise<Object>} Updated task object
+ */
+export async function completeHousekeepingTask(id, data = {}) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/housekeeping/tasks/${id}/complete`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, "Failed to complete housekeeping task");
+}
+
+// ============================================
+// Analytics API Functions
+// ============================================
+
+/**
+ * Get occupancy analytics
+ * Endpoint: GET /api/analytics/occupancy
+ * @param {Object} params - Query parameters
+ * @param {string} [params.propertyId] - Filter by property ID
+ * @param {string} [params.startDate] - Start date (YYYY-MM-DD)
+ * @param {string} [params.endDate] - End date (YYYY-MM-DD)
+ * @returns {Promise<Object>} Occupancy analytics data
+ */
+export async function getOccupancyAnalytics(params = {}) {
+  const queryParams = new URLSearchParams();
+  if (params.propertyId) queryParams.append("propertyId", params.propertyId);
+  if (params.startDate) queryParams.append("startDate", params.startDate);
+  if (params.endDate) queryParams.append("endDate", params.endDate);
+  
+  const url = `${API_BASE_URL}/api/analytics/occupancy${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+  const res = await fetchWithAuth(url);
+  return handleResponse(res, "Failed to fetch occupancy analytics");
+}
+
+/**
+ * Get revenue analytics
+ * Endpoint: GET /api/analytics/revenue
+ * @param {Object} params - Query parameters
+ * @param {string} [params.startDate] - Start date (YYYY-MM-DD)
+ * @param {string} [params.endDate] - End date (YYYY-MM-DD)
+ * @returns {Promise<Object>} Revenue analytics data
+ */
+export async function getRevenueAnalytics(params = {}) {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append("startDate", params.startDate);
+  if (params.endDate) queryParams.append("endDate", params.endDate);
+  
+  const url = `${API_BASE_URL}/api/analytics/revenue${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+  const res = await fetchWithAuth(url);
+  return handleResponse(res, "Failed to fetch revenue analytics");
+}
+
+/**
+ * Get booking sources analytics
+ * Endpoint: GET /api/analytics/booking-sources
+ * @param {Object} params - Query parameters
+ * @param {string} [params.startDate] - Start date (YYYY-MM-DD)
+ * @param {string} [params.endDate] - End date (YYYY-MM-DD)
+ * @returns {Promise<Object>} Booking sources analytics data
+ */
+export async function getBookingSourcesAnalytics(params = {}) {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append("startDate", params.startDate);
+  if (params.endDate) queryParams.append("endDate", params.endDate);
+  
+  const url = `${API_BASE_URL}/api/analytics/booking-sources${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+  const res = await fetchWithAuth(url);
+  return handleResponse(res, "Failed to fetch booking sources analytics");
+}
+
+/**
+ * Get guest trends analytics
+ * Endpoint: GET /api/analytics/guest-trends
+ * @param {Object} params - Query parameters
+ * @param {string} [params.startDate] - Start date (YYYY-MM-DD)
+ * @param {string} [params.endDate] - End date (YYYY-MM-DD)
+ * @returns {Promise<Object>} Guest trends analytics data
+ */
+export async function getGuestTrendsAnalytics(params = {}) {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append("startDate", params.startDate);
+  if (params.endDate) queryParams.append("endDate", params.endDate);
+  
+  const url = `${API_BASE_URL}/api/analytics/guest-trends${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+  const res = await fetchWithAuth(url);
+  return handleResponse(res, "Failed to fetch guest trends analytics");
+}
+
+/**
+ * Get direct bookings analytics
+ * Endpoint: GET /api/analytics/direct-bookings
+ * @param {Object} params - Query parameters
+ * @param {string} [params.startDate] - Start date (YYYY-MM-DD)
+ * @param {string} [params.endDate] - End date (YYYY-MM-DD)
+ * @returns {Promise<Object>} Direct bookings analytics data
+ */
+export async function getDirectBookingsAnalytics(params = {}) {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append("startDate", params.startDate);
+  if (params.endDate) queryParams.append("endDate", params.endDate);
+  
+  const url = `${API_BASE_URL}/api/analytics/direct-bookings${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+  const res = await fetchWithAuth(url);
+  return handleResponse(res, "Failed to fetch direct bookings analytics");
+}
+
+// ============================================
+// Public Website API Functions
+// ============================================
+
+/**
+ * Get tenant's public website configuration
+ * Endpoint: GET /api/tenants/website/config
+ * Response: { success, data: { tenantName, slug, publicUrl, enabled, canToggle, logo, description, primaryColor, contactEmail, contactPhone } }
+ * @returns {Promise<Object|null>} Website config object (data), or null if 404
+ */
+export async function getWebsiteConfig() {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/tenants/website/config`);
+  if (res.status === 404) {
+    return null;
+  }
+  const body = await handleResponse(res, "Failed to fetch website configuration");
+  // Unwrap: API may return { success, data: config } or { success, config } or config at top level
+  const config = body?.data ?? body?.config ?? body?.websiteConfig;
+  return config != null ? config : body;
+}
+
+/**
+ * Update tenant's public website configuration
+ * Endpoint: PUT /api/tenants/website/config
+ * @param {Object} data - Configuration data
+ * @param {string} [data.description] - Website description
+ * @param {string} [data.primaryColor] - Primary color
+ * @param {string} [data.contactEmail] - Contact email
+ * @param {string} [data.contactPhone] - Contact phone
+ * @param {File} [data.logo] - Logo file (if using FormData)
+ * @returns {Promise<Object>} Updated configuration
+ */
+export async function updateWebsiteConfig(data) {
+  const isFormData = data instanceof FormData;
+  
+  const token = getToken();
   if (!token) {
     throw new Error("No authentication token found");
   }
 
-  const res = await fetch(`${API_BASE_URL}/api/merchants/${id}`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+  const headers = {
+    Authorization: `Bearer ${token}`,
+  };
+
+  if (!isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const res = await fetch(`${API_BASE_URL}/api/tenants/website/config`, {
+    method: "PUT",
+    headers,
+    body: isFormData ? data : JSON.stringify(data),
   });
-  return handleResponse(res, "Failed to fetch merchant");
+  const body = await handleResponse(res, "Failed to update website configuration");
+  return body?.data ?? body;
 }
 
 /**
- * Create merchant
- * Endpoint: POST /api/merchants
- * @param {Object} data - Merchant data
- * @param {string} data.name - Merchant name (required)
- * @param {string} [data.description] - Merchant description
- * @param {string} [data.status] - Status (active, inactive, suspended)
- * @param {string} [data.logo] - Logo image path
- * @param {string} [data.website] - Website URL
- * @param {string} [data.email] - Contact email
- * @param {string} [data.phone] - Contact phone
- * @param {Object} [data.address] - Address object
- * @param {Object} [data.settings] - Settings object
- * @param {Object} [data.metadata] - Metadata object
- * @returns {Promise<Object>} Created merchant object
+ * Toggle public website enabled/disabled
+ * Endpoint: POST /api/tenants/website/toggle
+ * @param {boolean} isEnabled - Enable or disable public website
+ * @returns {Promise<Object>} Updated configuration
  */
-export async function createMerchant(data) {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("luxeboard.authToken")
-      : null;
-  if (!token) {
-    throw new Error("No authentication token found");
-  }
+export async function togglePublicWebsite(isEnabled) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/tenants/website/toggle`, {
+    method: "POST",
+    body: JSON.stringify({ enabled: Boolean(isEnabled) }),
+  });
+  return handleResponse(res, "Failed to toggle public website");
+}
 
-  const res = await fetch(`${API_BASE_URL}/api/merchants`, {
+/**
+ * Get public tenant information (no auth required)
+ * Endpoint: GET /public/:tenantSlug/info
+ * Response: { success, data: { name, slug, businessType, country, website: { logo, description, primaryColor, contactEmail, contactPhone } } }
+ * @param {string} tenantSlug - Tenant slug
+ * @returns {Promise<Object>} Public tenant info (data unwrapped)
+ */
+export async function getPublicTenantInfo(tenantSlug) {
+  const res = await fetch(`${API_BASE_URL}/public/${tenantSlug}/info`);
+  const body = await handleResponse(res, "Failed to fetch public tenant information");
+  const tenant = body?.data ?? body;
+  return tenant ?? null;
+}
+
+/**
+ * Get public properties (no auth required)
+ * Endpoint: GET /public/:tenantSlug/properties
+ * Response: { success, count, data: [ ... ] } or array
+ * @param {string} tenantSlug - Tenant slug
+ * @returns {Promise<Array>} Array of public properties
+ */
+export async function getPublicProperties(tenantSlug) {
+  const res = await fetch(`${API_BASE_URL}/public/${tenantSlug}/properties`);
+  const body = await handleResponse(res, "Failed to fetch public properties");
+  const list = body?.data ?? body;
+  return Array.isArray(list) ? list : [];
+}
+
+/**
+ * Get public property details (no auth required)
+ * Endpoint: GET /public/:tenantSlug/properties/:propertyId
+ * @param {string} tenantSlug - Tenant slug
+ * @param {string} propertyId - Property ID
+ * @returns {Promise<Object>} Property details
+ */
+export async function getPublicPropertyDetails(tenantSlug, propertyId) {
+  const res = await fetch(`${API_BASE_URL}/public/${tenantSlug}/properties/${propertyId}`);
+  return handleResponse(res, "Failed to fetch public property details");
+}
+
+/**
+ * Check property availability (no auth required)
+ * Endpoint: GET /public/:tenantSlug/properties/:propertyId/availability
+ * @param {string} tenantSlug - Tenant slug
+ * @param {string} propertyId - Property ID
+ * @param {Object} params - Query parameters
+ * @param {string} params.startDate - Start date (YYYY-MM-DD)
+ * @param {string} params.endDate - End date (YYYY-MM-DD)
+ * @param {string} [params.roomId] - Room ID (optional)
+ * @param {string} [params.unitId] - Unit ID (optional)
+ * @returns {Promise<Object>} Availability information
+ */
+export async function checkPublicAvailability(tenantSlug, propertyId, params) {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append("startDate", params.startDate);
+  if (params.endDate) queryParams.append("endDate", params.endDate);
+  if (params.roomId) queryParams.append("roomId", params.roomId);
+  if (params.unitId) queryParams.append("unitId", params.unitId);
+  
+  const url = `${API_BASE_URL}/public/${tenantSlug}/properties/${propertyId}/availability?${queryParams.toString()}`;
+  const res = await fetch(url);
+  return handleResponse(res, "Failed to check availability");
+}
+
+/**
+ * Create public booking (no auth required)
+ * Endpoint: POST /public/:tenantSlug/bookings
+ * @param {string} tenantSlug - Tenant slug
+ * @param {Object} data - Booking data
+ * @param {string} data.propertyId - Property ID
+ * @param {string} [data.roomId] - Room ID (for hotel)
+ * @param {string} [data.unitId] - Unit ID (for airbnb)
+ * @param {string} data.startDate - Start date (YYYY-MM-DD)
+ * @param {string} data.endDate - End date (YYYY-MM-DD)
+ * @param {Object} data.guestInfo - Guest information
+ * @param {string} data.guestInfo.name - Guest name
+ * @param {string} data.guestInfo.email - Guest email
+ * @param {string} data.guestInfo.phone - Guest phone
+ * @param {number} data.numberOfGuests - Number of guests
+ * @param {Object} [data.guestCount] - Guest count breakdown
+ * @param {number} data.guestCount.adults - Number of adults
+ * @param {number} data.guestCount.children - Number of children
+ * @param {string} [data.specialRequests] - Special requests
+ * @returns {Promise<Object>} Created booking object
+ */
+export async function createPublicBooking(tenantSlug, data) {
+  const res = await fetch(`${API_BASE_URL}/public/${tenantSlug}/bookings`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(data),
   });
-  return handleResponse(res, "Failed to create merchant");
-}
-
-/**
- * Update merchant
- * Endpoint: PUT /api/merchants/:id
- * @param {string} id - Merchant ID
- * @param {Object} data - Update data
- * @returns {Promise<Object>} Updated merchant object
- */
-export async function updateMerchant(id, data) {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("luxeboard.authToken")
-      : null;
-  if (!token) {
-    throw new Error("No authentication token found");
-  }
-
-  const res = await fetch(`${API_BASE_URL}/api/merchants/${id}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(data),
-  });
-  return handleResponse(res, "Failed to update merchant");
-}
-
-/**
- * Delete merchant
- * Endpoint: DELETE /api/merchants/:id
- * @param {string} id - Merchant ID
- * @returns {Promise<Object>} Success message
- */
-export async function deleteMerchant(id) {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("luxeboard.authToken")
-      : null;
-  if (!token) {
-    throw new Error("No authentication token found");
-  }
-
-  const res = await fetch(`${API_BASE_URL}/api/merchants/${id}`, {
-    method: "DELETE",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  return handleResponse(res, "Failed to delete merchant");
-}
-
-/**
- * Get merchant statistics
- * Endpoint: GET /api/merchants/:id/statistics
- * @param {string} id - Merchant ID
- * @returns {Promise<Object>} Merchant statistics object
- */
-export async function getMerchantStatistics(id) {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("luxeboard.authToken")
-      : null;
-  if (!token) {
-    throw new Error("No authentication token found");
-  }
-
-  const res = await fetch(`${API_BASE_URL}/api/merchants/${id}/statistics`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  return handleResponse(res, "Failed to fetch merchant statistics");
+  return handleResponse(res, "Failed to create public booking");
 }

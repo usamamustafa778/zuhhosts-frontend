@@ -17,7 +17,11 @@ export default function RootLayout({ children }) {
 
   // Pages that should not have the dashboard shell
   const isAuthPage =
-    pathname === "/login" || pathname === "/register" || pathname === "/";
+    pathname === "/login" || 
+    pathname === "/register" || 
+    pathname === "/" ||
+    pathname === "/onboarding" ||
+    pathname?.startsWith("/public/");
 
   return (
     <html lang="en" className={roboto.variable}>
