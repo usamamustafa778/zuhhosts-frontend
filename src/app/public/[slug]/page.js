@@ -181,8 +181,8 @@ export default function PublicLandingPage() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {properties.map((property) => {
               const id = property.id ?? property._id;
-              const images = property.images ?? [];
-              const firstImage = images[0];
+              const images = property.images ?? property.photos ?? [];
+              const firstImage = images[0] ?? property.image ?? property.photo;
               const imgSrc = getImageUrl(firstImage);
 
               return (
@@ -196,16 +196,21 @@ export default function PublicLandingPage() {
                     {imgSrc ? (
                       <img
                         src={imgSrc}
-                        alt={property.title}
+                        alt={property.title ?? "Property"}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.style.display = "none";
+                          const placeholder = e.currentTarget.nextElementSibling;
+                          if (placeholder) placeholder.classList.remove("hidden");
+                        }}
                       />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-300">
-                        <svg className="w-14 h-14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                    )}
+                    ) : null}
+                    <div className={`absolute inset-0 flex items-center justify-center text-slate-300 ${imgSrc ? "hidden" : ""}`}>
+                      <svg className="w-14 h-14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
                     {images.length > 1 && (
                       <span className="absolute bottom-3 right-3 bg-black/60 text-white text-xs font-medium px-2.5 py-1 rounded-full">
                         +{images.length - 1}

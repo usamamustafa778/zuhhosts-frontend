@@ -9,13 +9,17 @@ console.log("🔧 API_BASE_URL configured as:", API_BASE_URL);
  * @returns {string | null} - Full URL for <img src>, or null if no path
  */
 export function getImageUrl(path) {
-  if (!path || typeof path !== "string" || path.trim() === "") return null;
+  if (path == null) return null;
+  if (typeof path === "object" && (path.url || path.src)) path = path.url || path.src;
+  if (typeof path !== "string" || path.trim() === "") return null;
+  path = path.trim();
   const baseUrl = API_BASE_URL || "";
-  if (!baseUrl) return null;
   const base = baseUrl.replace(/\/$/, "");
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  if (path.startsWith("/")) return `${base}${path}`;
-  return `${base}/uploads/${path}`;
+  if (path.startsWith("/")) return base ? `${base}${path}` : path;
+  // Path already includes "uploads/" → avoid double prefix
+  if (path.toLowerCase().startsWith("uploads/")) return base ? `${base}/${path}` : `/${path}`;
+  return base ? `${base}/uploads/${path}` : null;
 }
 
 /**
