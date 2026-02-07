@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, User, Mail, Lock } from "lucide-react";
+import { ArrowLeft, ArrowRight, User, Mail, Lock, Eye, EyeOff, Loader2, XCircle, CheckCircle } from "lucide-react";
 import { registerUser } from "@/lib/api";
 import { setAuthToken, setAuthUser, getAuthToken } from "@/lib/auth";
 import InputField from "@/components/common/InputField";
@@ -23,6 +23,7 @@ export default function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   // Redirect to dashboard if already logged in
   useEffect(() => {
@@ -132,6 +133,25 @@ export default function RegisterPage() {
     script.textContent = JSON.stringify(registerSchema);
   }, [router]);
 
+  const parseErrorMessage = (err) => {
+    let errorMessage = err.message || "Failed to register. Please try again.";
+    try {
+      const parsed = JSON.parse(errorMessage);
+      if (parsed.error) errorMessage = parsed.error;
+      else if (parsed.message) errorMessage = parsed.message;
+    } catch {
+      // Not JSON, use as is
+    }
+    const lower = errorMessage.toLowerCase();
+    if (lower.includes("email") && (lower.includes("taken") || lower.includes("already") || lower.includes("exist"))) {
+      return "An account with this email already exists. Try signing in.";
+    }
+    if (lower.includes("network") || lower.includes("fetch") || lower.includes("failed to fetch")) {
+      return "Network error. Check your connection and try again.";
+    }
+    return errorMessage;
+  };
+
   const validateField = (name, value) => {
     let error = "";
     
@@ -206,7 +226,13 @@ export default function RegisterPage() {
 
     setIsSubmitting(true);
     try {
-      const response = await registerUser(formData);
+      // Support backends that expect "username" or "full_name"
+      const payload = {
+        name: formData.name.trim(),
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
+      };
+      const response = await registerUser(payload);
       const token =
         response?.token ||
         response?.accessToken ||
@@ -218,7 +244,9 @@ export default function RegisterPage() {
         null;
 
       if (!token) {
-        throw new Error("Registration succeeded but no token was returned.");
+        // Backend may return success without token (e.g. "verify email first")
+        setSuccess("Account created. Please check your email to verify, or sign in.");
+        return;
       }
 
       setAuthToken(token);
@@ -228,7 +256,7 @@ export default function RegisterPage() {
         router.replace("/dashboard");
       }, 500);
     } catch (err) {
-      setError(err.message || "Failed to register. Please try again.");
+      setError(parseErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -303,7 +331,7 @@ export default function RegisterPage() {
 
             <InputField
               label="Password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               name="password"
               value={formData.password}
               onChange={handleChange}
@@ -313,7 +341,21 @@ export default function RegisterPage() {
               required
               autoComplete="new-password"
               iconPrefix={<Lock className="h-5 w-5 text-slate-400" />}
-              inputClassName="rounded-xl border-slate-200 bg-white/50 py-3 pl-11 pr-4 text-slate-900 placeholder-slate-400 shadow-sm backdrop-blur-sm transition focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+              iconSuffix={
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-slate-400 hover:text-slate-600 transition-colors"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
+              }
+              inputClassName="rounded-xl border-slate-200 bg-white/50 py-3 pl-11 pr-12 text-slate-900 placeholder-slate-400 shadow-sm backdrop-blur-sm transition focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
             />
 
             {/* Terms and conditions */}
@@ -338,33 +380,13 @@ export default function RegisterPage() {
             {/* Error and success messages */}
             {error && (
               <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                <svg
-                  className="mt-0.5 h-5 w-5 shrink-0"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                    clipRule="evenodd"
-                  />
-                </svg>
+                <XCircle className="mt-0.5 h-5 w-5 shrink-0" />
                 <span>{error}</span>
               </div>
             )}
             {success && (
               <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                <svg
-                  className="mt-0.5 h-5 w-5 shrink-0"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                    clipRule="evenodd"
-                  />
-                </svg>
+                <CheckCircle className="mt-0.5 h-5 w-5 shrink-0" />
                 <span>{success}</span>
               </div>
             )}
@@ -377,43 +399,13 @@ export default function RegisterPage() {
             >
               {isSubmitting ? (
                 <>
-                  <svg
-                    className="relative z-10 h-4 w-4 animate-spin"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
+                  <Loader2 className="relative z-10 h-4 w-4 animate-spin" />
                   <span className="relative z-10">Creating account…</span>
                 </>
               ) : (
                 <>
                   <span className="relative z-10">Create account</span>
-                  <svg
-                    className="relative z-10 h-4 w-4 transition-transform group-hover:translate-x-1"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 7l5 5m0 0l-5 5m5-5H6"
-                    />
-                  </svg>
+                  <ArrowRight className="relative z-10 h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </>
               )}
               <div className="absolute inset-0 bg-gradient-to-r from-rose-600 to-pink-700 opacity-0 transition-opacity duration-200 group-hover:opacity-100"></div>
