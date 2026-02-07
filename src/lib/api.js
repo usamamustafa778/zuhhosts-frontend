@@ -158,40 +158,32 @@ async function handleResponse(response, fallbackMessage) {
 }
 
 export async function getAllProperties() {
-  console.log("🔵 API Call: getAllProperties", `${API_BASE_URL}/properties`);
-  const res = await fetchWithAuth(`${API_BASE_URL}/properties`);
+  console.log("🔵 API Call: getAllProperties", `${API_BASE_URL}/api/properties`);
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/properties`);
   console.log("🔵 API Response:", res.status, res.statusText);
   return handleResponse(res, "Failed to fetch properties");
 }
 
 export async function getPropertyById(id) {
-  const res = await fetchWithAuth(`${API_BASE_URL}/properties/${id}`);
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/properties/${id}`);
   return handleResponse(res, "Failed to fetch property");
 }
 
 export async function createProperty(data, images = []) {
-  // If images are provided, use FormData
+  // If images are provided, use multipart/form-data (per backend: POST /api/properties)
   if (images && images.length > 0) {
     const formData = new FormData();
-
-    // Append all property data
-    Object.keys(data).forEach(key => {
-      formData.append(key, data[key]);
+    Object.keys(data).forEach((key) => {
+      const v = data[key];
+      if (v !== undefined && v !== null) formData.append(key, typeof v === "object" ? JSON.stringify(v) : v);
     });
-
-    // Append images
-    images.forEach((image) => {
-      formData.append('images', image);
-    });
+    images.forEach((file) => formData.append("images", file));
 
     const token = getToken();
     const headers = {};
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-    // Don't set Content-Type - browser will set it with boundary for FormData
+    if (token) headers.Authorization = `Bearer ${token}`;
 
-    const res = await fetch(`${API_BASE_URL}/properties`, {
+    const res = await fetch(`${API_BASE_URL}/api/properties`, {
       method: "POST",
       headers,
       body: formData,
@@ -199,8 +191,7 @@ export async function createProperty(data, images = []) {
     return handleResponse(res, "Failed to create property");
   }
 
-  // Otherwise use JSON
-  const res = await fetchWithAuth(`${API_BASE_URL}/properties`, {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/properties`, {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -208,35 +199,25 @@ export async function createProperty(data, images = []) {
 }
 
 export async function updateProperty(id, data, images = [], imagesToRemove = []) {
-  // If images are provided or images need to be removed, use FormData
+  // When adding or removing images, use multipart/form-data (per backend: PUT /api/properties/:id)
   if ((images && images.length > 0) || (imagesToRemove && imagesToRemove.length > 0)) {
     const formData = new FormData();
-
-    // Append all property data
-    Object.keys(data).forEach(key => {
-      formData.append(key, data[key]);
+    Object.keys(data).forEach((key) => {
+      const v = data[key];
+      if (v !== undefined && v !== null) formData.append(key, typeof v === "object" ? JSON.stringify(v) : v);
     });
-
-    // Append new images
     if (images && images.length > 0) {
-      images.forEach((image) => {
-        formData.append('images', image);
-      });
+      images.forEach((file) => formData.append("images", file));
     }
-
-    // Append images to remove
     if (imagesToRemove && imagesToRemove.length > 0) {
-      formData.append('imagesToRemove', JSON.stringify(imagesToRemove));
+      formData.append("imagesToRemove", JSON.stringify(imagesToRemove));
     }
 
     const token = getToken();
     const headers = {};
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-    // Don't set Content-Type - browser will set it with boundary for FormData
+    if (token) headers.Authorization = `Bearer ${token}`;
 
-    const res = await fetch(`${API_BASE_URL}/properties/${id}`, {
+    const res = await fetch(`${API_BASE_URL}/api/properties/${id}`, {
       method: "PUT",
       headers,
       body: formData,
@@ -244,8 +225,7 @@ export async function updateProperty(id, data, images = [], imagesToRemove = [])
     return handleResponse(res, "Failed to update property");
   }
 
-  // Otherwise use JSON
-  const res = await fetchWithAuth(`${API_BASE_URL}/properties/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/properties/${id}`, {
     method: "PUT",
     body: JSON.stringify(data),
   });
@@ -253,7 +233,7 @@ export async function updateProperty(id, data, images = [], imagesToRemove = [])
 }
 
 export async function deleteProperty(id) {
-  const res = await fetchWithAuth(`${API_BASE_URL}/properties/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/properties/${id}`, {
     method: "DELETE",
   });
   return handleResponse(res, "Failed to delete property");
