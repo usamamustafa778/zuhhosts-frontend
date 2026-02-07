@@ -6,8 +6,8 @@ import toast from "react-hot-toast";
 import {
   getPublicTenantInfo,
   getPublicPropertyDetails,
-  getRooms,
-  getUnits,
+  getPublicRooms,
+  getPublicUnits,
   checkPublicAvailability,
   createPublicBooking,
 } from "@/lib/api";
@@ -67,13 +67,28 @@ export default function PublicPropertyPage() {
       setTenant(tenantInfo);
       setProperty(propertyData);
 
-      // Load rooms or units based on property type
-      if (propertyData.propertyType?.toLowerCase().includes("hotel")) {
-        const roomsData = await getRooms(propertyId);
-        setRooms(Array.isArray(roomsData) ? roomsData : []);
+      // Use property.modelType (hotel → rooms, airbnb → units). Fallback to propertyType for backward compat.
+      const modelType =
+        propertyData.modelType ||
+        (propertyData.propertyType?.toLowerCase() === "hotel" ? "hotel" : "airbnb");
+      const isHotel = modelType === "hotel";
+
+      if (isHotel) {
+        try {
+          const roomsData = await getPublicRooms(slug, propertyId);
+          setRooms(Array.isArray(roomsData) ? roomsData : []);
+        } catch {
+          setRooms([]);
+        }
+        setUnits([]);
       } else {
-        const unitsData = await getUnits(propertyId);
-        setUnits(Array.isArray(unitsData) ? unitsData : []);
+        try {
+          const unitsData = await getPublicUnits(slug, propertyId);
+          setUnits(Array.isArray(unitsData) ? unitsData : []);
+        } catch {
+          setUnits([]);
+        }
+        setRooms([]);
       }
     } catch (error) {
       toast.error(error.message || "Failed to load property");
@@ -112,8 +127,13 @@ export default function PublicPropertyPage() {
       return;
     }
 
-    if (rooms.length > 0 && !bookingForm.roomId) {
+    const isHotel = (property?.modelType || (property?.propertyType?.toLowerCase() === "hotel" ? "hotel" : "airbnb")) === "hotel";
+    if (isHotel && rooms.length > 0 && !bookingForm.roomId) {
       toast.error("Please select a room");
+      return;
+    }
+    if (!isHotel && units.length > 0 && !bookingForm.unitId) {
+      toast.error("Please select a unit");
       return;
     }
 
@@ -138,8 +158,9 @@ export default function PublicPropertyPage() {
         specialRequests: bookingForm.specialRequests,
       };
 
-      if (bookingForm.roomId) bookingData.roomId = bookingForm.roomId;
-      if (bookingForm.unitId) bookingData.unitId = bookingForm.unitId;
+      // Send only roomId (hotel) or unitId (airbnb), not both
+      if (isHotel && bookingForm.roomId) bookingData.roomId = bookingForm.roomId;
+      if (!isHotel && bookingForm.unitId) bookingData.unitId = bookingForm.unitId;
 
       const booking = await createPublicBooking(slug, bookingData);
 

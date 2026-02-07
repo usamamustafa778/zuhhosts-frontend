@@ -2305,6 +2305,24 @@ export async function getPublicPropertyDetails(tenantSlug, propertyId) {
 }
 
 /**
+ * Get public rooms for a property (hotel; no auth required)
+ * Endpoint: GET /public/:tenantSlug/properties/:propertyId/rooms
+ */
+export async function getPublicRooms(tenantSlug, propertyId) {
+  const res = await fetch(`${API_BASE_URL}/public/${tenantSlug}/properties/${propertyId}/rooms`);
+  return handleResponse(res, "Failed to fetch rooms");
+}
+
+/**
+ * Get public units for a property (airbnb; no auth required)
+ * Endpoint: GET /public/:tenantSlug/properties/:propertyId/units
+ */
+export async function getPublicUnits(tenantSlug, propertyId) {
+  const res = await fetch(`${API_BASE_URL}/public/${tenantSlug}/properties/${propertyId}/units`);
+  return handleResponse(res, "Failed to fetch units");
+}
+
+/**
  * Check property availability (no auth required)
  * Endpoint: GET /public/:tenantSlug/properties/:propertyId/availability
  * @param {string} tenantSlug - Tenant slug
