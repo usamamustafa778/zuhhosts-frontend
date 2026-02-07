@@ -19,8 +19,12 @@ console.log("🔧 API_BASE_URL configured as:", API_BASE_URL);
 
 /**
  * Build full image URL from API path.
+ * Complies with FRONTEND_PROPERTY_IMAGE_GUIDE.md and RENDER_UPLOADS.md.
+ * - Full URL (http/https): return as-is (e.g. Cloudinary).
+ * - Path (e.g. "properties/xxx.webp"): return base + "/uploads/" + path.
+ * - Path with leading "/" or "uploads/": normalized so no double /uploads/.
  * Use for: property images, guest photos, booking ID cards, tenant logo, subscription screenshot.
- * @param {string | null | undefined} path - Value from API (e.g. "properties/xyz.jpg", "/uploads/guests/abc.jpg", or full URL)
+ * @param {string | null | undefined} path - Value from API (path or full URL)
  * @returns {string | null} - Full URL for <img src>, or null if no path
  */
 export function getImageUrl(path) {
@@ -31,7 +35,6 @@ export function getImageUrl(path) {
   const base = getEffectiveApiBase();
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
   if (path.startsWith("/")) return base ? `${base}${path}` : path;
-  // Path already includes "uploads/" → avoid double prefix
   if (path.toLowerCase().startsWith("uploads/")) return base ? `${base}/${path}` : `/${path}`;
   return base ? `${base}/uploads/${path}` : null;
 }
