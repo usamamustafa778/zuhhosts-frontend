@@ -55,9 +55,9 @@ export default function WebsitePage() {
     loadData();
   }, [isAuthenticated]);
 
-  const loadData = async () => {
+  const loadData = async (isRefresh = false) => {
     try {
-      setIsLoading(true);
+      if (!isRefresh) setIsLoading(true);
       const raw = await getWebsiteConfig();
       const configData =
         raw && typeof raw === "object"
@@ -113,7 +113,7 @@ export default function WebsitePage() {
       console.error("Failed to load website configuration:", error);
       handleApiError(error, router, toast);
     } finally {
-      setIsLoading(false);
+      if (!isRefresh) setIsLoading(false);
     }
   };
 
@@ -263,7 +263,7 @@ export default function WebsitePage() {
       toast.success("Configuration saved!", { id: toastId });
       setLogoFile(null);
       setHeroFile(null);
-      loadData();
+      await loadData(true);
     } catch (error) {
       toast.dismiss(toastId);
       handleApiError(error, router, toast);
