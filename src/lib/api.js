@@ -2200,7 +2200,10 @@ export async function getDirectBookingsAnalytics(params = {}) {
 /**
  * Get tenant's public website configuration
  * Endpoint: GET /api/tenants/website/config
- * Response: { success, data: { tenantName, slug, publicUrl, enabled, canToggle, logo, description, primaryColor, contactEmail, contactPhone } }
+ * Response: { success, data: { tenantName, slug, publicUrl, enabled, canToggle, logo, description, primaryColor, contactEmail, contactPhone, heroImage, testimonials, amenities } }
+ * - heroImage: string (path or URL)
+ * - testimonials: Array<{ quote, author, role?, stars? }>
+ * - amenities: Array<{ label, icon?, detail? }>
  * @returns {Promise<Object|null>} Website config object (data), or null if 404
  */
 export async function getWebsiteConfig() {
@@ -2217,12 +2220,17 @@ export async function getWebsiteConfig() {
 /**
  * Update tenant's public website configuration
  * Endpoint: PUT /api/tenants/website/config
- * @param {Object} data - Configuration data
+ * Body: JSON (partial update supported). Or FormData when uploading logo/heroImage files.
+ * @param {Object|FormData} data - Configuration data
  * @param {string} [data.description] - Website description
  * @param {string} [data.primaryColor] - Primary color
  * @param {string} [data.contactEmail] - Contact email
  * @param {string} [data.contactPhone] - Contact phone
- * @param {File} [data.logo] - Logo file (if using FormData)
+ * @param {string} [data.heroImage] - Hero image path or URL; empty string clears it
+ * @param {Array} [data.testimonials] - Array of { quote, author, role?, stars? }; quote and author required per item
+ * @param {Array} [data.amenities] - Array of { label, icon?, detail? }; label required per item
+ * @param {File} [data.logo] - Logo file (when using FormData)
+ * @param {File} [data.heroImage] - Hero image file (when using FormData)
  * @returns {Promise<Object>} Updated configuration
  */
 export async function updateWebsiteConfig(data) {
@@ -2267,7 +2275,7 @@ export async function togglePublicWebsite(isEnabled) {
 /**
  * Get public tenant information (no auth required)
  * Endpoint: GET /public/:tenantSlug/info
- * Response: { success, data: { name, slug, businessType, country, website: { logo, description, primaryColor, contactEmail, contactPhone } } }
+ * Response: { success, data: { name, slug, businessType, country, website: { logo, description, primaryColor, contactEmail, contactPhone, heroImage, testimonials, amenities } } }
  * @param {string} tenantSlug - Tenant slug
  * @returns {Promise<Object>} Public tenant info (data unwrapped)
  */
