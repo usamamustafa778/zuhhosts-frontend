@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { X, Download, ExternalLink } from "lucide-react";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+import { getImageUrl } from "@/lib/api";
 
 export default function IdCardGallery({ idCards = [] }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -34,14 +33,10 @@ export default function IdCardGallery({ idCards = [] }) {
     setCurrentIndex((prev) => (prev - 1 + idCards.length) % idCards.length);
   };
 
-  const getFullUrl = (path) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    return `${API_BASE_URL}${path}`;
-  };
+  const fullUrl = (path) => getImageUrl(path) ?? "";
 
   const downloadIdCard = (path, index) => {
-    const url = getFullUrl(path);
+    const url = fullUrl(path);
     const link = document.createElement('a');
     link.href = url;
     link.download = `id-card-${index + 1}${path.substring(path.lastIndexOf('.'))}`;
@@ -64,7 +59,7 @@ export default function IdCardGallery({ idCards = [] }) {
           >
             {isImageFile(idCardPath) ? (
               <img
-                src={getFullUrl(idCardPath)}
+                src={fullUrl(idCardPath)}
                 alt={`Guest ID Card ${index + 1}`}
                 className="w-full h-full object-cover cursor-pointer transition-transform group-hover:scale-105"
                 onClick={() => openLightbox(index)}
@@ -147,7 +142,7 @@ export default function IdCardGallery({ idCards = [] }) {
           >
             {isImageFile(idCards[currentIndex]) ? (
               <img
-                src={getFullUrl(idCards[currentIndex])}
+                src={fullUrl(idCards[currentIndex])}
                 alt={`Guest ID Card ${currentIndex + 1}`}
                 className="w-full h-auto rounded-lg shadow-2xl"
               />
@@ -156,7 +151,7 @@ export default function IdCardGallery({ idCards = [] }) {
                 <ExternalLink className="h-16 w-16 text-slate-400 mx-auto mb-4" />
                 <p className="text-slate-700 mb-4">PDF Document</p>
                 <a
-                  href={getFullUrl(idCards[currentIndex])}
+                  href={fullUrl(idCards[currentIndex])}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white hover:bg-slate-800 transition-colors"

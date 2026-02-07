@@ -7,6 +7,7 @@ import {
   getWebsiteConfig,
   updateWebsiteConfig,
   togglePublicWebsite,
+  getImageUrl,
 } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
@@ -79,7 +80,7 @@ export default function WebsitePage() {
           contactPhone,
         });
         if (logo) {
-          setLogoPreview(logo);
+          setLogoPreview(getImageUrl(logo) || logo);
         } else {
           setLogoPreview(null);
         }
@@ -294,6 +295,7 @@ export default function WebsitePage() {
                     src={logoPreview}
                     alt="Logo preview"
                     className="w-full h-full object-contain"
+                    onError={(e) => { e.currentTarget.src = ""; }}
                   />
                 </div>
               )}

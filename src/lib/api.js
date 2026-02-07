@@ -3,6 +3,22 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 console.log("🔧 API_BASE_URL configured as:", API_BASE_URL);
 
 /**
+ * Build full image URL from API path.
+ * Use for: property images, guest photos, booking ID cards, tenant logo, subscription screenshot.
+ * @param {string | null | undefined} path - Value from API (e.g. "properties/xyz.jpg", "/uploads/guests/abc.jpg", or full URL)
+ * @returns {string | null} - Full URL for <img src>, or null if no path
+ */
+export function getImageUrl(path) {
+  if (!path || typeof path !== "string" || path.trim() === "") return null;
+  const baseUrl = API_BASE_URL || "";
+  if (!baseUrl) return null;
+  const base = baseUrl.replace(/\/$/, "");
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  if (path.startsWith("/")) return `${base}${path}`;
+  return `${base}/uploads/${path}`;
+}
+
+/**
  * Get authentication token from localStorage
  * @returns {string|null} Auth token
  */

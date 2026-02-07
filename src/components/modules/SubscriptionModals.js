@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Modal from "@/components/common/Modal";
 import Combobox from "@/components/common/Combobox";
 import { formatCurrency } from "@/utils/currencyUtils";
-import { API_BASE_URL } from "@/lib/api";
+import { getImageUrl } from "@/lib/api";
 
 // Subscription Status Pill Component
 function SubscriptionStatusPill({ status }) {
@@ -127,7 +127,7 @@ export function ViewSubscriptionModal({ subscription, isOpen, onClose }) {
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Payment Screenshot</label>
             <a
-              href={`${API_BASE_URL}${subscription.paymentScreenshot}`}
+              href={getImageUrl(subscription.paymentScreenshot) || "#"}
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-blue-600 hover:underline"

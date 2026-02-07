@@ -21,7 +21,7 @@ import Select from "@/components/common/Select";
 import Modal from "@/components/common/Modal";
 import PageLoader from "@/components/common/PageLoader";
 import DataTable from "@/components/common/DataTable";
-import { API_BASE_URL } from "@/lib/api";
+import { getImageUrl } from "@/lib/api";
 
 export default function PropertyDetailsPage() {
   const params = useParams();
@@ -63,19 +63,22 @@ export default function PropertyDetailsPage() {
       const propertyData = await getPropertyById(propertyId);
       setProperty(propertyData);
 
-      // Determine if it's a hotel or airbnb property
-      const isHotelProperty =
-        propertyData.propertyType?.toLowerCase().includes("hotel") ||
-        propertyData.propertyType?.toLowerCase() === "hotel";
+      // Use property.modelType (hotel → Rooms, airbnb → Units). Fallback to propertyType for backward compat.
+      const modelType =
+        propertyData.modelType ||
+        (propertyData.propertyType?.toLowerCase() === "hotel" ? "hotel" : "airbnb");
+      const isHotelProperty = modelType === "hotel";
       setIsHotel(isHotelProperty);
 
-      // Load rooms or units
+      // Load rooms or units based on modelType only (one or the other, not both)
       if (isHotelProperty) {
         const roomsData = await getRooms(propertyId);
         setRooms(Array.isArray(roomsData) ? roomsData : []);
+        setUnits([]);
       } else {
         const unitsData = await getUnits(propertyId);
         setUnits(Array.isArray(unitsData) ? unitsData : []);
+        setRooms([]);
       }
     } catch (error) {
       toast.error(error.message || "Failed to load property");
@@ -195,7 +198,7 @@ export default function PropertyDetailsPage() {
 
   const images =
     property.images && property.images.length > 0
-      ? property.images.map((img) => `${API_BASE_URL}${img}`)
+      ? property.images.map((img) => getImageUrl(img)).filter(Boolean)
       : [];
 
   return (

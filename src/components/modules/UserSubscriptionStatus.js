@@ -1,7 +1,7 @@
 "use client";
 
 import { formatCurrency } from "@/utils/currencyUtils";
-import { API_BASE_URL } from "@/lib/api";
+import { getImageUrl } from "@/lib/api";
 
 // Status Pill Component
 function StatusPill({ status }) {
@@ -137,7 +137,7 @@ export default function UserSubscriptionStatus({ subscription, onUploadScreensho
         <div className="mt-4 pt-4 border-t border-slate-100">
           <p className="text-xs text-slate-500 mb-2">Payment Screenshot</p>
           <a
-            href={`${API_BASE_URL}${subscription.paymentScreenshot}`}
+            href={getImageUrl(subscription.paymentScreenshot) || "#"}
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-blue-600 hover:underline"

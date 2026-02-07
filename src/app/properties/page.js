@@ -19,7 +19,7 @@ import {
 } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
-import { API_BASE_URL } from "@/lib/api";
+import { getImageUrl } from "@/lib/api";
 import { formatCurrency } from "@/utils/currencyUtils";
 
 export default function PropertiesPage() {
@@ -65,6 +65,7 @@ export default function PropertiesPage() {
     area: "",
     status: "available",
   });
+  // modelType: "hotel" | "airbnb" — derived from propertyType (Hotel → hotel, others → airbnb)
   const [newImages, setNewImages] = useState([]);
   const [existingImages, setExistingImages] = useState([]);
   const [imagesToRemove, setImagesToRemove] = useState([]);
@@ -210,13 +211,15 @@ export default function PropertiesPage() {
         return;
       }
 
-      // Convert string numbers to actual numbers and propertyType to lowercase
+      // modelType: "hotel" or "airbnb" per backend; propertyType: display category (hotel, apartment, villa, etc.)
+      const propertyTypeLower = formData.propertyType ? formData.propertyType.toLowerCase() : "house";
       const payload = {
         ...formData,
         price: Number(formData.price),
         area: Number(formData.area),
-        propertyType: formData.propertyType ? formData.propertyType.toLowerCase() : "house",
-        status: "available", // Always set to available for new properties
+        propertyType: propertyTypeLower,
+        modelType: propertyTypeLower === "hotel" ? "hotel" : "airbnb",
+        status: "available",
       };
 
       console.log("🔵 Creating property with payload:", payload);
@@ -253,13 +256,16 @@ export default function PropertiesPage() {
         return;
       }
 
-      // Only include fields that have values
+      // Only include fields that have values; send modelType when propertyType is set (hotel vs airbnb)
       const payload = {};
       if (formData.title) payload.title = formData.title;
       if (formData.description) payload.description = formData.description;
       if (formData.price) payload.price = Number(formData.price);
       if (formData.location) payload.location = formData.location;
-      if (formData.propertyType) payload.propertyType = formData.propertyType.toLowerCase();
+      if (formData.propertyType) {
+        payload.propertyType = formData.propertyType.toLowerCase();
+        payload.modelType = formData.propertyType.toLowerCase() === "hotel" ? "hotel" : "airbnb";
+      }
       if (formData.area) payload.area = Number(formData.area);
       if (formData.status) payload.status = formData.status;
 
@@ -320,12 +326,15 @@ export default function PropertiesPage() {
 
   const openEditModal = (property) => {
     setSelectedProperty(property);
+    // Use modelType to set propertyType for dropdown: hotel → "hotel", else use propertyType or "house"
+    const editPropertyType =
+      property.modelType === "hotel" ? "hotel" : (property.propertyType || "house");
     setFormData({
       title: property.title || "",
       description: property.description || "",
       price: property.price?.toString() || "",
       location: property.location || "",
-      propertyType: property.propertyType || "house",
+      propertyType: editPropertyType,
       area: property.area?.toString() || "",
       status: property.status || "available",
     });
@@ -376,12 +385,13 @@ export default function PropertiesPage() {
         if (!titleMatch && !locationMatch) return false;
       }
 
-      // Property type filter
-      if (
-        filters.propertyType &&
-        property.propertyType !== filters.propertyType
-      ) {
-        return false;
+      // Property type filter (match modelType or propertyType for hotel/airbnb)
+      if (filters.propertyType) {
+        const propType = property.propertyType?.toLowerCase();
+        const matchType =
+          propType === filters.propertyType ||
+          (filters.propertyType === "hotel" && property.modelType === "hotel");
+        if (!matchType) return false;
       }
 
       // Status filter
@@ -636,6 +646,7 @@ export default function PropertiesPage() {
               placeholder="All Types"
               options={[
                 { value: "", label: "All Types" },
+                { value: "hotel", label: "Hotel" },
                 { value: "house", label: "House" },
                 { value: "apartment", label: "Apartment" },
                 { value: "villa", label: "Villa" },
@@ -727,8 +738,8 @@ export default function PropertiesPage() {
             const propertyId = property.id || property._id;
             const images =
               property.images && property.images.length > 0
-                ? property.images.map((img) => `${API_BASE_URL}${img}`)
-                : property.photos || (property.photo ? [property.photo] : []);
+                ? property.images.map((img) => getImageUrl(img)).filter(Boolean)
+                : (property.photos || (property.photo ? [property.photo] : [])).map((p) => (typeof p === "string" ? getImageUrl(p) : p)).filter(Boolean);
 
             return (
               <div
@@ -812,8 +823,8 @@ export default function PropertiesPage() {
             const propertyId = property.id || property._id;
             const images =
               property.images && property.images.length > 0
-                ? property.images.map((img) => `${API_BASE_URL}${img}`)
-                : property.photos || (property.photo ? [property.photo] : []);
+                ? property.images.map((img) => getImageUrl(img)).filter(Boolean)
+                : (property.photos || (property.photo ? [property.photo] : [])).map((p) => (typeof p === "string" ? getImageUrl(p) : p)).filter(Boolean);
 
             return (
               <div
@@ -955,7 +966,7 @@ export default function PropertiesPage() {
                     className="relative group aspect-square rounded-lg overflow-hidden border-2 border-slate-200"
                   >
                     <img
-                      src={`${API_BASE_URL}${image}`}
+                      src={getImageUrl(image) || "#"}
                       alt={`Property ${index + 1}`}
                       className="w-full h-full object-cover"
                     />
@@ -1142,17 +1153,18 @@ export default function PropertiesPage() {
           placeholder="123 Ocean Drive, Miami, FL"
         />
         <div className="grid grid-cols-2 gap-4 pt-4">
-          <Select
-            label="Property Type"
-            value={formData.propertyType}
-            onChange={(value) => handleFormChange("propertyType", value)}
-            options={[
-              { value: "house", label: "House" },
-              { value: "apartment", label: "Apartment" },
-              { value: "villa", label: "Villa" },
-              { value: "land", label: "Land" },
-              { value: "commercial", label: "Commercial" },
-            ]}
+            <Select
+              label="Property Type"
+              value={formData.propertyType}
+              onChange={(value) => handleFormChange("propertyType", value)}
+              options={[
+                { value: "hotel", label: "Hotel (rooms)" },
+                { value: "house", label: "House" },
+                { value: "apartment", label: "Apartment" },
+                { value: "villa", label: "Villa" },
+                { value: "land", label: "Land" },
+                { value: "commercial", label: "Commercial" },
+              ]}
           />
           <Select
             label="Status"
@@ -1333,6 +1345,7 @@ export default function PropertiesPage() {
           onChange={(value) => handleFormChange("propertyType", value)}
           className="pt-4"
           options={[
+            { value: "hotel", label: "Hotel (rooms)" },
             { value: "house", label: "House" },
             { value: "apartment", label: "Apartment" },
             { value: "villa", label: "Villa" },

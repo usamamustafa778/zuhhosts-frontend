@@ -12,7 +12,7 @@ import {
   createPublicBooking,
 } from "@/lib/api";
 import PageLoader from "@/components/common/PageLoader";
-import { API_BASE_URL } from "@/lib/api";
+import { getImageUrl } from "@/lib/api";
 import { getTenantSlugFromSubdomain } from "@/utils/tenantUtils";
 
 export default function PublicPropertyPage() {
@@ -185,9 +185,10 @@ export default function PublicPropertyPage() {
   }
 
   const primaryColor = tenant.websiteConfig?.primaryColor || "#3b82f6";
+  const logoUrl = getImageUrl(tenant.websiteConfig?.logo ?? tenant.websiteConfig?.logoUrl ?? "");
   const images =
     property.images && property.images.length > 0
-      ? property.images.map((img) => `${API_BASE_URL}${img}`)
+      ? property.images.map((img) => getImageUrl(img)).filter(Boolean)
       : [];
 
   return (
@@ -206,9 +207,9 @@ export default function PublicPropertyPage() {
           </button>
 
           <div className="flex items-center gap-3">
-            {tenant.websiteConfig?.logoUrl && (
+            {logoUrl && (
               <img
-                src={tenant.websiteConfig.logoUrl}
+                src={logoUrl}
                 alt={tenant.name}
                 className="h-8 w-8 object-contain"
               />

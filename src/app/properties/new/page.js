@@ -160,13 +160,14 @@ export default function NewPropertyPage() {
     const toastId = toast.loading("Creating property...");
 
     try {
-      // Create base property
+      // Create base property; modelType (hotel | airbnb) drives Rooms vs Units; propertyType is display category
       const propertyData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         location: formData.location.trim(),
         address: formData.address?.trim() || formData.location.trim(),
-        propertyType: propertyModel === "hotel" ? "Hotel" : "Apartment",
+        modelType: propertyModel,
+        propertyType: propertyModel === "hotel" ? "hotel" : "apartment",
         bedrooms: formData.bedrooms ? Number(formData.bedrooms) : undefined,
         bathrooms: formData.bathrooms ? Number(formData.bathrooms) : undefined,
         area: formData.area ? Number(formData.area) : undefined,

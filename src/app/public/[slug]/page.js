@@ -3,16 +3,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getPublicTenantInfo, getPublicProperties, API_BASE_URL } from "@/lib/api";
+import { getPublicTenantInfo, getPublicProperties, getImageUrl } from "@/lib/api";
 import PageLoader from "@/components/common/PageLoader";
 import { getTenantSlugFromSubdomain } from "@/utils/tenantUtils";
-
-// Resolve image URL (full URL or path relative to API)
-function imageUrl(img) {
-  if (!img) return null;
-  if (typeof img === "string" && (img.startsWith("http://") || img.startsWith("https://"))) return img;
-  return `${API_BASE_URL || ""}${img}`.replace(/\/\/+/g, "/");
-}
 
 export default function PublicLandingPage() {
   const params = useParams();
@@ -75,7 +68,7 @@ export default function PublicLandingPage() {
   // API may return website or websiteConfig (WEBSITE_API: website)
   const web = tenant.website ?? tenant.websiteConfig ?? {};
   const primaryColor = web.primaryColor || "#3b82f6";
-  const logo = web.logo ?? web.logoUrl ?? null;
+  const logoUrl = getImageUrl(web.logo ?? web.logoUrl ?? "");
   const description = web.description || `Welcome to ${tenant.name}. Book your stay directly — best price, no commission.`;
   const contactEmail = web.contactEmail ?? null;
   const contactPhone = web.contactPhone ?? null;
@@ -86,9 +79,9 @@ export default function PublicLandingPage() {
       <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
           <Link href={`/public/${slug}`} className="flex items-center gap-3 min-w-0">
-            {logo && (
+            {logoUrl && (
               <img
-                src={logo}
+                src={logoUrl}
                 alt={tenant.name}
                 className="h-11 w-11 rounded-xl object-contain shrink-0 border border-slate-100"
               />
@@ -190,7 +183,7 @@ export default function PublicLandingPage() {
               const id = property.id ?? property._id;
               const images = property.images ?? [];
               const firstImage = images[0];
-              const imgSrc = firstImage ? imageUrl(firstImage) : null;
+              const imgSrc = getImageUrl(firstImage);
 
               return (
                 <button

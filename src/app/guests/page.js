@@ -7,7 +7,7 @@ import DataTable from "@/components/common/DataTable";
 import Modal from "@/components/common/Modal";
 import PageLoader from "@/components/common/PageLoader";
 import PhoneInput from "@/components/common/PhoneInput";
-import { getAllGuests, createGuest, updateGuest, deleteGuest, API_BASE_URL } from "@/lib/api";
+import { getAllGuests, createGuest, updateGuest, deleteGuest, API_BASE_URL, getImageUrl } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
 
@@ -684,12 +684,8 @@ export default function GuestsPage() {
             <div className="grid gap-3 md:grid-cols-2">
               {paginated.map((guest, index) => {
                 const guestId = guest.id || guest._id || `guest-${index}`;
-                const profilePicUrl = guest.profilePicture
-                  ? `${API_BASE_URL}${guest.profilePicture}`
-                  : null;
-                const idCardUrl = guest.idCard
-                  ? `${API_BASE_URL}${guest.idCard}`
-                  : null;
+                const profilePicUrl = getImageUrl(guest.profilePicture);
+                const idCardUrl = getImageUrl(guest.idCard);
                 const createdDate = guest.createdAt
                   ? new Date(guest.createdAt).toLocaleDateString()
                   : "N/A";
@@ -842,12 +838,8 @@ export default function GuestsPage() {
           const createdDate = guest.createdAt
             ? new Date(guest.createdAt).toLocaleDateString()
             : "N/A";
-          const profilePicUrl = guest.profilePicture
-            ? `${API_BASE_URL}${guest.profilePicture}`
-            : null;
-          const idCardUrl = guest.idCard
-            ? `${API_BASE_URL}${guest.idCard}`
-            : null;
+          const profilePicUrl = getImageUrl(guest.profilePicture);
+          const idCardUrl = getImageUrl(guest.idCard);
 
           // Calculate serial number based on current page
           const serialNumber = page * PAGE_SIZE + index + 1;
@@ -986,20 +978,20 @@ export default function GuestsPage() {
           {selectedGuest &&
             (selectedGuest.profilePicture || selectedGuest.idCard) && (
               <div className="flex gap-4 p-3 bg-slate-50 rounded-lg">
-                {selectedGuest.profilePicture && (
+                {selectedGuest.profilePicture && getImageUrl(selectedGuest.profilePicture) && (
                   <div className="text-center">
                     <img
-                      src={`${API_BASE_URL}${selectedGuest.profilePicture}`}
+                      src={getImageUrl(selectedGuest.profilePicture)}
                       alt="Current Profile"
                       className="h-20 w-20 rounded-full object-cover border-2 border-slate-200 mb-1"
                     />
                     <p className="text-xs text-slate-500">Current Photo</p>
                   </div>
                 )}
-                {selectedGuest.idCard && (
+                {selectedGuest.idCard && getImageUrl(selectedGuest.idCard) && (
                   <div className="text-center">
                     <a
-                      href={`${API_BASE_URL}${selectedGuest.idCard}`}
+                      href={getImageUrl(selectedGuest.idCard)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-sm text-blue-600 hover:underline"
@@ -1298,9 +1290,9 @@ export default function GuestsPage() {
             {/* Guest Info */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
-                {bookingHistoryData.guest.profilePicture ? (
-                  <img
-                    src={`${API_BASE_URL}${bookingHistoryData.guest.profilePicture}`}
+                {getImageUrl(bookingHistoryData.guest.profilePicture) ? (
+                    <img
+                    src={getImageUrl(bookingHistoryData.guest.profilePicture)}
                     alt={bookingHistoryData.guest.name}
                     className="h-20 w-20 rounded-full object-cover border-2 border-slate-200 shrink-0"
                   />
@@ -1325,22 +1317,22 @@ export default function GuestsPage() {
               {/* ID Card */}
               <div className="p-4 bg-slate-50 rounded-lg">
                 <h4 className="text-sm font-semibold text-slate-700 mb-2">ID Card</h4>
-                {bookingHistoryData.guest.idCard ? (
+                {getImageUrl(bookingHistoryData.guest.idCard) ? (
                   <div className="space-y-2">
                     <a
-                      href={`${API_BASE_URL}${bookingHistoryData.guest.idCard}`}
+                      href={getImageUrl(bookingHistoryData.guest.idCard)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="block"
                     >
                       <img
-                        src={`${API_BASE_URL}${bookingHistoryData.guest.idCard}`}
+                        src={getImageUrl(bookingHistoryData.guest.idCard)}
                         alt="ID Card"
                         className="w-full h-32 object-contain border border-slate-200 rounded-lg bg-white"
                       />
                     </a>
                     <a
-                      href={`${API_BASE_URL}${bookingHistoryData.guest.idCard}`}
+                      href={getImageUrl(bookingHistoryData.guest.idCard)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs text-blue-600 hover:text-blue-800 hover:underline"

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserSubscriptions } from "@/hooks/useUserSubscriptions";
-import { getAllHosts, impersonateHost, stopImpersonation, search } from "@/lib/api";
+import { getAllHosts, impersonateHost, stopImpersonation, search, getImageUrl } from "@/lib/api";
 
 export default function Topbar({ onMenuToggle }) {
   const router = useRouter();
@@ -336,9 +336,9 @@ export default function Topbar({ onMenuToggle }) {
                   className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-white font-semibold text-sm active:scale-95 transition-transform"
                   aria-label="Profile menu"
                 >
-                  {user.profilePicture ? (
+                  {getImageUrl(user.profilePicture) ? (
                     <img
-                      src={user.profilePicture}
+                      src={getImageUrl(user.profilePicture)}
                       alt={user.name || "User"}
                       className="h-full w-full rounded-full object-cover"
                     />
@@ -638,9 +638,9 @@ export default function Topbar({ onMenuToggle }) {
                 className="flex items-center justify-center h-10 w-10 rounded-full bg-slate-900 text-white font-semibold text-sm hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2"
                 aria-label="Profile menu"
               >
-                {user.profilePicture ? (
+                {getImageUrl(user.profilePicture) ? (
                   <img
-                    src={user.profilePicture}
+                    src={getImageUrl(user.profilePicture)}
                     alt={user.name || "User"}
                     className="h-full w-full rounded-full object-cover"
                   />
