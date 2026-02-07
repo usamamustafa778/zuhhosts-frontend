@@ -12,7 +12,7 @@ import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
 import FormField from "@/components/common/FormField";
 import PageLoader from "@/components/common/PageLoader";
-import { handleApiError } from "@/utils/errorHandler";d
+import { handleApiError } from "@/utils/errorHandler";
 
 export default function WebsitePage() {
   const router = useRouter();
