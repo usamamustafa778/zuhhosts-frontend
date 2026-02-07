@@ -121,7 +121,6 @@ async function handleResponse(response, fallbackMessage) {
         throw parseError;
       }
 
-      // If JSON parsing failed, try reading as text
       try {
         const text = await clonedResponse.text();
         let errorMessage = fallbackMessage;
