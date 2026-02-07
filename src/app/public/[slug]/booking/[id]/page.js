@@ -17,9 +17,15 @@ export default function BookingConfirmationPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [tenant, setTenant] = useState(null);
+  const [homeHref, setHomeHref] = useState(`/public/${slug}`);
 
   useEffect(() => {
     loadTenant();
+  }, [slug]);
+
+  useEffect(() => {
+    const sub = getTenantSlugFromSubdomain();
+    setHomeHref(sub && sub === slug ? "/" : `/public/${slug}`);
   }, [slug]);
 
   const loadTenant = async () => {
@@ -168,7 +174,7 @@ export default function BookingConfirmationPage() {
         {/* Actions */}
         <div className="flex gap-3">
           <button
-            onClick={() => router.push(`/public/${slug}`)}
+            onClick={() => router.push(homeHref)}
             className="flex-1 rounded-xl border-2 border-slate-200 px-6 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
           >
             Back to Properties

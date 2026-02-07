@@ -17,6 +17,13 @@ export default function PublicLandingPage() {
   const [error, setError] = useState(null);
   const [tenant, setTenant] = useState(null);
   const [properties, setProperties] = useState([]);
+  // On tenant subdomain (e.g. marriot-s-business.zuhahost.com), logo/home must link to "/" to avoid 404
+  const [homeHref, setHomeHref] = useState(`/public/${slug}`);
+
+  useEffect(() => {
+    const sub = getTenantSlugFromSubdomain();
+    setHomeHref(sub && sub === slug ? "/" : `/public/${slug}`);
+  }, [slug]);
 
   useEffect(() => {
     if (!slug) return;
@@ -78,7 +85,7 @@ export default function PublicLandingPage() {
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
-          <Link href={`/public/${slug}`} className="flex items-center gap-3 min-w-0">
+          <Link href={homeHref} className="flex items-center gap-3 min-w-0">
             {logoUrl && (
               <img
                 src={logoUrl}
@@ -189,7 +196,7 @@ export default function PublicLandingPage() {
                 <button
                   key={id}
                   type="button"
-                  onClick={() => router.push(`/public/${slug}/property/${id}`)}
+                  onClick={() => router.push(homeHref === "/" ? `/property/${id}` : `/public/${slug}/property/${id}`)}
                   className="group text-left rounded-2xl border border-slate-200 overflow-hidden bg-white hover:border-slate-300 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-300"
                 >
                   <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">

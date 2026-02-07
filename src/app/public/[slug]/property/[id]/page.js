@@ -31,6 +31,7 @@ export default function PublicPropertyPage() {
   const [rooms, setRooms] = useState([]);
   const [units, setUnits] = useState([]);
   const [availability, setAvailability] = useState(null);
+  const [homeHref, setHomeHref] = useState(`/public/${slug}`);
 
   const [bookingForm, setBookingForm] = useState({
     startDate: "",
@@ -49,6 +50,11 @@ export default function PublicPropertyPage() {
   useEffect(() => {
     loadData();
   }, [slug, propertyId]);
+
+  useEffect(() => {
+    const sub = getTenantSlugFromSubdomain();
+    setHomeHref(sub && sub === slug ? "/" : `/public/${slug}`);
+  }, [slug]);
 
   useEffect(() => {
     if (bookingForm.startDate && bookingForm.endDate) {
@@ -167,7 +173,7 @@ export default function PublicPropertyPage() {
       toast.success("Booking created successfully!", { id: toastId });
       
       // Redirect to confirmation page
-      router.push(`/public/${slug}/booking/${booking.id || booking._id}`);
+      router.push(homeHref === "/" ? `/booking/${booking.id || booking._id}` : `/public/${slug}/booking/${booking.id || booking._id}`);
     } catch (error) {
       toast.error(error.message || "Failed to create booking", { id: toastId });
       setIsBooking(false);
@@ -218,7 +224,7 @@ export default function PublicPropertyPage() {
       <header className="border-b border-slate-200 sticky top-0 bg-white/95 backdrop-blur z-50">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <button
-            onClick={() => router.push(`/public/${slug}`)}
+            onClick={() => router.push(homeHref)}
             className="flex items-center gap-2 text-slate-600 hover:text-slate-900"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
