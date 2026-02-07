@@ -1,5 +1,20 @@
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
+const DEFAULT_API_BASE = "https://zuhahosts-backend.onrender.com";
+
+/**
+ * Effective API base URL for the current environment.
+ * On the client, when NEXT_PUBLIC_API_BASE_URL is missing (e.g. not set in Vercel build),
+ * use default so images still load on live tenant subdomains.
+ */
+function getEffectiveApiBase() {
+  if (API_BASE_URL) return API_BASE_URL.replace(/\/$/, "");
+  if (typeof window === "undefined") return "";
+  const hostname = window.location?.hostname || "";
+  if (hostname.endsWith(".zuhahost.com") || hostname.endsWith(".zuhahost.local")) return DEFAULT_API_BASE;
+  return "";
+}
+
 console.log("🔧 API_BASE_URL configured as:", API_BASE_URL);
 
 /**
@@ -13,8 +28,7 @@ export function getImageUrl(path) {
   if (typeof path === "object" && (path.url || path.src)) path = path.url || path.src;
   if (typeof path !== "string" || path.trim() === "") return null;
   path = path.trim();
-  const baseUrl = API_BASE_URL || "";
-  const base = baseUrl.replace(/\/$/, "");
+  const base = getEffectiveApiBase();
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
   if (path.startsWith("/")) return base ? `${base}${path}` : path;
   // Path already includes "uploads/" → avoid double prefix
