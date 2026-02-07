@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import toast from "react-hot-toast";
 import {
   getPublicTenantInfo,
@@ -212,42 +213,24 @@ export default function PublicPropertyPage() {
   }
 
   const primaryColor = tenant.websiteConfig?.primaryColor || "#3b82f6";
-  const logoUrl = getImageUrl(tenant.websiteConfig?.logo ?? tenant.websiteConfig?.logoUrl ?? "");
   const images =
     property.images && property.images.length > 0
       ? property.images.map((img) => getImageUrl(img)).filter(Boolean)
       : [];
 
+  const propertiesHref = homeHref === "/" ? "/properties" : `/public/${slug}/properties`;
+
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="border-b border-slate-200 sticky top-0 bg-white/95 backdrop-blur z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <button
-            onClick={() => router.push(homeHref)}
-            className="flex items-center gap-2 text-slate-600 hover:text-slate-900"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Properties
-          </button>
-
-          <div className="flex items-center gap-3">
-            {logoUrl && (
-              <img
-                src={logoUrl}
-                alt={tenant.name}
-                className="h-8 w-8 object-contain"
-              />
-            )}
-            <span className="font-semibold text-slate-900">{tenant.name}</span>
-          </div>
-        </div>
-      </header>
-
-      {/* Property Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-4 py-6 sm:py-8">
+      <Link
+        href={propertiesHref}
+        className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 mb-6"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        Back to properties
+      </Link>
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Left: Property Details */}
           <div className="lg:col-span-2 space-y-6">
@@ -535,15 +518,6 @@ export default function PublicPropertyPage() {
           </div>
         </div>
       </div>
-
-      {/* Footer */}
-      <footer className="border-t border-slate-200 bg-slate-50 py-8 px-4 mt-12">
-        <div className="max-w-7xl mx-auto text-center">
-          <p className="text-sm text-slate-600">
-            © {new Date().getFullYear()} {tenant.name}. Powered by Zuha Host.
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }
