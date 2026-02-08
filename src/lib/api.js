@@ -2406,7 +2406,8 @@ export async function getPublicProperties(tenantSlug) {
  */
 export async function getPublicPropertyDetails(tenantSlug, propertyId) {
   const res = await fetch(`${API_BASE_URL}/public/${tenantSlug}/properties/${propertyId}`);
-  return handleResponse(res, "Failed to fetch public property details");
+  const body = await handleResponse(res, "Failed to fetch public property details");
+  return body?.data ?? body;
 }
 
 /**

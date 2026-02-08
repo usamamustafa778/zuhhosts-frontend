@@ -34,6 +34,7 @@ export default function PublicPropertyPage() {
   const [availability, setAvailability] = useState(null);
   const [homeHref, setHomeHref] = useState(`/public/${slug}`);
 
+  const [imageIndex, setImageIndex] = useState(0);
   const [bookingForm, setBookingForm] = useState({
     startDate: "",
     endDate: "",
@@ -241,7 +242,31 @@ export default function PublicPropertyPage() {
     return <PageLoader message="Loading property..." />;
   }
 
-  const primaryColor = tenant.websiteConfig?.primaryColor || "#3b82f6";
+  if (!property) {
+    const propertiesHref =
+      homeHref === "/" ? "/properties" : `/public/${slug}/properties`;
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-6 sm:py-8">
+        <Link
+          href={propertiesHref}
+          className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 mb-6"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to properties
+        </Link>
+        <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
+          <p className="text-lg font-medium text-slate-700">Property not found or no longer available.</p>
+          <Link href={propertiesHref} className="mt-4 inline-block text-sm font-semibold" style={{ color: tenant?.websiteConfig?.primaryColor || "#3b82f6" }}>
+            View all properties
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const primaryColor = tenant?.websiteConfig?.primaryColor || "#3b82f6";
   const images =
     property.images && property.images.length > 0
       ? property.images.map((img) => getImageUrl(img)).filter(Boolean)
@@ -274,33 +299,83 @@ export default function PublicPropertyPage() {
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Left: Property Details */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Image Gallery */}
-          {images.length > 0 && (
-            <div className="rounded-2xl overflow-hidden">
-              <img
-                src={images[0]}
-                alt={property.title}
-                className="w-full h-96 object-cover"
-              />
-              {images.length > 1 && (
-                <div className="grid grid-cols-4 gap-2 mt-2">
-                  {images.slice(1, 5).map((img, index) => (
-                    <img
-                      key={index}
-                      src={img}
-                      alt={`${property.title} ${index + 2}`}
-                      className="w-full h-24 object-cover rounded-lg"
-                    />
+          {/* Image Slider */}
+          <div className="w-full rounded-2xl overflow-hidden bg-slate-100 relative">
+            {images.length > 0 ? (
+              <>
+                <div className="relative w-full h-72 sm:h-80 md:h-96 bg-slate-200">
+                  {images.map((src, i) => (
+                    <div
+                      key={i}
+                      className={`absolute inset-0 w-full h-full transition-opacity duration-300 ${
+                        i === imageIndex ? "opacity-100 z-10" : "opacity-0 z-0"
+                      }`}
+                    >
+                      <img
+                        src={src}
+                        alt={`${property.title || "Property"} ${i + 1}`}
+                        className="absolute inset-0 w-full h-full object-cover object-center"
+                      />
+                    </div>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
+                {images.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setImageIndex((prev) => (prev - 1 + images.length) % images.length)}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 z-20 rounded-full bg-white/90 p-2.5 text-slate-700 shadow-lg hover:bg-white transition-colors"
+                      aria-label="Previous image"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImageIndex((prev) => (prev + 1) % images.length)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 z-20 rounded-full bg-white/90 p-2.5 text-slate-700 shadow-lg hover:bg-white transition-colors"
+                      aria-label="Next image"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex gap-1.5">
+                      {images.map((_, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setImageIndex(i)}
+                          className={`h-2 rounded-full transition-all ${
+                            i === imageIndex ? "w-6 bg-white" : "w-2 bg-white/60 hover:bg-white/80"
+                          }`}
+                          aria-label={`Go to image ${i + 1}`}
+                        />
+                      ))}
+                    </div>
+                    <div className="absolute top-3 right-3 z-20 rounded-full bg-slate-900/60 px-3 py-1 text-xs font-medium text-white">
+                      {imageIndex + 1} / {images.length}
+                    </div>
+                  </>
+                )}
+              </>
+            ) : (
+              <div className="w-full h-64 sm:h-80 flex items-center justify-center text-slate-400">
+                <div className="text-center">
+                  <svg className="w-16 h-16 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-sm">No photos</p>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Property Info */}
           <div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2">
-              {property.title}
+              {property.title || "Property"}
             </h1>
             <div className="flex flex-wrap items-center gap-3 text-slate-600 mb-2">
               {property.starRating != null && property.starRating > 0 && (
@@ -308,75 +383,84 @@ export default function PublicPropertyPage() {
                   ★ {Number(property.starRating).toFixed(1)}
                 </span>
               )}
-              {property.placeType && (
-                <span className="text-slate-500">{property.placeType}</span>
-              )}
-              {property.propertyType && (
+              {(property.placeType || property.propertyType) && (
                 <span className="text-slate-500 capitalize">
-                  {property.propertyType}
+                  {property.placeType || property.propertyType}
                 </span>
               )}
+              {property.maxGuests > 0 && (
+                <span className="text-slate-500">{property.maxGuests} guests</span>
+              )}
             </div>
-            <p className="text-slate-600 flex items-center gap-2">
-              <svg
-                className="w-5 h-5 shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-              {property.location}
-            </p>
+            {(property.location || property.address) && (
+              <p className="text-slate-600 flex items-center gap-2">
+                <svg
+                  className="w-5 h-5 shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                {[property.address, property.location].filter(Boolean).join(" · ")}
+              </p>
+            )}
+            {/* Price per night - always visible when set */}
+            {(property.price != null && Number(property.price) > 0) && (
+              <p className="mt-3 text-xl font-bold text-slate-900">
+                {(property.currency || "USD") === "USD" && "$"}
+                {Number(property.price).toLocaleString()}
+                <span className="text-base font-normal text-slate-600"> / night</span>
+              </p>
+            )}
           </div>
+
+          {/* Highlights (max 2) */}
+          {property.highlights && property.highlights.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {property.highlights.slice(0, 2).map((h) => (
+                <span key={h} className="rounded-full bg-slate-100 px-4 py-1.5 text-sm font-medium text-slate-700">
+                  {h}
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Description */}
           <div className="prose prose-slate max-w-none">
-            <p className="text-slate-700">{property.description}</p>
+            <p className="text-slate-700">{property.description || "No description provided."}</p>
           </div>
 
           {/* Property Details */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {property.maxGuests > 0 && (
               <div className="bg-slate-50 rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-slate-900">
-                  {property.maxGuests}
-                </p>
+                <p className="text-2xl font-bold text-slate-900">{property.maxGuests}</p>
                 <p className="text-sm text-slate-600">Guests</p>
               </div>
             )}
             {property.bedrooms > 0 && (
               <div className="bg-slate-50 rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-slate-900">
-                  {property.bedrooms}
-                </p>
+                <p className="text-2xl font-bold text-slate-900">{property.bedrooms}</p>
                 <p className="text-sm text-slate-600">Bedrooms</p>
+              </div>
+            )}
+            {(property.beds != null && property.beds > 0) && (
+              <div className="bg-slate-50 rounded-xl p-4 text-center">
+                <p className="text-2xl font-bold text-slate-900">{property.beds}</p>
+                <p className="text-sm text-slate-600">Beds</p>
               </div>
             )}
             {property.bathrooms > 0 && (
               <div className="bg-slate-50 rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-slate-900">
-                  {property.bathrooms}
-                </p>
+                <p className="text-2xl font-bold text-slate-900">{property.bathrooms}</p>
                 <p className="text-sm text-slate-600">Bathrooms</p>
               </div>
             )}
             {property.area > 0 && (
               <div className="bg-slate-50 rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-slate-900">
-                  {property.area}
-                </p>
+                <p className="text-2xl font-bold text-slate-900">{property.area}</p>
                 <p className="text-sm text-slate-600">sq ft</p>
               </div>
             )}
@@ -429,6 +513,33 @@ export default function PublicPropertyPage() {
                   </span>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* House rules / Policies */}
+          {(property.smokingPolicy || property.petPolicy || property.cancellationPolicy) && (
+            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+              <h3 className="text-sm font-semibold text-slate-900 mb-3">House rules</h3>
+              <ul className="space-y-2 text-sm text-slate-700">
+                {property.smokingPolicy && (
+                  <li className="flex items-center gap-2">
+                    <span className="text-slate-500">Smoking:</span>
+                    <span className="capitalize">{String(property.smokingPolicy).replace(/_/g, " ")}</span>
+                  </li>
+                )}
+                {property.petPolicy && (
+                  <li className="flex items-center gap-2">
+                    <span className="text-slate-500">Pets:</span>
+                    <span className="capitalize">{String(property.petPolicy).replace(/_/g, " ")}</span>
+                  </li>
+                )}
+                {property.cancellationPolicy && (
+                  <li className="flex items-center gap-2">
+                    <span className="text-slate-500">Cancellation:</span>
+                    <span className="capitalize">{String(property.cancellationPolicy).replace(/_/g, " ")}</span>
+                  </li>
+                )}
+              </ul>
             </div>
           )}
         </div>
