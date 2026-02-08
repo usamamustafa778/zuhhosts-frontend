@@ -17,8 +17,10 @@ export default function RootLayout({ children }) {
 
   // Pages that should not have the dashboard shell
   const isAuthPage =
-    pathname === "/login" || 
-    pathname === "/register" || 
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/forgot-password" ||
+    pathname === "/reset-password" ||
     pathname === "/" ||
     pathname === "/onboarding" ||
     pathname?.startsWith("/public/");

@@ -301,6 +301,36 @@ export async function registerUser(data) {
   return handleResponse(res, "Failed to register user");
 }
 
+/**
+ * Request password reset. Backend returns generic success message; does not reveal if email exists.
+ * POST /api/auth/forgot-password (or /auth/forgot-password). Body: { email }.
+ * Success (200): { success: true, message: "If an account exists..." }.
+ * Errors: 400 "Email is required".
+ */
+export async function forgotPassword(email) {
+  const base = API_BASE_URL || getEffectiveApiBase();
+  const res = await fetchWithAuth(`${base}/auth/forgot-password`, {
+    method: "POST",
+    body: JSON.stringify({ email: email?.trim?.() || email }),
+  }, false);
+  return handleResponse(res, "Failed to send reset link");
+}
+
+/**
+ * Set new password with reset token (from email link query ?token=...).
+ * POST /api/auth/reset-password. Body: { token, newPassword }. newPassword min 6 characters.
+ * Success (200): { success: true, message: "Password has been reset successfully..." }.
+ * Errors: 400 "Reset token is required" / "New password is required" / "Invalid or expired reset token".
+ */
+export async function resetPassword({ token, newPassword }) {
+  const base = API_BASE_URL || getEffectiveApiBase();
+  const res = await fetchWithAuth(`${base}/auth/reset-password`, {
+    method: "POST",
+    body: JSON.stringify({ token: token?.trim?.() || token, newPassword: newPassword || "" }),
+  }, false);
+  return handleResponse(res, "Failed to reset password");
+}
+
 export async function getAllGuests() {
   console.log("🔵 API Call: getAllGuests", `${API_BASE_URL}/guests`);
   const res = await fetchWithAuth(`${API_BASE_URL}/guests`);
@@ -943,9 +973,11 @@ export async function changePassword(currentPassword, newPassword) {
 // ============================================
 
 /**
- * Get current user profile
- * Endpoint: GET /api/users/profile or GET /users/profile
- * Returns the authenticated user's profile information with populated role, permissions, and hostId
+ * Get current user profile (getProfile)
+ * Endpoint: GET /api/users/profile
+ * Returns user with populated tenant when the user has a tenant.
+ * Response: { user } where user.tenantId is populated with tenant: { id, name, slug, publicUrl, businessType, country }
+ * Tenant key may also be at top level: { user, tenant }
  */
 export async function getUserProfile() {
   const res = await fetchWithAuth(`${API_BASE_URL}/users/profile`);
@@ -953,16 +985,18 @@ export async function getUserProfile() {
 }
 
 /**
- * Update user profile
+ * Update user profile (updateProfile)
  * Endpoint: PUT /api/users/profile or PATCH /api/users/profile
- * Allows users to update their personal information
- * Allowed fields: name, email, phone, businessName (optional, for hosts), department (optional, for staff)
- * @param {Object} data - Profile data to update
- * @param {string} data.name - User's full name (min 2 characters)
- * @param {string} data.email - Email address (validated format, checked for uniqueness)
- * @param {string} [data.phone] - Phone number (optional, validated format)
- * @param {string} [data.businessName] - Business name (optional, for hosts)
- * @param {string} [data.department] - Department (optional, for staff)
+ * Body: JSON. All fields optional; only sent fields are updated (partial update).
+ * Response (200): { success, message, user, tenant? }. tenant only when user has a tenant: { id, name, slug, publicUrl, businessType, country }
+ * @param {Object} data - Profile data to update (only sent fields are updated)
+ * @param {string} [data.name] - User's full name (required if sent; min 2 characters, trimmed)
+ * @param {string} [data.email] - Email address (valid format; must be unique)
+ * @param {string} [data.phone] - Phone; if provided must match ^[\d\s\-+()]+$; empty/null clears phone
+ * @param {string} [data.businessName] - Business name (optional; updates tenant name and slug when user has tenant)
+ * @param {string} [data.businessType] - Business type when user has tenant: "hotel" | "airbnb_host" | "both" (API accepts "airbnb" → airbnb_host)
+ * @param {string} [data.department] - Department (optional; trimmed, or null if empty)
+ * @param {string} [data.defaultCurrency] - Must be one of app's allowed currency codes (e.g. from CURRENCIES)
  */
 export async function updateUserProfile(data) {
   const res = await fetchWithAuth(`${API_BASE_URL}/users/profile`, {
@@ -999,11 +1033,11 @@ export async function getCurrencies() {
 }
 
 /**
- * Update user's default currency
+ * Update user's default currency (updateDefaultCurrency)
  * Endpoint: PUT /api/users/profile/currency or PATCH /api/users/profile/currency
- * Updates the user's default currency preference
+ * Response includes full tenant when user has a tenant: { id, name, slug, publicUrl, businessType, country }
  * @param {string} currency - Currency code (e.g., "USD", "PKR", "INR")
- * @returns {Promise<Object>} Updated user object
+ * @returns {Promise<Object>} { user, tenant? }
  */
 export async function updateDefaultCurrency(currency) {
   const res = await fetchWithAuth(`${API_BASE_URL}/users/profile/currency`, {
@@ -1304,10 +1338,11 @@ export async function getHostsList() {
   }
 }
 
-// Helper function to determine user type
+// Helper function to determine user type (signups get roleType: 'owner', not "host")
 export function getUserType(user) {
   if (!user) return null;
   if (user.role === "superadmin") return "superadmin";
+  if (user.roleType === "owner") return "host";
   if (user.host === true) return "host";
   if (user.hostId) return "team_member";
   return null;

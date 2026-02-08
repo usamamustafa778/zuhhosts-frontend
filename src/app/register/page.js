@@ -391,11 +391,13 @@ export default function RegisterPage() {
               </div>
             )}
 
-            {/* Submit button */}
+            {/* Submit button – disabled during API call to prevent double submit */}
             <button
               type="submit"
               disabled={isSubmitting}
-              className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-rose-500 to-pink-600 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-rose-500/30 transition-all duration-200 hover:shadow-xl hover:shadow-rose-500/40 focus:outline-none focus:ring-4 focus:ring-rose-500/20 disabled:cursor-not-allowed disabled:from-slate-400 disabled:to-slate-500 disabled:shadow-none"
+              aria-busy={isSubmitting}
+              aria-disabled={isSubmitting}
+              className="group relative flex w-full min-h-[44px] items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-rose-500 to-pink-600 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-rose-500/30 transition-all duration-200 hover:shadow-xl hover:shadow-rose-500/40 focus:outline-none focus:ring-4 focus:ring-rose-500/20 disabled:pointer-events-none disabled:cursor-not-allowed disabled:from-slate-400 disabled:to-slate-500 disabled:opacity-90 disabled:shadow-none"
             >
               {isSubmitting ? (
                 <>

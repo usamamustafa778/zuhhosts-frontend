@@ -62,28 +62,32 @@ export const clearAuthUser = () => {
 };
 
 /**
- * Determine the user type based on user properties
+ * Determine the user type based on user properties.
+ * Signups get roleType: 'owner' (owner of their tenant); no roleType: 'host' on User model.
  * @param {Object} user - User object
- * @returns {"superadmin" | "host" | "team_member" | null}
+ * @returns {"superadmin" | "host" | "team_member" | null} "host" = owner dashboard
  */
 export const getUserType = (user) => {
   if (!user) return null;
-  
+
   // Check if superadmin by role
   if (user.role === "superadmin" || user.role?.name === "superadmin") {
     return "superadmin";
   }
-  
-  // Check if host
+
+  // Owner (business owner – what signups get). Dashboard: /dashboard.
+  if (user.roleType === "owner") {
+    return "host";
+  }
   if (user.host === true || user.isHost === true) {
     return "host";
   }
-  
-  // Check if team member (has a hostId)
+
+  // Team member (has a hostId)
   if (user.hostId) {
     return "team_member";
   }
-  
+
   return null;
 };
 
@@ -97,9 +101,8 @@ export const isSuperAdmin = (user) => {
 };
 
 /**
- * Check if user is a host
- * @param {Object} user - User object
- * @returns {boolean}
+ * Check if user is owner (business owner – tenant owner; what signups get).
+ * Internally still "host" for dashboard routing.
  */
 export const isHost = (user) => {
   return getUserType(user) === "host";
@@ -124,7 +127,7 @@ export const getUserRoleName = (user) => {
   
   const userType = getUserType(user);
   if (userType === "superadmin") return "Superadmin";
-  if (userType === "host") return "Host";
+  if (userType === "host") return "Owner";
   if (userType === "team_member") {
     // Return the actual role if available
     if (user.role?.name) return user.role.name;

@@ -220,8 +220,14 @@ export default function DashboardShell({ children }) {
             <Topbar onMenuToggle={() => setSidebarVisible((prev) => !prev)} />
           </div>
 
-          {/* Main Content */}
-          <main className="flex-1 overflow-y-auto px-4 py-6 lg:px-10 pb-24 lg:pb-6">
+          {/* Main Content - no horizontal padding on /website (full-bleed editor) */}
+          <main
+            className={`flex-1 overflow-y-auto pb-24 lg:pb-6 ${
+              pathname === "/website" || pathname?.startsWith("/website/")
+                ? "py-0"
+                : "px-4 py-6 lg:px-10"
+            }`}
+          >
             {children}
           </main>
 

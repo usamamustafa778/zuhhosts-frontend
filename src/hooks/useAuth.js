@@ -78,6 +78,10 @@ export function useAuth() {
     if (user.role === "superadmin" || user.role?.name === "superadmin") {
       return "superadmin";
     }
+    // Owner (business owner – what signups get; roleType from API). Dashboard: /dashboard.
+    if (user.roleType === "owner") {
+      return "host";
+    }
     if (
       user.role === "host" ||
       user.role?.name === "host" ||

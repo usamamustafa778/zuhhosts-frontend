@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Mail,
@@ -15,7 +15,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { loginUser, loginSuperadmin } from "@/lib/api";
-import { setAuthToken, setAuthUser, getAuthToken } from "@/lib/auth";
+import { setAuthToken, setAuthUser, getAuthToken, getAuthUser } from "@/lib/auth";
 import { getUserDashboard } from "@/utils/userTypes";
 import InputField from "@/components/common/InputField";
 
@@ -115,13 +115,16 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const hasRedirected = useRef(false);
 
   useEffect(() => {
+    setMetaTags();
+    if (hasRedirected.current) return;
     const token = getAuthToken();
     if (token) {
-      router.replace("/dashboard");
+      hasRedirected.current = true;
+      router.replace(getUserDashboard(getAuthUser()) || "/dashboard");
     }
-    setMetaTags();
   }, [router]);
 
   const validateField = (name, value) => {
@@ -211,14 +214,13 @@ export default function LoginPage() {
         throw new Error("Login succeeded but no token was returned.");
       }
 
+      // Store token and user in localStorage (luxeboard.authToken, luxeboard.authUser)
       setAuthToken(token);
-      setAuthUser(user);
+      setAuthUser(user ?? { email: formData.email });
+
       setSuccess(true);
 
-      const dashboardRoute = getUserDashboard(user);
-      setTimeout(() => {
-        window.location.href = dashboardRoute;
-      }, 500);
+      window.location.href = "/dashboard";
     } catch (err) {
       setError(parseErrorMessage(err));
     } finally {
@@ -314,12 +316,12 @@ export default function LoginPage() {
                 />
                 <span className="text-slate-600">Remember me</span>
               </label>
-              <a
-                href="#"
+              <Link
+                href="/forgot-password"
                 className="font-semibold text-rose-600 hover:text-rose-700"
               >
                 Forgot password?
-              </a>
+              </Link>
             </div>
 
             {error && (

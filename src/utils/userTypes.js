@@ -1,34 +1,35 @@
 /**
  * USER TYPE DEFINITIONS & ROUTING
- * 
- * Clear separation between the 4 user types in the system
+ *
+ * User roleType from API: owner | manager | front_desk | operations | superadmin.
+ * Signups get roleType: 'owner' (owner of their tenant), not "host".
+ * "Host" in superadmin context = platform-level tenant/host (separate concept).
  */
 
 /**
  * User Types:
- * 
- * 1. HOST (Property Owner)
- *    - host: true
- *    - hostId: null
- *    - Dashboard: /host/dashboard
- * 
+ *
+ * 1. OWNER (Business Owner – what signups get)
+ *    - roleType: 'owner'
+ *    - Dashboard: /dashboard (owner dashboard)
+ *
  * 2. HOST STAFF (Team Member)
- *    - host: false
+ *    - roleType: manager | front_desk | operations
  *    - hostId: <ObjectId> (not "superadmin")
  *    - Dashboard: /staff/dashboard
- * 
+ *
  * 3. SUPERADMIN (Platform Admin)
  *    - role: "superadmin" or role.name: "superadmin"
  *    - Dashboard: /superadmin/dashboard
- * 
+ *
  * 4. PLATFORM STAFF (Superadmin Staff)
- *    - host: false
  *    - hostId: "superadmin"
  *    - Dashboard: /platform-staff/dashboard
  */
 
 export const USER_TYPES = {
-  HOST: 'HOST',
+  /** Owner of their tenant (signups get this). Dashboard: /dashboard */
+  OWNER: 'OWNER',
   HOST_STAFF: 'HOST_STAFF',
   SUPERADMIN: 'SUPERADMIN',
   PLATFORM_STAFF: 'PLATFORM_STAFF',
@@ -36,14 +37,14 @@ export const USER_TYPES = {
 };
 
 export const USER_TYPE_LABELS = {
-  [USER_TYPES.HOST]: '🏠 Host (Property Owner)',
-  [USER_TYPES.HOST_STAFF]: '👤 Staff (Team Member)',
-  [USER_TYPES.SUPERADMIN]: '⭐ Superadmin',
-  [USER_TYPES.PLATFORM_STAFF]: '🛠️ Platform Staff',
+  [USER_TYPES.OWNER]: 'Owner (Business Owner)',
+  [USER_TYPES.HOST_STAFF]: 'Staff (Team Member)',
+  [USER_TYPES.SUPERADMIN]: 'Superadmin',
+  [USER_TYPES.PLATFORM_STAFF]: 'Platform Staff',
 };
 
 export const USER_TYPE_DASHBOARDS = {
-  [USER_TYPES.HOST]: '/host/dashboard',
+  [USER_TYPES.OWNER]: '/dashboard',
   [USER_TYPES.HOST_STAFF]: '/staff/dashboard',
   [USER_TYPES.SUPERADMIN]: '/superadmin/dashboard',
   [USER_TYPES.PLATFORM_STAFF]: '/platform-staff/dashboard',
@@ -67,13 +68,17 @@ export function getUserType(user) {
     return USER_TYPES.PLATFORM_STAFF;
   }
 
-  // Check for HOST (property owner)
-  if (user.host === true && user.hostId === null) {
-    return USER_TYPES.HOST;
+  // Check for OWNER (business owner – what signups get; roleType from API)
+  if (user.roleType === 'owner') {
+    return USER_TYPES.OWNER;
+  }
+  // Backward compat: legacy host flag
+  if (user.host === true && user.hostId == null) {
+    return USER_TYPES.OWNER;
   }
 
-  // Check for HOST STAFF (team member)
-  if (user.host === false && user.hostId && user.hostId !== 'superadmin') {
+  // Check for HOST STAFF (team member: manager, front_desk, operations)
+  if (user.hostId && user.hostId !== 'superadmin') {
     return USER_TYPES.HOST_STAFF;
   }
 
@@ -101,12 +106,17 @@ export function getUserTypeLabel(user) {
 }
 
 /**
- * Check if user is a HOST
+ * Check if user is an OWNER (business owner – tenant owner; what signups get).
  * @param {Object} user - User object
  * @returns {boolean}
  */
+export function isOwner(user) {
+  return getUserType(user) === USER_TYPES.OWNER;
+}
+
+/** Alias: isHost = isOwner (owner dashboard was previously called "host") */
 export function isHost(user) {
-  return getUserType(user) === USER_TYPES.HOST;
+  return isOwner(user);
 }
 
 /**
@@ -145,15 +155,15 @@ export function getNavigationItems(user) {
   const userType = getUserType(user);
 
   const navItems = {
-    [USER_TYPES.HOST]: [
-      { label: 'Dashboard', icon: '📊', path: '/host/dashboard' },
-      { label: 'Properties', icon: '🏘️', path: '/host/properties' },
-      { label: 'Bookings', icon: '📅', path: '/host/bookings' },
-      { label: 'Team', icon: '👥', path: '/host/team' },
+    [USER_TYPES.OWNER]: [
+      { label: 'Dashboard', icon: '📊', path: '/dashboard' },
+      { label: 'Properties', icon: '🏘️', path: '/properties' },
+      { label: 'Bookings', icon: '📅', path: '/bookings' },
+      { label: 'Team', icon: '👥', path: '/roles' },
       { label: 'Guests', icon: '🎫', path: '/guests' },
-      { label: 'Payments', icon: '💰', path: '/host/payments' },
-      { label: 'Tasks', icon: '✅', path: '/host/tasks' },
-      { label: 'Settings', icon: '⚙️', path: '/host/settings' },
+      { label: 'Payments', icon: '💰', path: '/payments' },
+      { label: 'Tasks', icon: '✅', path: '/tasks' },
+      { label: 'Settings', icon: '⚙️', path: '/website' },
     ],
     [USER_TYPES.HOST_STAFF]: [
       { label: 'Dashboard', icon: '📊', path: '/staff/dashboard' },

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserSubscriptions } from "@/hooks/useUserSubscriptions";
-import { getAllHosts, impersonateHost, stopImpersonation, search, getImageUrl } from "@/lib/api";
+import { getAllHosts, impersonateHost, stopImpersonation, search, getImageUrl, getMyTenant } from "@/lib/api";
 
 export default function Topbar({ onMenuToggle }) {
   const router = useRouter();
@@ -21,6 +21,7 @@ export default function Topbar({ onMenuToggle }) {
   const [searchResults, setSearchResults] = useState(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [tenant, setTenant] = useState(null);
   const profileRef = useRef(null);
   const hostSwitcherRef = useRef(null);
   const searchRef = useRef(null);
@@ -38,6 +39,51 @@ export default function Topbar({ onMenuToggle }) {
       loadActiveSubscription();
     }
   }, [isAuthenticated, isSuperAdmin, isHost]);
+
+  // Load tenant for owners (API: id, name, slug, publicUrl, businessType, country, status)
+  useEffect(() => {
+    if (!isAuthenticated || isSuperAdmin || (!user?.tenantId && !isHost)) {
+      setTenant(null);
+      return;
+    }
+    getMyTenant()
+      .then((data) => {
+        if (!data) {
+          setTenant(null);
+          return;
+        }
+        // Normalize to API shape: id, name, slug, publicUrl, businessType, country, status
+        setTenant({
+          id: data.id ?? data._id,
+          name: data.name,
+          slug: data.slug,
+          publicUrl: data.publicUrl,
+          businessType: data.businessType,
+          country: data.country,
+          status: data.status,
+        });
+      })
+      .catch(() => setTenant(null));
+  }, [isAuthenticated, isSuperAdmin, isHost, user?.tenantId]);
+
+  // When profile/tenant is updated elsewhere (e.g. profile/personal-info), refresh tenant in navbar
+  useEffect(() => {
+    const onTenantUpdated = (event) => {
+      const data = event.detail;
+      if (!data) return;
+      setTenant({
+        id: data.id ?? data._id,
+        name: data.name,
+        slug: data.slug,
+        publicUrl: data.publicUrl,
+        businessType: data.businessType,
+        country: data.country,
+        status: data.status,
+      });
+    };
+    window.addEventListener("tenant-updated", onTenantUpdated);
+    return () => window.removeEventListener("tenant-updated", onTenantUpdated);
+  }, []);
 
   useEffect(() => {
     if (!isProfileOpen) return;
@@ -196,8 +242,7 @@ export default function Topbar({ onMenuToggle }) {
         const action = isImpersonating ? 'Switched to' : 'Now viewing as';
         alert(`✅ ${action} ${data.user.name}`);
         
-        console.log('🔵 Navigating to /host/dashboard');
-        router.push("/host/dashboard");
+        router.push("/dashboard");
       } else {
         console.error('❌ Response missing token or user:', data);
         alert('Invalid response from server. Please try again.');
@@ -310,9 +355,9 @@ export default function Topbar({ onMenuToggle }) {
       {/* Mobile App Style Topbar */}
       <div className="lg:hidden">
         <div className="flex items-center justify-between px-4 py-4">
-          {/* Left: Menu Button */}
+          {/* Left: Menu */}
           <button
-            className="flex h-10 w-10 items-center justify-center rounded-full active:bg-slate-100 transition-colors"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full active:bg-slate-100 transition-colors"
             onClick={onMenuToggle}
             aria-label="Open menu"
           >
@@ -326,32 +371,32 @@ export default function Topbar({ onMenuToggle }) {
             <h1 className="text-lg font-bold text-slate-900">ZuhHosts</h1>
           </div>
 
-          {/* Right: Profile */}
+          {/* Right: Avatar + Business name */}
           <div className="flex items-center gap-2">
-            {/* Profile */}
             {isAuthenticated && user && (
-              <div className="relative" ref={profileRef}>
-                <button
-                  onClick={() => setIsProfileOpen((prev) => !prev)}
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-white font-semibold text-sm active:scale-95 transition-transform"
-                  aria-label="Profile menu"
-                >
-                  {getImageUrl(user.profilePicture) ? (
-                    <img
-                      src={getImageUrl(user.profilePicture)}
-                      alt={user.name || "User"}
-                      className="h-full w-full rounded-full object-cover"
-                    />
-                  ) : (
-                    <span>{getInitials(user.name)}</span>
-                  )}
-                </button>
-                {isProfileOpen && (
-                  <div className="absolute right-0 z-30 mt-3 w-64 rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden">
-                    <div className="px-4 py-4 border-b border-slate-100">
-                      <p className="font-semibold text-slate-900">{user.name || "User"}</p>
-                      <p className="text-sm text-slate-500 truncate">{user.email}</p>
-                    </div>
+              <>
+                <div className="relative" ref={profileRef}>
+                  <button
+                    onClick={() => setIsProfileOpen((prev) => !prev)}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white font-semibold text-sm active:scale-95 transition-transform"
+                    aria-label="Profile menu"
+                  >
+                    {getImageUrl(user.profilePicture) ? (
+                      <img
+                        src={getImageUrl(user.profilePicture)}
+                        alt={user.name || "User"}
+                        className="h-full w-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <span>{getInitials(user.name)}</span>
+                    )}
+                  </button>
+                  {isProfileOpen && (
+                    <div className="absolute right-0 z-30 mt-3 w-64 rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+                      <div className="px-4 py-4 border-b border-slate-100">
+                        <p className="font-semibold text-slate-900">{user.name || "User"}</p>
+                        <p className="text-sm text-slate-500 truncate">{user.email}</p>
+                      </div>
                     <div className="py-2">
                       <Link
                         href="/profile"
@@ -374,9 +419,20 @@ export default function Topbar({ onMenuToggle }) {
                         Logout
                       </button>
                     </div>
+                </div>
+              )}
+                </div>
+                {tenant?.name && (
+                  <div className="min-w-0 max-w-[120px]">
+                    <p className="truncate text-sm font-medium text-slate-700" title={tenant.name}>{tenant.name}</p>
+                    {tenant.businessType && (
+                      <p className="truncate text-xs text-slate-500 capitalize" title={tenant.businessType}>
+                        {tenant.businessType.replace(/_/g, " ")}
+                      </p>
+                    )}
                   </div>
                 )}
-              </div>
+              </>
             )}
           </div>
         </div>
@@ -632,28 +688,29 @@ export default function Topbar({ onMenuToggle }) {
           )}
 
           {isAuthenticated && user ? (
-            <div className="relative" ref={profileRef}>
-              <button
-                onClick={() => setIsProfileOpen((prev) => !prev)}
-                className="flex items-center justify-center h-10 w-10 rounded-full bg-slate-900 text-white font-semibold text-sm hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2"
-                aria-label="Profile menu"
-              >
-                {getImageUrl(user.profilePicture) ? (
-                  <img
-                    src={getImageUrl(user.profilePicture)}
-                    alt={user.name || "User"}
-                    className="h-full w-full rounded-full object-cover"
-                  />
-                ) : (
-                  <span>{getInitials(user.name)}</span>
-                )}
-              </button>
-              {isProfileOpen && (
-                <div className="absolute right-0 z-30 mt-3 w-56 rounded-2xl border border-slate-100 bg-white shadow-xl overflow-hidden">
-                  <div className="px-4 py-3 border-b border-slate-100">
-                    <p className="text-sm font-semibold text-slate-900">{user.name || "User"}</p>
-                    <p className="text-xs text-slate-500 truncate">{user.email}</p>
-                  </div>
+            <div className="flex items-center gap-3">
+              <div className="relative" ref={profileRef}>
+                <button
+                  onClick={() => setIsProfileOpen((prev) => !prev)}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white font-semibold text-sm hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2"
+                  aria-label="Profile menu"
+                >
+                  {getImageUrl(user.profilePicture) ? (
+                    <img
+                      src={getImageUrl(user.profilePicture)}
+                      alt={user.name || "User"}
+                      className="h-full w-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <span>{getInitials(user.name)}</span>
+                  )}
+                </button>
+                {isProfileOpen && (
+                  <div className="absolute right-0 z-30 mt-3 w-56 rounded-2xl border border-slate-100 bg-white shadow-xl overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-100">
+                      <p className="text-sm font-semibold text-slate-900">{user.name || "User"}</p>
+                      <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                    </div>
                   <div className="py-1">
                     <Link
                       href="/profile"
@@ -676,6 +733,17 @@ export default function Topbar({ onMenuToggle }) {
                       Logout
                     </button>
                   </div>
+                </div>
+              )}
+              </div>
+              {tenant?.name && (
+                <div className="max-w-[180px] shrink-0 min-w-0">
+                  <p className="truncate text-sm font-medium text-slate-700" title={tenant.name}>{tenant.name}</p>
+                  {tenant.businessType && (
+                    <p className="truncate text-xs text-slate-500 capitalize" title={tenant.businessType}>
+                      {tenant.businessType.replace(/_/g, " ")}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
