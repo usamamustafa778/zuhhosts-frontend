@@ -50,16 +50,29 @@ export default function PropertyCard({ property, primaryColor, onSelect }) {
         <h4 className="text-lg font-semibold text-slate-900 mb-2 group-hover:underline decoration-2 underline-offset-2 line-clamp-2">
           {property.title}
         </h4>
-        {property.location && (
+        {(property.location || property.placeType || property.propertyType) && (
           <p className="text-sm text-slate-500 mb-4 truncate flex items-center gap-1">
-            <svg className="w-4 h-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            </svg>
-            {property.location}
+            {(property.placeType || property.propertyType) && (
+              <span className="capitalize text-slate-600">{property.placeType || property.propertyType}</span>
+            )}
+            {(property.placeType || property.propertyType) && property.location && <span className="text-slate-400"> · </span>}
+            {property.location && (
+              <>
+                <svg className="w-4 h-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                </svg>
+                {property.location}
+              </>
+            )}
           </p>
         )}
         <div className="flex items-end justify-between gap-2">
           <div className="flex items-center gap-4 text-xs text-slate-500">
+            {property.maxGuests > 0 && (
+              <span className="flex items-center gap-1">
+                <span className="text-slate-400">👥</span> {property.maxGuests} guest{property.maxGuests !== 1 ? "s" : ""}
+              </span>
+            )}
             {property.bedrooms > 0 && (
               <span className="flex items-center gap-1">
                 <span className="text-slate-400">🛏</span> {property.bedrooms} bed{property.bedrooms !== 1 ? "s" : ""}
@@ -68,6 +81,11 @@ export default function PropertyCard({ property, primaryColor, onSelect }) {
             {property.bathrooms > 0 && (
               <span className="flex items-center gap-1">
                 <span className="text-slate-400">🚿</span> {property.bathrooms} bath{property.bathrooms !== 1 ? "s" : ""}
+              </span>
+            )}
+            {property.starRating != null && property.starRating > 0 && (
+              <span className="flex items-center gap-1">
+                <span className="text-amber-500">★</span> {Number(property.starRating).toFixed(1)}
               </span>
             )}
           </div>

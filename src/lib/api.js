@@ -1966,6 +1966,67 @@ export async function deleteRoom(propertyId, roomId) {
 }
 
 // ============================================
+// Room Type API Functions (Hotel model)
+// ============================================
+
+/**
+ * Add a room type to a property (Hotel model)
+ * Endpoint: POST /api/properties/:propertyId/room-types
+ * @param {string} propertyId - Property ID
+ * @param {Object} data - Room type data (name, bedType, bedCount, maxOccupancy, price, inventory, amenities)
+ * @returns {Promise<Object>} Created room type object
+ */
+export async function addRoomType(propertyId, data) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/properties/${propertyId}/room-types`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, "Failed to add room type");
+}
+
+/**
+ * Get all room types for a property
+ * Endpoint: GET /api/properties/:propertyId/room-types
+ * @param {string} propertyId - Property ID
+ * @returns {Promise<Array>} Array of room type objects
+ */
+export async function getRoomTypes(propertyId) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/properties/${propertyId}/room-types`);
+  return handleResponse(res, "Failed to fetch room types");
+}
+
+/**
+ * Update a room type
+ * Endpoint: PUT /api/properties/:propertyId/room-types/:roomTypeId
+ * @param {string} propertyId - Property ID
+ * @param {string} roomTypeId - Room type ID
+ * @param {Object} data - Update data
+ * @returns {Promise<Object>} Updated room type object
+ */
+export async function updateRoomType(propertyId, roomTypeId, data) {
+  const res = await fetchWithAuth(
+    `${API_BASE_URL}/api/properties/${propertyId}/room-types/${roomTypeId}`,
+    { method: "PUT", body: JSON.stringify(data) }
+  );
+  return handleResponse(res, "Failed to update room type");
+}
+
+/**
+ * Delete a room type
+ * Endpoint: DELETE /api/properties/:propertyId/room-types/:roomTypeId
+ * @param {string} propertyId - Property ID
+ * @param {string} roomTypeId - Room type ID
+ * @returns {Promise<Object>} Success message
+ */
+export async function deleteRoomType(propertyId, roomTypeId) {
+  const res = await fetchWithAuth(
+    `${API_BASE_URL}/api/properties/${propertyId}/room-types/${roomTypeId}`,
+    { method: "DELETE" }
+  );
+  return handleResponse(res, "Failed to delete room type");
+}
+
+// ============================================
 // Airbnb Property Model API Functions
 // ============================================
 
@@ -2329,9 +2390,10 @@ export async function getPublicTenantInfo(tenantSlug) {
  * @returns {Promise<Array>} Array of public properties
  */
 export async function getPublicProperties(tenantSlug) {
-  const res = await fetch(`${API_BASE_URL}/public/${tenantSlug}/properties`);
+  const base = (API_BASE_URL || getEffectiveApiBase() || "").replace(/\/$/, "");
+  const res = await fetch(`${base}/public/${tenantSlug}/properties`);
   const body = await handleResponse(res, "Failed to fetch public properties");
-  const list = body?.data ?? body;
+  const list = body?.data ?? body?.properties ?? body;
   return Array.isArray(list) ? list : [];
 }
 

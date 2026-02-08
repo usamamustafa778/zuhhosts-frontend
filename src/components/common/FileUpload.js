@@ -1,7 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Upload, X, FileText, Image as ImageIcon } from "lucide-react";
+
+function fileKey(file) {
+  return `${file.name}-${file.size}-${file.lastModified}`;
+}
 
 export default function FileUpload({
   label = "Upload Files",
@@ -15,6 +19,39 @@ export default function FileUpload({
   disabled = false,
 }) {
   const [dragActive, setDragActive] = useState(false);
+  const [imageUrls, setImageUrls] = useState({});
+  const urlMapRef = useRef({});
+
+  // Create object URLs for image files (thumbnail preview); revoke when file removed or unmount
+  useEffect(() => {
+    const fileList = files || [];
+    const keysInFiles = new Set(fileList.map(fileKey));
+    const nextMap = {};
+
+    // Keep existing URLs for files still in list; revoke for removed files
+    Object.keys(urlMapRef.current).forEach((k) => {
+      if (keysInFiles.has(k)) nextMap[k] = urlMapRef.current[k];
+      else URL.revokeObjectURL(urlMapRef.current[k]);
+    });
+
+    // Create URL for each image file that doesn't have one yet
+    fileList.forEach((file) => {
+      if (file.type.startsWith("image/")) {
+        const k = fileKey(file);
+        if (!nextMap[k]) nextMap[k] = URL.createObjectURL(file);
+      }
+    });
+
+    urlMapRef.current = nextMap;
+    setImageUrls(nextMap);
+  }, [files]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(urlMapRef.current).forEach(URL.revokeObjectURL);
+      urlMapRef.current = {};
+    };
+  }, []);
 
   const handleFiles = (newFiles) => {
     if (disabled) return;
@@ -133,40 +170,51 @@ export default function FileUpload({
         </label>
       </div>
 
-      {/* File List */}
+      {/* File List - images in a row */}
       {showPreview && files.length > 0 && (
         <div className="space-y-2">
           <p className="text-sm font-medium text-slate-700">
-            Selected {files.length} file{files.length !== 1 ? 's' : ''}:
+            Selected {files.length} file{files.length !== 1 ? "s" : ""}:
           </p>
-          <div className="space-y-2">
-            {files.map((file, index) => (
-              <div
-                key={`${file.name}-${index}`}
-                className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3"
-              >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  {getFileIcon(file)}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-700 truncate">
+          <div className="flex flex-wrap gap-3">
+            {files.map((file, index) => {
+              const isImage = file.type.startsWith("image/");
+              const thumbUrl = isImage ? imageUrls[fileKey(file)] : null;
+              return (
+                <div
+                  key={`${file.name}-${index}`}
+                  className="relative shrink-0 rounded-lg border border-slate-200 bg-white overflow-hidden group"
+                >
+                  {thumbUrl ? (
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden bg-slate-100">
+                      <img
+                        src={thumbUrl}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg flex items-center justify-center bg-slate-50 border border-slate-200">
+                      {getFileIcon(file)}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeFile(index)}
+                    className="absolute top-1 right-1 rounded-full bg-white/90 p-1 text-slate-500 shadow-sm hover:bg-rose-50 hover:text-rose-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label={`Remove ${file.name}`}
+                    disabled={disabled}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                  {!thumbUrl && (
+                    <p className="text-xs text-slate-500 px-2 py-1 truncate max-w-20" title={file.name}>
                       {file.name}
                     </p>
-                    <p className="text-xs text-slate-500">
-                      {formatFileSize(file.size)}
-                    </p>
-                  </div>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => removeFile(index)}
-                  className="flex-shrink-0 rounded-full p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  aria-label={`Remove ${file.name}`}
-                  disabled={disabled}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

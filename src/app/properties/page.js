@@ -14,7 +14,6 @@ import FileUpload from "@/components/common/FileUpload";
 import {
   getAllProperties,
   createProperty,
-  updateProperty,
   deleteProperty,
 } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
@@ -34,7 +33,6 @@ export default function PropertiesPage() {
     keywords:
       "properties, listings, vacation rentals, property management, rental properties",
   });
-  const [selectedProperty, setSelectedProperty] = useState(null);
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [propertiesData, setPropertiesData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -67,8 +65,6 @@ export default function PropertiesPage() {
   });
   // modelType: "hotel" | "airbnb" — derived from propertyType (Hotel → hotel, others → airbnb)
   const [newImages, setNewImages] = useState([]);
-  const [existingImages, setExistingImages] = useState([]);
-  const [imagesToRemove, setImagesToRemove] = useState([]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -127,8 +123,6 @@ export default function PropertiesPage() {
       status: "available",
     });
     setNewImages([]);
-    setExistingImages([]);
-    setImagesToRemove([]);
   };
 
   const handleFormChange = (field, value) => {
@@ -243,66 +237,6 @@ export default function PropertiesPage() {
     }
   };
 
-  const handleUpdateProperty = async () => {
-    let toastId;
-    try {
-      const propertyId = selectedProperty.id || selectedProperty._id;
-
-      // Validate image count (existing - removed + new)
-      const totalImages =
-        existingImages.length - imagesToRemove.length + newImages.length;
-      if (totalImages > 5) {
-        toast.error("Maximum 5 images allowed per property");
-        return;
-      }
-
-      // Only include fields that have values; send modelType when propertyType is set (hotel vs airbnb)
-      const payload = {};
-      if (formData.title) payload.title = formData.title;
-      if (formData.description) payload.description = formData.description;
-      if (formData.price) payload.price = Number(formData.price);
-      if (formData.location) payload.location = formData.location;
-      if (formData.propertyType) {
-        payload.propertyType = formData.propertyType.toLowerCase();
-        payload.modelType = formData.propertyType.toLowerCase() === "hotel" ? "hotel" : "airbnb";
-      }
-      if (formData.area) payload.area = Number(formData.area);
-      if (formData.status) payload.status = formData.status;
-
-      // Validate form (only fields being updated)
-      const validationError = validatePropertyForm(payload, true);
-      if (validationError) {
-        toast.error(validationError);
-        return;
-      }
-
-      toastId = toast.loading("Updating property...");
-      const updatedProperty = await updateProperty(
-        propertyId,
-        payload,
-        newImages,
-        imagesToRemove
-      );
-      setPropertiesData((prev) =>
-        prev.map((prop) =>
-          prop.id === propertyId || prop._id === propertyId
-            ? updatedProperty
-            : prop
-        )
-      );
-      setSelectedProperty(null);
-      resetForm();
-      toast.success("Property updated successfully!", { id: toastId });
-    } catch (err) {
-      const errorMessage = err.message || "Failed to update property";
-      if (toastId) {
-        toast.error(errorMessage, { id: toastId });
-      } else {
-        toast.error(errorMessage);
-      }
-    }
-  };
-
   const handleDeleteProperty = async (propertyId) => {
     if (!confirm("Are you sure you want to delete this property?")) return;
 
@@ -322,30 +256,6 @@ export default function PropertiesPage() {
         toast.error(errorMessage);
       }
     }
-  };
-
-  const openEditModal = (property) => {
-    setSelectedProperty(property);
-    // Use modelType to set propertyType for dropdown: hotel → "hotel", else use propertyType or "house"
-    const editPropertyType =
-      property.modelType === "hotel" ? "hotel" : (property.propertyType || "house");
-    setFormData({
-      title: property.title || "",
-      description: property.description || "",
-      price: property.price?.toString() || "",
-      location: property.location || "",
-      propertyType: editPropertyType,
-      area: property.area?.toString() || "",
-      status: property.status || "available",
-    });
-    setExistingImages(property.images || []);
-    setNewImages([]);
-    setImagesToRemove([]);
-  };
-
-  const closeEditModal = () => {
-    setSelectedProperty(null);
-    resetForm();
   };
 
   const closeCreateModal = () => {
@@ -745,7 +655,7 @@ export default function PropertiesPage() {
               <div
                 key={propertyId}
                 className="flex flex-col rounded-3xl border border-slate-100 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => openEditModal(property)}
+                onClick={() => router.push(`/properties/${property.id || property._id}`)}
               >
                 {/* Full-width Image */}
                 <div className="relative w-full h-56">
@@ -797,9 +707,20 @@ export default function PropertiesPage() {
                   <p className="text-sm text-slate-500 mb-3">
                     {property.propertyType
                       ? property.propertyType.charAt(0).toUpperCase() + property.propertyType.slice(1)
-                      : "House"} in{" "}
-                    {property.location || property.address}
+                      : "House"}
+                    {property.placeType && (
+                      <span className="text-slate-400"> · {property.placeType}</span>
+                    )}{" "}
+                    in {property.location || property.address}
                   </p>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 mb-2">
+                    {property.maxGuests > 0 && (
+                      <span>Up to {property.maxGuests} guests</span>
+                    )}
+                    {property.starRating != null && property.starRating > 0 && (
+                      <span>★ {Number(property.starRating).toFixed(1)}</span>
+                    )}
+                  </div>
                   <div className="flex items-center justify-between">
                     <p className="text-lg font-semibold text-slate-900">
                       {formatCurrency(property.price || 0, property.currency || null)}
@@ -830,7 +751,7 @@ export default function PropertiesPage() {
               <div
                 key={propertyId}
                 className="flex gap-2 items-center rounded-2xl border border-slate-100 bg-white p-1.5 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => openEditModal(property)}
+                onClick={() => router.push(`/properties/${property.id || property._id}`)}
               >
                 {/* Small Thumbnail */}
                 <div className="shrink-0 w-12 h-12">
@@ -873,8 +794,13 @@ export default function PropertiesPage() {
                   <p className="text-sm text-slate-500 truncate">
                     {property.propertyType
                       ? property.propertyType.charAt(0).toUpperCase() + property.propertyType.slice(1)
-                      : "House"} in{" "}
-                    {property.location || property.address}
+                      : "House"}
+                    {property.placeType && (
+                      <span className="text-slate-400"> · {property.placeType}</span>
+                    )}{" "}
+                    in {property.location || property.address}
+                    {property.maxGuests > 0 && ` · ${property.maxGuests} guests`}
+                    {property.starRating != null && property.starRating > 0 && ` · ★ ${Number(property.starRating).toFixed(1)}`}
                   </p>
                 </div>
               </div>
@@ -908,10 +834,14 @@ export default function PropertiesPage() {
                   property.title || property.name || property.propertyName,
                   hostName,
                   property.location || property.address,
-                  property.propertyType
+                  (property.propertyType
                     ? property.propertyType.charAt(0).toUpperCase() + property.propertyType.slice(1)
-                    : "House",
-                  `${property.bedrooms || 0} / ${property.bathrooms || 0}`,
+                    : "House") +
+                    (property.starRating != null && property.starRating > 0
+                      ? ` ★${Number(property.starRating).toFixed(1)}`
+                      : ""),
+                  `${property.bedrooms || 0} / ${property.bathrooms || 0}` +
+                    (property.maxGuests > 0 ? ` · ${property.maxGuests} guests` : ""),
                   `${property.area || 0} sq ft`,
                   formatCurrency(property.price || 0, property.currency || null),
                   <StatusPill
@@ -921,7 +851,7 @@ export default function PropertiesPage() {
                   <div key="actions" className="flex gap-2">
                     <button
                       className="text-slate-900 underline-offset-2 hover:underline text-sm"
-                      onClick={() => openEditModal(property)}
+                      onClick={() => router.push(`/properties/${property.id || property._id}`)}
                     >
                       Edit
                     </button>
@@ -938,242 +868,6 @@ export default function PropertiesPage() {
           />
         </section>
       )}
-
-      <Modal
-        title="Edit property"
-        description="Update property details"
-        isOpen={Boolean(selectedProperty)}
-        onClose={closeEditModal}
-        primaryActionLabel="Update property"
-        primaryAction={handleUpdateProperty}
-      >
-        {/* Images and Top Fields Section */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          {/* Images Box - Left Side */}
-          <div className="shrink-0">
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Property Images (
-              {existingImages.length - imagesToRemove.length + newImages.length}
-              /5)
-            </label>
-            <div className="grid grid-cols-2 gap-2 w-48">
-              {/* Existing Images */}
-              {existingImages
-                .filter((img) => !imagesToRemove.includes(img))
-                .map((image, index) => (
-                  <div
-                    key={`existing-${index}`}
-                    className="relative group aspect-square rounded-lg overflow-hidden border-2 border-slate-200"
-                  >
-                    <img
-                      src={getImageUrl(image) || "#"}
-                      alt={`Property ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setImagesToRemove((prev) => [...prev, image])
-                      }
-                      className="absolute top-1 right-1 rounded-full bg-rose-500 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600"
-                      aria-label="Remove image"
-                    >
-                      <svg
-                        className="h-3 w-3"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-
-              {/* New Images */}
-              {newImages.map((file, index) => (
-                <div
-                  key={`new-${index}`}
-                  className="relative group aspect-square rounded-lg overflow-hidden border-2 border-blue-300"
-                >
-                  <img
-                    src={URL.createObjectURL(file)}
-                    alt={`New ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewImages((prev) =>
-                        prev.filter((_, i) => i !== index)
-                      );
-                    }}
-                    className="absolute top-1 right-1 rounded-full bg-rose-500 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600"
-                    aria-label="Remove image"
-                  >
-                    <svg
-                      className="h-3 w-3"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                  <div className="absolute bottom-1 left-1 bg-blue-500 text-white text-[10px] px-1 rounded">
-                    New
-                  </div>
-                </div>
-              ))}
-
-              {/* Add More Button */}
-              {existingImages.length -
-                imagesToRemove.length +
-                newImages.length <
-                5 && (
-                  <div className="aspect-square">
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                      multiple
-                      onChange={(e) => {
-                        const files = Array.from(e.target.files || []);
-                        const remaining =
-                          5 -
-                          (existingImages.length -
-                            imagesToRemove.length +
-                            newImages.length);
-                        const filesToAdd = files.slice(0, remaining);
-
-                        // Validate file sizes
-                        const maxSizeBytes = 5 * 1024 * 1024;
-                        const oversized = filesToAdd.filter(
-                          (f) => f.size > maxSizeBytes
-                        );
-
-                        if (oversized.length > 0) {
-                          toast.error(`Some files exceed 5MB limit`);
-                          return;
-                        }
-
-                        setNewImages((prev) => [...prev, ...filesToAdd]);
-                        e.target.value = "";
-                      }}
-                      className="hidden"
-                      id="add-more-images-edit"
-                    />
-                    <label
-                      htmlFor="add-more-images-edit"
-                      className="flex items-center justify-center w-full h-full rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors"
-                    >
-                      <svg
-                        className="h-8 w-8 text-slate-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 4v16m8-8H4"
-                        />
-                      </svg>
-                    </label>
-                  </div>
-                )}
-            </div>
-            <p className="text-xs text-slate-500 mt-2">
-              Max 5 images, 5MB each
-            </p>
-            {imagesToRemove.length > 0 && (
-              <p className="text-xs text-rose-600 mt-1">
-                {imagesToRemove.length} marked for removal
-              </p>
-            )}
-          </div>
-
-          {/* Title and Description - Right Side */}
-          <div className="flex-1 space-y-4">
-            <FormField
-              label="Title"
-              value={formData.title}
-              onChange={(e) => handleFormChange("title", e.target.value)}
-              placeholder="e.g. Beautiful Beach House"
-            />
-            <div>
-              <FormField
-                label="Description"
-                as="textarea"
-                rows={4}
-                value={formData.description}
-                onChange={(e) =>
-                  handleFormChange("description", e.target.value)
-                }
-                placeholder="Describe the property..."
-              />
-              <p className="mt-1 text-xs text-slate-500">
-                {formData.description.length}/10 characters minimum
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Rest of the Form */}
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            label="Price Per Night (USD)"
-            type="number"
-            value={formData.price}
-            onChange={(e) => handleFormChange("price", e.target.value)}
-            placeholder="250"
-          />
-          <FormField
-            label="Area (sq ft)"
-            type="number"
-            value={formData.area}
-            onChange={(e) => handleFormChange("area", e.target.value)}
-            placeholder="2000"
-          />
-        </div>
-        <FormField
-          label="Location"
-          value={formData.location}
-          onChange={(e) => handleFormChange("location", e.target.value)}
-          placeholder="123 Ocean Drive, Miami, FL"
-        />
-        <div className="grid grid-cols-2 gap-4 pt-4">
-            <Select
-              label="Property Type"
-              value={formData.propertyType}
-              onChange={(value) => handleFormChange("propertyType", value)}
-              options={[
-                { value: "hotel", label: "Hotel (rooms)" },
-                { value: "house", label: "House" },
-                { value: "apartment", label: "Apartment" },
-                { value: "villa", label: "Villa" },
-                { value: "land", label: "Land" },
-                { value: "commercial", label: "Commercial" },
-              ]}
-          />
-          <Select
-            label="Status"
-            value={formData.status}
-            onChange={(value) => handleFormChange("status", value)}
-            options={["available", "rented", "sold", "unavailable"]}
-          />
-        </div>
-      </Modal>
 
       <Modal
         title="Add property"

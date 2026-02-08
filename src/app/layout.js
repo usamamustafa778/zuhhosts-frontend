@@ -1,10 +1,8 @@
-"use client";
-
+import { headers } from "next/headers";
 import { Roboto } from "next/font/google";
 import "./globals.css";
-import DashboardShell from "@/components/layout/DashboardShell";
-import { usePathname } from "next/navigation";
-import { Toaster } from "react-hot-toast";
+import LayoutBody from "@/components/layout/LayoutBody";
+import { isTenantSubdomain } from "@/utils/tenantSubdomain";
 
 const roboto = Roboto({
   weight: ["300", "400", "500", "700"],
@@ -12,18 +10,10 @@ const roboto = Roboto({
   variable: "--font-roboto",
 });
 
-export default function RootLayout({ children }) {
-  const pathname = usePathname();
-
-  // Pages that should not have the dashboard shell
-  const isAuthPage =
-    pathname === "/login" ||
-    pathname === "/register" ||
-    pathname === "/forgot-password" ||
-    pathname === "/reset-password" ||
-    pathname === "/" ||
-    pathname === "/onboarding" ||
-    pathname?.startsWith("/public/");
+export default async function RootLayout({ children }) {
+  const headersList = await headers();
+  const host = headersList.get("x-forwarded-host") || headersList.get("host") || "";
+  const tenantSubdomain = isTenantSubdomain(host);
 
   return (
     <html lang="en" className={roboto.variable}>
@@ -38,42 +28,8 @@ export default function RootLayout({ children }) {
         <meta name="apple-mobile-web-app-title" content="Zuha Host" />
         <link rel="icon" href="/favicon.ico" />
       </head>
-      <body
-        className={`${roboto.variable} antialiased`}
-      >
-        <Toaster 
-          position="top-center"
-          toastOptions={{
-            duration: 3000,
-            style: {
-              background: '#fff',
-              color: '#0f172a',
-              border: '1px solid #e2e8f0',
-              borderRadius: '12px',
-              padding: '12px 16px',
-              fontSize: '14px',
-            },
-            success: {
-              iconTheme: {
-                primary: '#10b981',
-                secondary: '#fff',
-              },
-            },
-            error: {
-              iconTheme: {
-                primary: '#ef4444',
-                secondary: '#fff',
-              },
-            },
-            loading: {
-              iconTheme: {
-                primary: '#3b82f6',
-                secondary: '#fff',
-              },
-            },
-          }}
-        />
-        {isAuthPage ? children : <DashboardShell>{children}</DashboardShell>}
+      <body className={`${roboto.variable} antialiased`}>
+        <LayoutBody isTenantSubdomain={tenantSubdomain}>{children}</LayoutBody>
       </body>
     </html>
   );

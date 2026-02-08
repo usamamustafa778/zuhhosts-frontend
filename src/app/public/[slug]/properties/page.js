@@ -1,38 +1,79 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getPublicProperties } from "@/lib/api";
 import { usePublicSite } from "@/components/public/PublicSiteContext";
 import PropertyCard from "@/components/public/PropertyCard";
+import { getTenantSlugFromSubdomain } from "@/utils/tenantUtils";
+
+const PROPERTY_TYPE_OPTIONS = [
+  { value: "", label: "All types" },
+  { value: "hotel", label: "Hotel" },
+  { value: "apartment", label: "Apartment" },
+  { value: "house", label: "House" },
+  { value: "villa", label: "Villa" },
+  { value: "cabin", label: "Cabin" },
+  { value: "condo", label: "Condo" },
+];
 
 export default function PublicPropertiesPage() {
   const params = useParams();
   const router = useRouter();
   const site = usePublicSite();
-  const slug = site?.slug ?? params?.slug;
-  const homeHref = site?.homeHref ?? `/public/${slug}`;
+  // Slug: context (from layout) > route params > subdomain (tenant site)
+  const slug = site?.slug ?? params?.slug ?? getTenantSlugFromSubdomain();
+  const homeHref = site?.homeHref ?? (slug ? `/public/${slug}` : "/");
   const primaryColor = site?.primaryColor || "#0d9488";
   const tenant = site?.tenant;
 
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [search, setSearch] = useState("");
+  const [propertyType, setPropertyType] = useState("");
 
   useEffect(() => {
-    if (!slug) return;
+    if (!slug) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
     const load = async () => {
       try {
+        setError(null);
         setLoading(true);
         const list = await getPublicProperties(slug);
-        setProperties(Array.isArray(list) ? list : []);
-      } catch {
-        setProperties([]);
+        if (!cancelled) setProperties(Array.isArray(list) ? list : []);
+      } catch (err) {
+        if (!cancelled) {
+          setProperties([]);
+          setError(err?.message || "Failed to load properties");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     load();
+    return () => { cancelled = true; };
   }, [slug]);
+
+  const filteredProperties = useMemo(() => {
+    return properties.filter((p) => {
+      const searchLower = (search || "").toLowerCase().trim();
+      if (searchLower) {
+        const titleMatch = (p.title || "").toLowerCase().includes(searchLower);
+        const locationMatch = (p.location || "").toLowerCase().includes(searchLower);
+        const placeMatch = (p.placeType || "").toLowerCase().includes(searchLower) || (p.propertyType || "").toLowerCase().includes(searchLower);
+        if (!titleMatch && !locationMatch && !placeMatch) return false;
+      }
+      if (propertyType) {
+        const type = (p.propertyType || p.placeType || p.modelType || "").toLowerCase();
+        if (type !== propertyType.toLowerCase()) return false;
+      }
+      return true;
+    });
+  }, [properties, search, propertyType]);
 
   const handleSelectProperty = (property) => {
     const id = property.id ?? property._id;
@@ -64,7 +105,7 @@ export default function PublicPropertiesPage() {
                 key={i}
                 className="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm animate-pulse"
               >
-                <div className="aspect-[4/3] bg-slate-200" />
+                <div className="aspect-4/3 bg-slate-200" />
                 <div className="p-6 space-y-4">
                   <div className="h-5 bg-slate-200 rounded w-3/4" />
                   <div className="h-4 bg-slate-100 rounded w-1/2" />
@@ -72,6 +113,11 @@ export default function PublicPropertiesPage() {
                 </div>
               </div>
             ))}
+          </div>
+        ) : error ? (
+          <div className="text-center py-24 rounded-3xl border-2 border-rose-200 bg-rose-50/60">
+            <p className="text-rose-700 font-medium text-lg">Could not load properties</p>
+            <p className="text-slate-600 text-sm mt-1">{error}</p>
           </div>
         ) : properties.length === 0 ? (
           <div className="text-center py-24 rounded-3xl border-2 border-dashed border-slate-200 bg-white/60">
@@ -81,19 +127,64 @@ export default function PublicPropertiesPage() {
               </svg>
             </div>
             <p className="text-slate-600 font-medium text-lg">No properties available right now.</p>
-            <p className="text-slate-500 text-sm mt-1">Check back soon for new listings.</p>
+            <p className="text-slate-500 text-sm mt-1 max-w-md mx-auto">
+              Properties appear here when the host marks them as <strong>Public</strong> in the dashboard (Properties → open a property → toggle &quot;Public&quot;).
+            </p>
           </div>
         ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {properties.map((property) => (
-              <PropertyCard
-                key={property.id ?? property._id}
-                property={property}
-                primaryColor={primaryColor}
-                onSelect={handleSelectProperty}
+          <>
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-4 mb-10">
+              <input
+                type="search"
+                placeholder="Search by name or location..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="flex-1 min-w-[200px] rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
               />
-            ))}
-          </div>
+              <select
+                value={propertyType}
+                onChange={(e) => setPropertyType(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
+              >
+                {PROPERTY_TYPE_OPTIONS.map((opt) => (
+                  <option key={opt.value || "all"} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              {(search || propertyType) && (
+                <span className="text-sm text-slate-500">
+                  Showing {filteredProperties.length} of {properties.length}
+                </span>
+              )}
+            </div>
+
+            {filteredProperties.length === 0 ? (
+              <div className="text-center py-16 rounded-2xl border border-slate-200 bg-white">
+                <p className="text-slate-600 font-medium">No properties match your filters.</p>
+                <p className="text-sm text-slate-500 mt-1">Try adjusting search or type.</p>
+                <button
+                  type="button"
+                  onClick={() => { setSearch(""); setPropertyType(""); }}
+                  className="mt-4 text-sm font-medium rounded-lg px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200"
+                >
+                  Clear filters
+                </button>
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                {filteredProperties.map((property) => (
+                  <PropertyCard
+                    key={property.id ?? property._id}
+                    property={property}
+                    primaryColor={primaryColor}
+                    onSelect={handleSelectProperty}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </section>
     </div>

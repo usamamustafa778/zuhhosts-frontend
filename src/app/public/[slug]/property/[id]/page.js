@@ -302,9 +302,24 @@ export default function PublicPropertyPage() {
             <h1 className="text-3xl font-bold text-slate-900 mb-2">
               {property.title}
             </h1>
+            <div className="flex flex-wrap items-center gap-3 text-slate-600 mb-2">
+              {property.starRating != null && property.starRating > 0 && (
+                <span className="flex items-center gap-1 font-medium text-amber-600">
+                  ★ {Number(property.starRating).toFixed(1)}
+                </span>
+              )}
+              {property.placeType && (
+                <span className="text-slate-500">{property.placeType}</span>
+              )}
+              {property.propertyType && (
+                <span className="text-slate-500 capitalize">
+                  {property.propertyType}
+                </span>
+              )}
+            </div>
             <p className="text-slate-600 flex items-center gap-2">
               <svg
-                className="w-5 h-5"
+                className="w-5 h-5 shrink-0"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -333,6 +348,14 @@ export default function PublicPropertyPage() {
 
           {/* Property Details */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {property.maxGuests > 0 && (
+              <div className="bg-slate-50 rounded-xl p-4 text-center">
+                <p className="text-2xl font-bold text-slate-900">
+                  {property.maxGuests}
+                </p>
+                <p className="text-sm text-slate-600">Guests</p>
+              </div>
+            )}
             {property.bedrooms > 0 && (
               <div className="bg-slate-50 rounded-xl p-4 text-center">
                 <p className="text-2xl font-bold text-slate-900">
@@ -358,6 +381,56 @@ export default function PublicPropertyPage() {
               </div>
             )}
           </div>
+
+          {/* Check-in / Check-out */}
+          {(property.checkInTime || property.checkOutTime) && (
+            <div className="flex flex-wrap gap-6 text-sm text-slate-600">
+              {property.checkInTime && (
+                <span>Check-in: {property.checkInTime}</span>
+              )}
+              {property.checkOutTime && (
+                <span>Check-out: {property.checkOutTime}</span>
+              )}
+            </div>
+          )}
+
+          {/* Room types (hotels) */}
+          {property.roomTypes && property.roomTypes.length > 0 && (
+            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+              <h3 className="text-sm font-semibold text-slate-900 mb-3">Room types</h3>
+              <ul className="space-y-2">
+                {property.roomTypes.map((rt) => (
+                  <li
+                    key={rt.id ?? rt._id}
+                    className="flex justify-between items-center text-sm"
+                  >
+                    <span className="font-medium text-slate-900">{rt.name}</span>
+                    <span className="text-slate-600">
+                      ${Number(rt.price ?? 0).toLocaleString()}/night
+                      {rt.inventory != null && ` · ${rt.inventory} room${rt.inventory !== 1 ? "s" : ""}`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Amenities */}
+          {property.amenities && property.amenities.length > 0 && (
+            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+              <h3 className="text-sm font-semibold text-slate-900 mb-3">Amenities</h3>
+              <div className="flex flex-wrap gap-2">
+                {property.amenities.map((a) => (
+                  <span
+                    key={a}
+                    className="rounded-full bg-white border border-slate-200 px-3 py-1 text-sm text-slate-700"
+                  >
+                    {a}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right: Booking Form */}

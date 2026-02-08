@@ -8,12 +8,16 @@ import {
   updateProperty,
   getRooms,
   getUnits,
+  getRoomTypes,
   addRoom,
   addUnit,
+  addRoomType,
   updateRoom,
   updateUnit,
+  updateRoomType,
   deleteRoom,
   deleteUnit,
+  deleteRoomType,
 } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
 import FormField from "@/components/common/FormField";
@@ -22,6 +26,17 @@ import Modal from "@/components/common/Modal";
 import PageLoader from "@/components/common/PageLoader";
 import DataTable from "@/components/common/DataTable";
 import { getImageUrl } from "@/lib/api";
+import FileUpload from "@/components/common/FileUpload";
+import AmenityPills from "@/app/properties/new/_components/AmenityPills";
+import {
+  ROOM_AMENITIES,
+  AIRBNB_AMENITIES,
+  HOTEL_AMENITIES,
+  AIRBNB_AMENITY_LABELS,
+  HOTEL_AMENITY_LABELS,
+  DISCOUNT_OPTIONS,
+  SAFETY_DISCLOSURES,
+} from "@/app/properties/new/_constants/amenities";
 
 export default function PropertyDetailsPage() {
   const params = useParams();
@@ -32,11 +47,15 @@ export default function PropertyDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [property, setProperty] = useState(null);
   const [rooms, setRooms] = useState([]);
+  const [roomTypes, setRoomTypes] = useState([]);
   const [units, setUnits] = useState([]);
   const [isHotel, setIsHotel] = useState(false);
 
   const [isAddRoomModalOpen, setAddRoomModalOpen] = useState(false);
   const [isAddUnitModalOpen, setAddUnitModalOpen] = useState(false);
+  const [isAddRoomTypeModalOpen, setAddRoomTypeModalOpen] = useState(false);
+  const [isEditRoomTypeModalOpen, setEditRoomTypeModalOpen] = useState(false);
+  const [editingRoomTypeId, setEditingRoomTypeId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const [roomForm, setRoomForm] = useState({
@@ -46,11 +65,128 @@ export default function PropertyDetailsPage() {
     maxOccupancy: "",
   });
 
+  const defaultRoomTypeForm = {
+    name: "",
+    bedType: "",
+    bedCount: 1,
+    maxOccupancy: 2,
+    size: "",
+    price: "",
+    inventory: 1,
+    amenities: [],
+  };
+  const [roomTypeForm, setRoomTypeForm] = useState(defaultRoomTypeForm);
+
   const [unitForm, setUnitForm] = useState({
     unitName: "",
     price: "",
     maxOccupancy: "",
   });
+
+  // Edit property form
+  const [isEditFormOpen, setIsEditFormOpen] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [editImages, setEditImages] = useState([]);
+  const [editImagesToRemove, setEditImagesToRemove] = useState([]);
+
+  const openEditForm = () => {
+    if (!property) return;
+    const rawHighlights = Array.isArray(property.highlights) ? property.highlights.slice(0, 2) : [];
+    const highlights = [rawHighlights[0] || "", rawHighlights[1] || ""];
+    setEditForm({
+      title: property.title || "",
+      description: property.description || "",
+      location: property.location || "",
+      address: property.address || property.location || "",
+      placeType: property.placeType || property.propertyType || "",
+      starRating: property.starRating != null ? String(property.starRating) : "",
+      bedrooms: property.bedrooms != null ? String(property.bedrooms) : "",
+      bathrooms: property.bathrooms != null ? String(property.bathrooms) : "1",
+      area: property.area != null ? String(property.area) : "",
+      beds: property.beds != null ? String(property.beds) : "1",
+      maxGuests: property.maxGuests != null ? String(property.maxGuests) : "2",
+      guestPlaceType: property.guestPlaceType || "entire_place",
+      price: property.price != null ? String(property.price) : "",
+      currency: property.currency || "USD",
+      weekendPremiumPercent: property.weekendPremiumPercent ?? 0,
+      checkInTime: property.checkInTime || "14:00",
+      checkOutTime: property.checkOutTime || "11:00",
+      smokingPolicy: property.smokingPolicy || "no_smoking",
+      petPolicy: property.petPolicy || "no_pets",
+      cancellationPolicy: property.cancellationPolicy || "moderate",
+      status: property.status || "available",
+      amenities: Array.isArray(property.amenities) ? [...property.amenities] : [],
+      highlights,
+      discounts: property.discounts ? { ...property.discounts } : { newListing: false, lastMinute: false, weekly: false, monthly: false },
+      safetyFeatures: property.safetyFeatures ? { ...property.safetyFeatures } : { exteriorCamera: false, noiseMonitor: false, weapons: false },
+    });
+    setEditImages([]);
+    setEditImagesToRemove([]);
+    setIsEditFormOpen(true);
+  };
+
+  const cancelEditForm = () => {
+    setIsEditFormOpen(false);
+    setEditForm({});
+    setEditImages([]);
+    setEditImagesToRemove([]);
+  };
+
+  const handleEditFormChange = (field, value) => {
+    setEditForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const removeEditExistingImage = (pathOrUrl) => {
+    setEditImagesToRemove((prev) => (prev.includes(pathOrUrl) ? prev : [...prev, pathOrUrl]));
+  };
+
+  const handleSaveProperty = async () => {
+    if (!propertyId || !property) return;
+    const p = editForm;
+    const highlightsRaw = Array.isArray(p.highlights) ? p.highlights : [];
+    const highlights = highlightsRaw.map((h) => (typeof h === "string" ? h.trim() : "")).filter(Boolean).slice(0, 2);
+    const payload = {
+      modelType: property.modelType || (property.propertyType?.toLowerCase() === "hotel" ? "hotel" : "airbnb"),
+      title: p.title,
+      description: p.description,
+      location: p.location,
+      address: p.address,
+      placeType: p.placeType,
+      propertyType: p.placeType,
+      starRating: p.starRating === "" ? null : Number(p.starRating),
+      bedrooms: p.bedrooms === "" ? null : Number(p.bedrooms),
+      bathrooms: p.bathrooms === "" ? 1 : Number(p.bathrooms),
+      area: p.area === "" ? null : Number(p.area),
+      beds: p.beds === "" ? 1 : Number(p.beds),
+      maxGuests: p.maxGuests === "" ? 2 : Number(p.maxGuests),
+      guestPlaceType: p.guestPlaceType,
+      price: p.price === "" ? null : Number(p.price),
+      currency: p.currency,
+      weekendPremiumPercent: Number(p.weekendPremiumPercent) || 0,
+      checkInTime: p.checkInTime,
+      checkOutTime: p.checkOutTime,
+      smokingPolicy: p.smokingPolicy,
+      petPolicy: p.petPolicy,
+      cancellationPolicy: p.cancellationPolicy,
+      status: p.status || "available",
+      amenities: Array.isArray(p.amenities) ? p.amenities : [],
+      highlights,
+      discounts: p.discounts,
+      safetyFeatures: p.safetyFeatures,
+    };
+    setIsSaving(true);
+    const toastId = toast.loading("Saving property...");
+    try {
+      await updateProperty(propertyId, payload, editImages, editImagesToRemove);
+      toast.success("Property updated!", { id: toastId });
+      cancelEditForm();
+      loadProperty();
+    } catch (err) {
+      toast.error(err.message || "Failed to save property", { id: toastId });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -70,15 +206,20 @@ export default function PropertyDetailsPage() {
       const isHotelProperty = modelType === "hotel";
       setIsHotel(isHotelProperty);
 
-      // Load rooms or units based on modelType only (one or the other, not both)
+      // Load rooms, room types (hotel), or units based on modelType
       if (isHotelProperty) {
-        const roomsData = await getRooms(propertyId);
+        const [roomsData, roomTypesData] = await Promise.all([
+          getRooms(propertyId),
+          getRoomTypes(propertyId).catch(() => []),
+        ]);
         setRooms(Array.isArray(roomsData) ? roomsData : []);
+        setRoomTypes(Array.isArray(roomTypesData) ? roomTypesData : []);
         setUnits([]);
       } else {
         const unitsData = await getUnits(propertyId);
         setUnits(Array.isArray(unitsData) ? unitsData : []);
         setRooms([]);
+        setRoomTypes([]);
       }
     } catch (error) {
       toast.error(error.message || "Failed to load property");
@@ -145,6 +286,97 @@ export default function PropertyDetailsPage() {
       loadProperty();
     } catch (error) {
       toast.error(error.message || "Failed to delete room", { id: toastId });
+    }
+  };
+
+  const handleAddRoomType = async (e) => {
+    e?.preventDefault?.();
+    if (!roomTypeForm.name?.trim() || !roomTypeForm.price) {
+      toast.error("Name and price are required.");
+      return;
+    }
+    setIsSaving(true);
+    const toastId = toast.loading("Adding room type...");
+    try {
+      const payload = {
+        name: roomTypeForm.name.trim(),
+        bedType: roomTypeForm.bedType || "Queen",
+        bedCount: Number(roomTypeForm.bedCount) || 1,
+        maxOccupancy: Number(roomTypeForm.maxOccupancy) || 2,
+        price: Number(roomTypeForm.price),
+        inventory: Math.max(1, Math.floor(Number(roomTypeForm.inventory) || 1)),
+        amenities: Array.isArray(roomTypeForm.amenities) ? roomTypeForm.amenities : [],
+      };
+      if (roomTypeForm.size && Number(roomTypeForm.size) > 0) payload.size = Number(roomTypeForm.size);
+      await addRoomType(propertyId, payload);
+      toast.success("Room type added. Rooms created.", { id: toastId });
+      setAddRoomTypeModalOpen(false);
+      setRoomTypeForm(defaultRoomTypeForm);
+      loadProperty();
+    } catch (error) {
+      toast.error(error.message || "Failed to add room type", { id: toastId });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const openEditRoomType = (rt) => {
+    const id = rt.id ?? rt._id;
+    setEditingRoomTypeId(id);
+    setRoomTypeForm({
+      name: rt.name ?? "",
+      bedType: rt.bedType ?? "",
+      bedCount: rt.bedCount ?? 1,
+      maxOccupancy: rt.maxOccupancy ?? 2,
+      size: rt.size ?? "",
+      price: rt.price ?? "",
+      inventory: rt.inventory ?? 1,
+      amenities: Array.isArray(rt.amenities) ? rt.amenities : [],
+    });
+    setEditRoomTypeModalOpen(true);
+  };
+
+  const handleUpdateRoomType = async (e) => {
+    e?.preventDefault?.();
+    if (!editingRoomTypeId || !roomTypeForm.name?.trim() || !roomTypeForm.price) {
+      toast.error("Name and price are required.");
+      return;
+    }
+    setIsSaving(true);
+    const toastId = toast.loading("Updating room type...");
+    try {
+      const payload = {
+        name: roomTypeForm.name.trim(),
+        bedType: roomTypeForm.bedType || "Queen",
+        bedCount: Number(roomTypeForm.bedCount) || 1,
+        maxOccupancy: Number(roomTypeForm.maxOccupancy) || 2,
+        price: Number(roomTypeForm.price),
+        inventory: Math.max(1, Math.floor(Number(roomTypeForm.inventory) || 1)),
+        amenities: Array.isArray(roomTypeForm.amenities) ? roomTypeForm.amenities : [],
+      };
+      if (roomTypeForm.size && Number(roomTypeForm.size) > 0) payload.size = Number(roomTypeForm.size);
+      await updateRoomType(propertyId, editingRoomTypeId, payload);
+      toast.success("Room type updated.", { id: toastId });
+      setEditRoomTypeModalOpen(false);
+      setEditingRoomTypeId(null);
+      setRoomTypeForm(defaultRoomTypeForm);
+      loadProperty();
+    } catch (error) {
+      toast.error(error.message || "Failed to update room type", { id: toastId });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteRoomType = async (roomTypeId) => {
+    if (!confirm("Delete this room type and all its rooms? Rooms with active bookings cannot be removed.")) return;
+    const toastId = toast.loading("Deleting room type...");
+    try {
+      await deleteRoomType(propertyId, roomTypeId);
+      toast.success("Room type deleted.", { id: toastId });
+      loadProperty();
+    } catch (error) {
+      toast.error(error.message || "Failed to delete room type", { id: toastId });
     }
   };
 
@@ -220,21 +452,237 @@ export default function PropertyDetailsPage() {
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-end gap-4">
           <button
-            onClick={handleToggleVisibility}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
-              property.isPubliclyVisible
-                ? "bg-green-100 text-green-700 hover:bg-green-200"
-                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-            }`}
+            onClick={isEditFormOpen ? cancelEditForm : openEditForm}
+            className="rounded-full px-4 py-2 text-sm font-semibold bg-slate-900 text-white hover:bg-slate-800 transition-colors"
           >
-            {property.isPubliclyVisible ? "🌐 Public" : "🔒 Private"}
+            {isEditFormOpen ? "Cancel" : "Edit property"}
           </button>
+          <div className="flex flex-col items-end gap-1">
+            <button
+              onClick={handleToggleVisibility}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                property.isPubliclyVisible
+                  ? "bg-green-100 text-green-700 hover:bg-green-200"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              }`}
+            >
+              {property.isPubliclyVisible ? "🌐 Public" : "🔒 Private"}
+            </button>
+            <span className="text-xs text-slate-500">
+              {property.isPubliclyVisible ? "Shown on your tenant website" : "Hidden from tenant website"}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Property Info Card */}
+      {/* Edit Property Form */}
+      {isEditFormOpen && (
+        <div className="rounded-3xl border-2 border-slate-200 bg-white shadow-sm p-6 sm:p-8 space-y-8">
+          <h2 className="text-xl font-semibold text-slate-900">Edit property</h2>
+
+          {/* Basics */}
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Basics</h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              <FormField label="Title *" value={editForm.title} onChange={(e) => handleEditFormChange("title", e.target.value)} placeholder="Property title" />
+              <Select label="Status" value={editForm.status} onChange={(v) => handleEditFormChange("status", v)} options={[{ value: "available", label: "Available" }, { value: "unavailable", label: "Unavailable" }, { value: "maintenance", label: "Maintenance" }]} />
+              {isHotel ? (
+                <>
+                  <Select label="Hotel type" value={editForm.placeType} onChange={(v) => handleEditFormChange("placeType", v)} options={["Hotel", "Boutique hotel", "Resort", "Aparthotel", "Guesthouse", "Hostel"]} />
+                  <Select label="Star rating" value={editForm.starRating} onChange={(v) => handleEditFormChange("starRating", v)} placeholder="Select" options={["1", "2", "3", "4", "5"]} />
+                </>
+              ) : (
+                <Select label="Property type" value={editForm.placeType} onChange={(v) => handleEditFormChange("placeType", v)} options={["Apartment", "House", "Villa", "Cabin", "Condo", "Guesthouse", "Loft", "Townhouse", "Cottage", "Other"]} />
+              )}
+            </div>
+            <div className="mt-4">
+              <FormField label="Description" as="textarea" rows={4} value={editForm.description} onChange={(e) => handleEditFormChange("description", e.target.value)} placeholder="Describe your property..." maxLength={500} />
+            </div>
+            {!isHotel && (
+              <div className="mt-4">
+                <p className="text-sm font-medium text-slate-700 mb-2">Highlights (max 2)</p>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <FormField label="Highlight 1" value={(editForm.highlights && editForm.highlights[0]) || ""} onChange={(e) => handleEditFormChange("highlights", [e.target.value, (editForm.highlights && editForm.highlights[1]) || ""])} placeholder="e.g. Peaceful" />
+                  <FormField label="Highlight 2" value={(editForm.highlights && editForm.highlights[1]) || ""} onChange={(e) => handleEditFormChange("highlights", [(editForm.highlights && editForm.highlights[0]) || "", e.target.value])} placeholder="e.g. Spacious" />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Location */}
+          <div className="border-t border-slate-200 pt-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Location</h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              <FormField label="City / Location *" value={editForm.location} onChange={(e) => handleEditFormChange("location", e.target.value)} placeholder="e.g. Islamabad, pk" />
+              <FormField label="Full address" value={editForm.address} onChange={(e) => handleEditFormChange("address", e.target.value)} placeholder="Street, building, area" />
+            </div>
+          </div>
+
+          {/* Capacity (Airbnb) */}
+          {!isHotel && (
+            <div className="border-t border-slate-200 pt-6">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4">Capacity & rooms</h3>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <FormField label="Max guests" type="number" min="1" value={editForm.maxGuests} onChange={(e) => handleEditFormChange("maxGuests", e.target.value)} />
+                <FormField label="Bedrooms" type="number" min="0" value={editForm.bedrooms} onChange={(e) => handleEditFormChange("bedrooms", e.target.value)} />
+                <FormField label="Beds" type="number" min="0" value={editForm.beds} onChange={(e) => handleEditFormChange("beds", e.target.value)} />
+                <FormField label="Bathrooms" type="number" min="0" value={editForm.bathrooms} onChange={(e) => handleEditFormChange("bathrooms", e.target.value)} />
+              </div>
+              <div className="mt-4">
+                <Select label="Guest access" value={editForm.guestPlaceType} onChange={(v) => handleEditFormChange("guestPlaceType", v)} options={[{ value: "entire_place", label: "Entire place" }, { value: "room", label: "Private room" }, { value: "shared_room", label: "Shared room" }]} />
+              </div>
+            </div>
+          )}
+
+          {/* Area (optional) */}
+          <div className="border-t border-slate-200 pt-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Details</h3>
+            <FormField label="Area (sq ft, optional)" type="number" min="0" value={editForm.area} onChange={(e) => handleEditFormChange("area", e.target.value)} placeholder="e.g. 1200" />
+          </div>
+
+          {/* Pricing */}
+          <div className="border-t border-slate-200 pt-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Pricing</h3>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <FormField label="Price per night *" type="number" min="0" step="0.01" value={editForm.price} onChange={(e) => handleEditFormChange("price", e.target.value)} placeholder="60" />
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Weekend premium (%)</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="99"
+                  step="1"
+                  value={Number(editForm.weekendPremiumPercent) || 0}
+                  onChange={(e) => handleEditFormChange("weekendPremiumPercent", Number(e.target.value))}
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900"
+                />
+                <span className="text-sm text-slate-600 ml-2">{Number(editForm.weekendPremiumPercent) || 0}%</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Policies */}
+          <div className="border-t border-slate-200 pt-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Policies</h3>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <FormField label="Check-in time" type="time" value={editForm.checkInTime} onChange={(e) => handleEditFormChange("checkInTime", e.target.value)} />
+              <FormField label="Check-out time" type="time" value={editForm.checkOutTime} onChange={(e) => handleEditFormChange("checkOutTime", e.target.value)} />
+              <Select label="Smoking" value={editForm.smokingPolicy} onChange={(v) => handleEditFormChange("smokingPolicy", v)} options={[{ value: "no_smoking", label: "No smoking" }, { value: "designated_areas", label: "Designated areas" }, { value: "allowed", label: "Allowed" }]} />
+              <Select label="Pets" value={editForm.petPolicy} onChange={(v) => handleEditFormChange("petPolicy", v)} options={[{ value: "no_pets", label: "No pets" }, { value: "pets_allowed", label: "Pets allowed" }, { value: "on_request", label: "On request" }]} />
+              <Select label="Cancellation" value={editForm.cancellationPolicy} onChange={(v) => handleEditFormChange("cancellationPolicy", v)} options={[{ value: "flexible", label: "Flexible" }, { value: "moderate", label: "Moderate" }, { value: "strict", label: "Strict" }, { value: "non_refundable", label: "Non-refundable" }]} />
+            </div>
+          </div>
+
+          {/* Amenities */}
+          <div className="border-t border-slate-200 pt-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">{isHotel ? "Hotel facilities" : "Amenities"}</h3>
+            {(() => {
+              const amenityCats = isHotel ? HOTEL_AMENITIES : AIRBNB_AMENITIES;
+              const catLabels = isHotel ? HOTEL_AMENITY_LABELS : AIRBNB_AMENITY_LABELS;
+              const selected = Array.isArray(editForm.amenities) ? editForm.amenities : [];
+              const toggleAmenity = (item) => {
+                setEditForm((prev) => ({
+                  ...prev,
+                  amenities: selected.includes(item) ? (prev.amenities || []).filter((x) => x !== item) : [...(prev.amenities || []), item],
+                }));
+              };
+              return (
+                <>
+                  {Object.entries(amenityCats).map(([key, items]) => (
+                    <div key={key} className="mb-4">
+                      <p className="text-sm font-medium text-slate-700 mb-2">{catLabels[key]}</p>
+                      <AmenityPills items={items} selected={selected} onToggle={toggleAmenity} />
+                    </div>
+                  ))}
+                </>
+              );
+            })()}
+          </div>
+
+          {/* Discounts & Safety (Airbnb) */}
+          {!isHotel && (
+            <div className="border-t border-slate-200 pt-6 space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Discounts</h3>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {DISCOUNT_OPTIONS.map((d) => {
+                    const checked = editForm.discounts?.[d.key] || false;
+                    return (
+                      <label key={d.key} className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${checked ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300"}`}>
+                        <input type="checkbox" checked={checked} onChange={() => handleEditFormChange("discounts", { ...editForm.discounts, [d.key]: !checked })} className="sr-only" />
+                        <span className="text-lg font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg min-w-14 text-center">{d.pct}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-slate-900 text-sm">{d.label}</p>
+                          <p className="text-xs text-slate-600">{d.desc}</p>
+                        </div>
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${checked ? "border-slate-900 bg-slate-900" : "border-slate-300"}`}>
+                          {checked && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Safety disclosures</h3>
+                <div className="space-y-2">
+                  {SAFETY_DISCLOSURES.map((item) => (
+                    <label key={item.key} className="flex items-center justify-between p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+                      <span className="text-sm text-slate-900">{item.label}</span>
+                      <input
+                        type="checkbox"
+                        checked={editForm.safetyFeatures?.[item.key] || false}
+                        onChange={() => handleEditFormChange("safetyFeatures", { ...editForm.safetyFeatures, [item.key]: !editForm.safetyFeatures?.[item.key] })}
+                        className="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Photos */}
+          <div className="border-t border-slate-200 pt-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Photos</h3>
+            {(property.images || []).filter((p) => !editImagesToRemove.includes(p)).length > 0 && (
+              <div className="mb-4">
+                <p className="text-sm font-medium text-slate-700 mb-2">Current photos</p>
+                <div className="flex flex-wrap gap-3">
+                  {(property.images || []).filter((p) => !editImagesToRemove.includes(p)).map((pathOrUrl) => {
+                    const src = getImageUrl(pathOrUrl);
+                    return (
+                      <div key={pathOrUrl} className="relative shrink-0 rounded-lg border border-slate-200 overflow-hidden group">
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden bg-slate-100">
+                          {src ? <img src={src} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">Photo</div>}
+                        </div>
+                        <button type="button" onClick={() => removeEditExistingImage(pathOrUrl)} className="absolute top-1 right-1 rounded-full bg-white/90 p-1 text-slate-500 shadow-sm hover:bg-rose-50 hover:text-rose-600" aria-label="Remove photo">
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <FileUpload label="Add more photos" files={editImages} onChange={setEditImages} maxFiles={15} maxSizeMB={5} />
+          </div>
+
+          <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-200">
+            <button type="button" onClick={handleSaveProperty} disabled={isSaving} className="rounded-full bg-slate-900 px-6 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">
+              {isSaving ? "Saving..." : "Save changes"}
+            </button>
+            <button type="button" onClick={cancelEditForm} className="rounded-full border-2 border-slate-200 px-6 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Property Info Card (read-only when not editing) */}
+      {!isEditFormOpen && (
       <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6">
         <div className="grid md:grid-cols-2 gap-6">
           {/* Images */}
@@ -298,58 +746,67 @@ export default function PropertyDetailsPage() {
           </div>
         </div>
       </div>
+      )}
 
-      {/* Rooms/Units Section */}
+      {/* Room Types (Hotel) / Units (Airbnb) Section */}
       {isHotel ? (
         <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-slate-900">
-              Rooms ({rooms.length})
+              Room types ({roomTypes.length})
             </h2>
             <button
-              onClick={() => setAddRoomModalOpen(true)}
+              onClick={() => {
+                setRoomTypeForm(defaultRoomTypeForm);
+                setAddRoomTypeModalOpen(true);
+              }}
               className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
             >
-              Add Room
+              Add room type
             </button>
           </div>
 
-          {rooms.length === 0 ? (
+          {roomTypes.length === 0 ? (
             <div className="text-center py-12 text-slate-500">
-              <p>No rooms added yet. Click "Add Room" to get started.</p>
+              <p>No room types yet. Add a room type to auto-create rooms (e.g. Deluxe King × 12).</p>
             </div>
           ) : (
             <DataTable
-              headers={["Room #", "Type", "Price/Night", "Max Occupancy", "Status", "Actions"]}
-              rows={rooms.map((room) => ({
-                id: room.id || room._id,
+              headers={["Name", "Bed", "Occupancy", "Price/night", "Inventory", "Actions"]}
+              rows={roomTypes.map((rt) => ({
+                id: rt.id ?? rt._id,
                 cells: [
-                  room.roomNumber,
-                  room.roomType,
-                  `$${room.price}`,
-                  room.maxOccupancy || 2,
-                  <span
-                    key="status"
-                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      room.status === "clean"
-                        ? "bg-green-100 text-green-700"
-                        : room.status === "dirty"
-                        ? "bg-rose-100 text-rose-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    }`}
-                  >
-                    {room.status || "clean"}
+                  rt.name,
+                  `${rt.bedCount ?? 1} × ${rt.bedType ?? "—"}`,
+                  rt.maxOccupancy ?? 2,
+                  `$${Number(rt.price ?? 0).toLocaleString()}`,
+                  rt.inventory ?? 0,
+                  <span key="actions" className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openEditRoomType(rt)}
+                      className="text-slate-600 hover:text-slate-800 text-sm underline"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteRoomType(rt.id ?? rt._id)}
+                      className="text-rose-600 hover:text-rose-700 text-sm underline"
+                    >
+                      Delete
+                    </button>
                   </span>,
-                  <button
-                    key="delete"
-                    onClick={() => handleDeleteRoom(room.id || room._id)}
-                    className="text-rose-600 hover:text-rose-700 text-sm underline"
-                  >
-                    Delete
-                  </button>,
                 ],
               }))}
             />
+          )}
+          {rooms.length > 0 && (
+            <div className="mt-6 pt-6 border-t border-slate-100">
+              <p className="text-sm text-slate-500">
+                {rooms.length} individual room{rooms.length !== 1 ? "s" : ""} (created from room types).
+              </p>
+            </div>
           )}
         </div>
       ) : (
@@ -394,10 +851,206 @@ export default function PropertyDetailsPage() {
         </div>
       )}
 
-      {/* Add Room Modal */}
+      {/* Add Room Type Modal */}
+      <Modal
+        title="Add room type"
+        description="Creates this room type and auto-generates rooms (e.g. 12 Deluxe King rooms)."
+        isOpen={isAddRoomTypeModalOpen}
+        onClose={() => {
+          setAddRoomTypeModalOpen(false);
+          setRoomTypeForm(defaultRoomTypeForm);
+        }}
+        primaryActionLabel={isSaving ? "Adding..." : "Add room type"}
+        onPrimaryAction={handleAddRoomType}
+        disabled={isSaving}
+      >
+        <form className="space-y-4" onSubmit={handleAddRoomType}>
+          <FormField
+            label="Name *"
+            value={roomTypeForm.name}
+            onChange={(e) => setRoomTypeForm({ ...roomTypeForm, name: e.target.value })}
+            placeholder="e.g. Deluxe King"
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="Bed type"
+              value={roomTypeForm.bedType}
+              onChange={(value) => setRoomTypeForm({ ...roomTypeForm, bedType: value })}
+              placeholder="Select"
+              options={["King", "Queen", "Double", "Twin", "Single", "Bunk"]}
+            />
+            <FormField
+              label="Bed count"
+              type="number"
+              min="1"
+              value={roomTypeForm.bedCount}
+              onChange={(e) => setRoomTypeForm({ ...roomTypeForm, bedCount: e.target.value })}
+              placeholder="1"
+            />
+            <FormField
+              label="Max occupancy"
+              type="number"
+              min="1"
+              value={roomTypeForm.maxOccupancy}
+              onChange={(e) => setRoomTypeForm({ ...roomTypeForm, maxOccupancy: e.target.value })}
+              placeholder="2"
+            />
+            <FormField
+              label="Size (sq ft, optional)"
+              type="number"
+              min="0"
+              value={roomTypeForm.size}
+              onChange={(e) => setRoomTypeForm({ ...roomTypeForm, size: e.target.value })}
+              placeholder="350"
+            />
+            <FormField
+              label="Price per night (USD) *"
+              type="number"
+              min="0"
+              step="0.01"
+              value={roomTypeForm.price}
+              onChange={(e) => setRoomTypeForm({ ...roomTypeForm, price: e.target.value })}
+              placeholder="150"
+            />
+            <FormField
+              label="Inventory (number of rooms)"
+              type="number"
+              min="1"
+              value={roomTypeForm.inventory}
+              onChange={(e) => setRoomTypeForm({ ...roomTypeForm, inventory: e.target.value })}
+              placeholder="10"
+            />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-slate-700 mb-2">Room amenities (optional)</p>
+            <div className="flex flex-wrap gap-2">
+              {ROOM_AMENITIES.map((a) => {
+                const selected = (roomTypeForm.amenities || []).includes(a);
+                return (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() =>
+                      setRoomTypeForm({
+                        ...roomTypeForm,
+                        amenities: selected
+                          ? (roomTypeForm.amenities || []).filter((x) => x !== a)
+                          : [...(roomTypeForm.amenities || []), a],
+                      })
+                    }
+                    className={`rounded-full px-3 py-1.5 text-sm ${
+                      selected ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    }`}
+                  >
+                    {a}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit Room Type Modal */}
+      <Modal
+        title="Edit room type"
+        description="Changing inventory adds or removes rooms. Price updates all rooms of this type."
+        isOpen={isEditRoomTypeModalOpen}
+        onClose={() => {
+          setEditRoomTypeModalOpen(false);
+          setEditingRoomTypeId(null);
+          setRoomTypeForm(defaultRoomTypeForm);
+        }}
+        primaryActionLabel={isSaving ? "Saving..." : "Save"}
+        onPrimaryAction={handleUpdateRoomType}
+        disabled={isSaving}
+      >
+        <form className="space-y-4" onSubmit={handleUpdateRoomType}>
+          <FormField
+            label="Name *"
+            value={roomTypeForm.name}
+            onChange={(e) => setRoomTypeForm({ ...roomTypeForm, name: e.target.value })}
+            placeholder="e.g. Deluxe King"
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="Bed type"
+              value={roomTypeForm.bedType}
+              onChange={(value) => setRoomTypeForm({ ...roomTypeForm, bedType: value })}
+              placeholder="Select"
+              options={["King", "Queen", "Double", "Twin", "Single", "Bunk"]}
+            />
+            <FormField
+              label="Bed count"
+              type="number"
+              min="1"
+              value={roomTypeForm.bedCount}
+              onChange={(e) => setRoomTypeForm({ ...roomTypeForm, bedCount: e.target.value })}
+            />
+            <FormField
+              label="Max occupancy"
+              type="number"
+              min="1"
+              value={roomTypeForm.maxOccupancy}
+              onChange={(e) => setRoomTypeForm({ ...roomTypeForm, maxOccupancy: e.target.value })}
+            />
+            <FormField
+              label="Size (sq ft, optional)"
+              type="number"
+              min="0"
+              value={roomTypeForm.size}
+              onChange={(e) => setRoomTypeForm({ ...roomTypeForm, size: e.target.value })}
+            />
+            <FormField
+              label="Price per night (USD) *"
+              type="number"
+              min="0"
+              step="0.01"
+              value={roomTypeForm.price}
+              onChange={(e) => setRoomTypeForm({ ...roomTypeForm, price: e.target.value })}
+            />
+            <FormField
+              label="Inventory (number of rooms)"
+              type="number"
+              min="1"
+              value={roomTypeForm.inventory}
+              onChange={(e) => setRoomTypeForm({ ...roomTypeForm, inventory: e.target.value })}
+            />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-slate-700 mb-2">Room amenities</p>
+            <div className="flex flex-wrap gap-2">
+              {ROOM_AMENITIES.map((a) => {
+                const selected = (roomTypeForm.amenities || []).includes(a);
+                return (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() =>
+                      setRoomTypeForm({
+                        ...roomTypeForm,
+                        amenities: selected
+                          ? (roomTypeForm.amenities || []).filter((x) => x !== a)
+                          : [...(roomTypeForm.amenities || []), a],
+                      })
+                    }
+                    className={`rounded-full px-3 py-1.5 text-sm ${
+                      selected ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    }`}
+                  >
+                    {a}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Legacy Add Room Modal (individual room; kept for backward compat) */}
       <Modal
         title="Add Room"
-        description="Add a new room to this hotel property"
+        description="Add a single room (legacy). Prefer adding a room type to auto-create multiple rooms."
         isOpen={isAddRoomModalOpen}
         onClose={() => {
           setAddRoomModalOpen(false);
@@ -415,7 +1068,6 @@ export default function PropertyDetailsPage() {
               onChange={(e) => setRoomForm({ ...roomForm, roomNumber: e.target.value })}
               placeholder="101"
             />
-
             <Select
               label="Room Type *"
               value={roomForm.roomType}
@@ -423,7 +1075,6 @@ export default function PropertyDetailsPage() {
               placeholder="Select type"
               options={["Standard", "Deluxe", "Suite", "Executive", "Presidential"]}
             />
-
             <FormField
               label="Price per Night (USD) *"
               type="number"
@@ -433,7 +1084,6 @@ export default function PropertyDetailsPage() {
               onChange={(e) => setRoomForm({ ...roomForm, price: e.target.value })}
               placeholder="100"
             />
-
             <FormField
               label="Max Occupancy"
               type="number"
