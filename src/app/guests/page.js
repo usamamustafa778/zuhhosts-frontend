@@ -58,11 +58,17 @@ export default function GuestsPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [openDropdownId]);
 
-  // Form state for create modal
+  // Form state for create modal (matches API: name, phone, email, idCardNumber, notes, preferences, blacklist fields + files)
   const [createForm, setCreateForm] = useState({
     name: "",
     email: "",
     phone: "",
+    idCardNumber: "",
+    notes: "",
+    preferences: "",
+    isBlacklisted: false,
+    blacklistNotes: "",
+    flagsText: "", // comma-separated flags string -> mapped to flags[]
     idCard: null,
     profilePicture: null,
   });
@@ -72,6 +78,12 @@ export default function GuestsPage() {
     name: "",
     email: "",
     phone: "",
+    idCardNumber: "",
+    notes: "",
+    preferences: "",
+    isBlacklisted: false,
+    blacklistNotes: "",
+    flagsText: "",
     idCard: null,
     profilePicture: null,
   });
@@ -184,6 +196,16 @@ export default function GuestsPage() {
         formData.append("name", createForm.name);
         formData.append("email", createForm.email);
         formData.append("phone", createForm.phone);
+        if (createForm.idCardNumber) formData.append("idCardNumber", createForm.idCardNumber);
+        if (createForm.notes) formData.append("notes", createForm.notes);
+        if (createForm.preferences) formData.append("preferences", createForm.preferences);
+        // Blacklist fields
+        formData.append("isBlacklisted", String(createForm.isBlacklisted));
+        if (createForm.blacklistNotes) formData.append("blacklistNotes", createForm.blacklistNotes);
+        const flagsArr = parseFlags(createForm.flagsText);
+        if (flagsArr.length) {
+          flagsArr.forEach((flag) => formData.append("flags", flag));
+        }
 
         if (createForm.idCard) {
           formData.append("idCard", createForm.idCard);
@@ -218,12 +240,19 @@ export default function GuestsPage() {
         newGuest = await response.json();
         console.log("✅ Guest created successfully:", newGuest);
       } else {
-        // Use regular JSON API call
+        // Use regular JSON API call (matches backend model: name, phone, email, idCardNumber, notes, preferences)
         console.log("📤 Sending JSON to API...");
+        const flagsArr = parseFlags(createForm.flagsText);
         newGuest = await createGuest({
           name: createForm.name,
           email: createForm.email,
           phone: createForm.phone,
+          idCardNumber: createForm.idCardNumber || undefined,
+          notes: createForm.notes || undefined,
+          preferences: createForm.preferences || undefined,
+          isBlacklisted: createForm.isBlacklisted,
+          blacklistNotes: createForm.blacklistNotes || undefined,
+          flags: flagsArr.length ? flagsArr : undefined,
         });
         console.log("✅ Guest created successfully:", newGuest);
       }
@@ -234,6 +263,12 @@ export default function GuestsPage() {
         name: "",
         email: "",
         phone: "",
+        idCardNumber: "",
+        notes: "",
+        preferences: "",
+        isBlacklisted: false,
+        blacklistNotes: "",
+        flagsText: "",
         idCard: null,
         profilePicture: null,
       });
@@ -265,6 +300,15 @@ export default function GuestsPage() {
         if (editForm.name) formData.append("name", editForm.name);
         if (editForm.email) formData.append("email", editForm.email);
         if (editForm.phone) formData.append("phone", editForm.phone);
+        if (editForm.idCardNumber !== undefined) formData.append("idCardNumber", editForm.idCardNumber);
+        if (editForm.notes !== undefined) formData.append("notes", editForm.notes);
+        if (editForm.preferences !== undefined) formData.append("preferences", editForm.preferences);
+        formData.append("isBlacklisted", String(editForm.isBlacklisted));
+        if (editForm.blacklistNotes !== undefined) formData.append("blacklistNotes", editForm.blacklistNotes);
+        const flagsArr = parseFlags(editForm.flagsText);
+        if (flagsArr.length) {
+          flagsArr.forEach((flag) => formData.append("flags", flag));
+        }
         if (editForm.idCard) formData.append("idCard", editForm.idCard);
         if (editForm.profilePicture)
           formData.append("profilePicture", editForm.profilePicture);
@@ -292,11 +336,24 @@ export default function GuestsPage() {
 
         updatedGuest = await response.json();
       } else {
-        // Use regular JSON API call
+        // Use regular JSON API call (matches backend model)
         const updateData = {};
         if (editForm.name) updateData.name = editForm.name;
         if (editForm.email) updateData.email = editForm.email;
         if (editForm.phone) updateData.phone = editForm.phone;
+        if (editForm.idCardNumber !== undefined) updateData.idCardNumber = editForm.idCardNumber;
+        if (editForm.notes !== undefined) updateData.notes = editForm.notes;
+        if (editForm.preferences !== undefined) updateData.preferences = editForm.preferences;
+        updateData.isBlacklisted = editForm.isBlacklisted;
+        if (editForm.blacklistNotes !== undefined) updateData.blacklistNotes = editForm.blacklistNotes;
+        {
+          const flagsArr = parseFlags(editForm.flagsText);
+          if (flagsArr.length) {
+            updateData.flags = flagsArr;
+          } else {
+            updateData.flags = [];
+          }
+        }
 
         updatedGuest = await updateGuest(guestId, updateData);
       }
@@ -312,6 +369,12 @@ export default function GuestsPage() {
         name: "",
         email: "",
         phone: "",
+        idCardNumber: "",
+        notes: "",
+        preferences: "",
+        isBlacklisted: false,
+        blacklistNotes: "",
+        flagsText: "",
         idCard: null,
         profilePicture: null,
       });
@@ -349,6 +412,12 @@ export default function GuestsPage() {
       name: guest.name || "",
       email: guest.email || "",
       phone: guest.phone || "",
+      idCardNumber: guest.idCardNumber || "",
+      notes: guest.notes || "",
+      preferences: guest.preferences || "",
+      isBlacklisted: Boolean(guest.isBlacklisted),
+      blacklistNotes: guest.blacklistNotes || "",
+      flagsText: Array.isArray(guest.flags) ? guest.flags.join(", ") : "",
       idCard: null,
       profilePicture: null,
     });
@@ -365,6 +434,13 @@ export default function GuestsPage() {
     }
     return null;
   };
+
+  // Helper to convert comma-separated flags text into array
+  const parseFlags = (text) =>
+    (text || "")
+      .split(",")
+      .map((f) => f.trim())
+      .filter(Boolean);
 
   // Handle file selection for create form
   const handleCreateFileChange = (fieldName, file) => {
@@ -711,11 +787,11 @@ export default function GuestsPage() {
                           </div>
                         )}
                         
-                        {/* Name, Phone, and ID Card */}
+                        {/* Name, Phone, ID Card, and metadata */}
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-slate-900 truncate mb-1">{guest.name || "N/A"}</h3>
                           <p className="text-sm text-slate-600 mb-1">{guest.phone || "N/A"}</p>
-                          <div className="text-sm">
+                          <div className="text-sm mb-1">
                             {idCardUrl ? (
                               <a
                                 href={idCardUrl}
@@ -729,6 +805,27 @@ export default function GuestsPage() {
                               <span className="text-slate-400">ID Card: N/A</span>
                             )}
                           </div>
+                          {guest.idCardNumber && (
+                            <p className="text-xs text-slate-500">
+                              ID No: {guest.idCardNumber}
+                            </p>
+                          )}
+                          {guest.isBlacklisted && (
+                            <p className="mt-1 inline-flex items-center rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+                              Blacklisted
+                            </p>
+                          )}
+                          {Array.isArray(guest.flags) && guest.flags.length > 0 && (
+                            <p className="mt-1 text-[11px] text-slate-500">
+                              Flags: {guest.flags.join(", ")}
+                            </p>
+                          )}
+                          {(guest.notes || guest.preferences) && (
+                            <p className="mt-1 text-xs text-slate-500 line-clamp-2">
+                              {guest.notes && `Notes: ${guest.notes} `}
+                              {guest.preferences && `Prefs: ${guest.preferences}`}
+                            </p>
+                          )}
                         </div>
                       </div>
 
@@ -829,6 +926,12 @@ export default function GuestsPage() {
           "Name",
           "Email",
           "Phone",
+          "ID Card No",
+          "Notes",
+          "Preferences",
+          "Status",
+          "Flags",
+          "Blacklist Notes",
           "ID Card",
           "Created",
           "Actions",
@@ -874,15 +977,38 @@ export default function GuestsPage() {
                 <div className="font-semibold text-slate-900">
                   {guest.name || "N/A"}
                 </div>
-                <div className="text-xs text-slate-400">
-                  ID: {guestId.slice(-8)}
-                </div>
               </div>,
               <div key={`email-${guestId}`} className="text-sm text-slate-600">
                 {guest.email || "N/A"}
               </div>,
               <div key={`phone-${guestId}`} className="text-sm text-slate-600">
                 {guest.phone || "N/A"}
+              </div>,
+              <div key={`idcardnum-${guestId}`} className="text-sm text-slate-600">
+                {guest.idCardNumber || "—"}
+              </div>,
+              <div key={`notes-${guestId}`} className="text-xs text-slate-500 max-w-xs truncate">
+                {guest.notes || "—"}
+              </div>,
+              <div key={`prefs-${guestId}`} className="text-xs text-slate-500 max-w-xs truncate">
+                {guest.preferences || "—"}
+              </div>,
+              <div key={`status-${guestId}`} className="text-xs">
+                {guest.isBlacklisted ? (
+                  <span className="inline-flex rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+                    Blacklisted
+                  </span>
+                ) : (
+                  <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                    Active
+                  </span>
+                )}
+              </div>,
+              <div key={`flags-${guestId}`} className="text-xs text-slate-500 max-w-xs truncate">
+                {Array.isArray(guest.flags) && guest.flags.length > 0 ? guest.flags.join(", ") : "—"}
+              </div>,
+              <div key={`blnotes-${guestId}`} className="text-xs text-slate-500 max-w-xs truncate">
+                {guest.blacklistNotes || "—"}
               </div>,
               <div key={`idcard-${guestId}`} className="text-center">
                 {idCardUrl ? (
@@ -958,6 +1084,12 @@ export default function GuestsPage() {
             name: "",
             email: "",
             phone: "",
+            idCardNumber: "",
+            notes: "",
+            preferences: "",
+            isBlacklisted: false,
+            blacklistNotes: "",
+            flagsText: "",
             idCard: null,
             profilePicture: null,
           });
@@ -1051,6 +1183,102 @@ export default function GuestsPage() {
             />
           </div>
 
+          <div className="flex items-center gap-2">
+            <input
+              id="edit-is-blacklisted"
+              type="checkbox"
+              className="h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+              checked={editForm.isBlacklisted}
+              onChange={(e) =>
+                setEditForm({ ...editForm, isBlacklisted: e.target.checked })
+              }
+            />
+            <label
+              htmlFor="edit-is-blacklisted"
+              className="text-sm font-medium text-slate-700"
+            >
+              Blacklist this guest
+            </label>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Blacklist Notes
+            </label>
+            <textarea
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              rows={2}
+              value={editForm.blacklistNotes}
+              onChange={(e) =>
+                setEditForm({ ...editForm, blacklistNotes: e.target.value })
+              }
+              placeholder="Reason for blacklist, incident details, etc."
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Flags (comma-separated)
+            </label>
+            <input
+              type="text"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              value={editForm.flagsText}
+              onChange={(e) =>
+                setEditForm({ ...editForm, flagsText: e.target.value })
+              }
+              placeholder="vip, late-checkout, no-show"
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              Internal tags to quickly identify guest behaviour or special handling.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              ID Card Number
+            </label>
+            <input
+              type="text"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              value={editForm.idCardNumber}
+              onChange={(e) =>
+                setEditForm({ ...editForm, idCardNumber: e.target.value })
+              }
+              placeholder="CNIC or passport number"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Notes
+            </label>
+            <textarea
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              rows={3}
+              value={editForm.notes}
+              onChange={(e) =>
+                setEditForm({ ...editForm, notes: e.target.value })
+              }
+              placeholder="Internal notes (VIP, behaviour, etc.)"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Preferences
+            </label>
+            <textarea
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              rows={3}
+              value={editForm.preferences}
+              onChange={(e) =>
+                setEditForm({ ...editForm, preferences: e.target.value })
+              }
+              placeholder="Room, food, and stay preferences"
+            />
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -1130,6 +1358,12 @@ export default function GuestsPage() {
             name: "",
             email: "",
             phone: "",
+            idCardNumber: "",
+            notes: "",
+            preferences: "",
+            isBlacklisted: false,
+            blacklistNotes: "",
+            flagsText: "",
             idCard: null,
             profilePicture: null,
           });
@@ -1194,6 +1428,54 @@ export default function GuestsPage() {
               }
               placeholder="123 456 7890"
               required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              ID Card Number
+            </label>
+            <input
+              type="text"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              value={createForm.idCardNumber}
+              onChange={(e) =>
+                setCreateForm({ ...createForm, idCardNumber: e.target.value })
+              }
+              placeholder="CNIC or passport number"
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              Optional but must be unique when provided
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Notes
+            </label>
+            <textarea
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              rows={3}
+              value={createForm.notes}
+              onChange={(e) =>
+                setCreateForm({ ...createForm, notes: e.target.value })
+              }
+              placeholder="Internal notes (VIP, behaviour, etc.)"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Preferences
+            </label>
+            <textarea
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              rows={3}
+              value={createForm.preferences}
+              onChange={(e) =>
+                setCreateForm({ ...createForm, preferences: e.target.value })
+              }
+              placeholder="Room, food, and stay preferences"
             />
           </div>
 
