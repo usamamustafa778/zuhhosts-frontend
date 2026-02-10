@@ -42,19 +42,25 @@ const calculatePeriod = (startDate, endDate) => {
   return `${Math.floor(diffDays / 365)} year${Math.floor(diffDays / 365) > 1 ? "s" : ""}`;
 };
 
+const STATUS_OPTIONS = [
+  { label: "Pending", value: "pending" },
+  { label: "Confirmed", value: "confirmed" },
+  { label: "Checked In", value: "checked_in" },
+  { label: "Checked Out", value: "checked_out" },
+  { label: "Cancelled", value: "cancelled" },
+  { label: "No Show", value: "no_show" },
+];
+
 const getStatusColor = (status) => {
-  switch (status) {
-    case "confirmed":
-      return "bg-blue-100 text-blue-700";
-    case "checked-in":
-      return "bg-green-100 text-green-700";
-    case "checked-out":
-      return "bg-slate-100 text-slate-700";
-    case "cancelled":
-      return "bg-rose-100 text-rose-700";
-    default:
-      return "bg-amber-100 text-amber-700";
-  }
+  const colors = {
+    pending: "bg-amber-100 text-amber-700",
+    confirmed: "bg-blue-100 text-blue-700",
+    checked_in: "bg-green-100 text-green-700",
+    checked_out: "bg-slate-100 text-slate-700",
+    cancelled: "bg-rose-100 text-rose-700",
+    no_show: "bg-orange-100 text-orange-700",
+  };
+  return colors[status] || "bg-amber-100 text-amber-700";
 };
 
 const getPaymentStatusColor = (status) => {
@@ -122,9 +128,12 @@ export default function BookingDetailsPage() {
   }, [isAuthenticated, bookingId]);
 
   const handleStatusChange = async (newStatus) => {
+    console.log("[Booking] Updating status →", { bookingId, newStatus });
     try {
-      await updateBookingStatus(bookingId, newStatus);
-      setBooking({ ...booking, status: newStatus });
+      const response = await updateBookingStatus(bookingId, newStatus);
+      const updatedBooking = response?.data || response?.booking || response;
+      console.log("[Booking] Status update response →", updatedBooking);
+      setBooking({ ...booking, ...updatedBooking });
       toast.success("Booking status updated");
     } catch (err) {
       toast.error(err.message || "Failed to update status");
@@ -215,7 +224,7 @@ export default function BookingDetailsPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
               <div className="flex items-center gap-3 mb-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-lg font-bold text-white">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-blue-500 to-purple-600 text-lg font-bold text-white">
                   {booking.guest_id?.name?.charAt(0)?.toUpperCase() || "G"}
                 </div>
                 <div>
@@ -329,11 +338,9 @@ export default function BookingDetailsPage() {
                 value={booking.status || "pending"}
                 onChange={(e) => handleStatusChange(e.target.value)}
               >
-                <option value="pending">Pending</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="checked-in">Checked In</option>
-                <option value="checked-out">Checked Out</option>
-                <option value="cancelled">Cancelled</option>
+                {STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
               </select>
             </div>
             <div>

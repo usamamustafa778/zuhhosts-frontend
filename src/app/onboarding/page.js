@@ -98,7 +98,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-t from-slate-50 to-slate-100 flex items-center justify-center p-4">
       <div className="max-w-2xl w-full">
         {/* Progress Indicator */}
         <div className="mb-8">
@@ -277,7 +277,7 @@ export default function OnboardingPage() {
                       value: "airbnb",
                       icon: "🏠",
                       title: "Airbnb / Vacation Rental",
-                      description: "Apartments, villas, houses with individual units",
+                      description: "Apartments, villas, houses and vacation rentals",
                     },
                     {
                       value: "both",

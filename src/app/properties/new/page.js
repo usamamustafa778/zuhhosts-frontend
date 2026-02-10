@@ -79,7 +79,6 @@ export default function NewPropertyPage() {
   const [formData, setFormData] = useState(INITIAL_FORM_DATA);
   const [roomTypes, setRoomTypes] = useState([]);
   const [roomTypeForm, setRoomTypeForm] = useState(INITIAL_ROOM_TYPE_FORM);
-  const [units] = useState([]);
 
   const isAirbnbFlow = propertyModel === "airbnb";
   const isHotelFlow = propertyModel === "hotel";

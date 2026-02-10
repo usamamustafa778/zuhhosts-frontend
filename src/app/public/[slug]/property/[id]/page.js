@@ -8,7 +8,6 @@ import {
   getPublicTenantInfo,
   getPublicPropertyDetails,
   getPublicRooms,
-  getPublicUnits,
   checkPublicAvailability,
   createPublicBooking,
 } from "@/lib/api";
@@ -30,7 +29,6 @@ export default function PublicPropertyPage() {
   const [tenant, setTenant] = useState(null);
   const [property, setProperty] = useState(null);
   const [rooms, setRooms] = useState([]);
-  const [units, setUnits] = useState([]);
   const [availability, setAvailability] = useState(null);
   const [homeHref, setHomeHref] = useState(`/public/${slug}`);
 
@@ -39,7 +37,6 @@ export default function PublicPropertyPage() {
     startDate: "",
     endDate: "",
     roomId: "",
-    unitId: "",
     guestName: "",
     guestEmail: "",
     guestPhone: "",
@@ -66,7 +63,6 @@ export default function PublicPropertyPage() {
     bookingForm.startDate,
     bookingForm.endDate,
     bookingForm.roomId,
-    bookingForm.unitId,
   ]);
 
   const loadData = async () => {
@@ -80,7 +76,7 @@ export default function PublicPropertyPage() {
       setTenant(tenantInfo);
       setProperty(propertyData);
 
-      // Use property.modelType (hotel → rooms, airbnb → units). Fallback to propertyType for backward compat.
+      // Use property.modelType to determine if hotel or airbnb. Fallback to propertyType for backward compat.
       const modelType =
         propertyData.modelType ||
         (propertyData.propertyType?.toLowerCase() === "hotel"
@@ -95,14 +91,7 @@ export default function PublicPropertyPage() {
         } catch {
           setRooms([]);
         }
-        setUnits([]);
       } else {
-        try {
-          const unitsData = await getPublicUnits(slug, propertyId);
-          setUnits(Array.isArray(unitsData) ? unitsData : []);
-        } catch {
-          setUnits([]);
-        }
         setRooms([]);
       }
     } catch (error) {
@@ -120,7 +109,6 @@ export default function PublicPropertyPage() {
       };
 
       if (bookingForm.roomId) params.roomId = bookingForm.roomId;
-      if (bookingForm.unitId) params.unitId = bookingForm.unitId;
 
       const availabilityData = await checkPublicAvailability(
         slug,
@@ -159,10 +147,6 @@ export default function PublicPropertyPage() {
       toast.error("Please select a room");
       return;
     }
-    if (!isHotel && units.length > 0 && !bookingForm.unitId) {
-      toast.error("Please select a unit");
-      return;
-    }
 
     setIsBooking(true);
     const toastId = toast.loading("Creating your booking...");
@@ -185,11 +169,8 @@ export default function PublicPropertyPage() {
         specialRequests: bookingForm.specialRequests,
       };
 
-      // Send only roomId (hotel) or unitId (airbnb), not both
-      if (isHotel && bookingForm.roomId)
+      if (bookingForm.roomId)
         bookingData.roomId = bookingForm.roomId;
-      if (!isHotel && bookingForm.unitId)
-        bookingData.unitId = bookingForm.unitId;
 
       const booking = await createPublicBooking(slug, bookingData);
 
@@ -226,13 +207,6 @@ export default function PublicPropertyPage() {
         (r) => (r.id || r._id) === bookingForm.roomId
       );
       pricePerNight = selectedRoom?.price || pricePerNight;
-    }
-
-    if (bookingForm.unitId) {
-      const selectedUnit = units.find(
-        (u) => (u.id || u._id) === bookingForm.unitId
-      );
-      pricePerNight = selectedUnit?.price || pricePerNight;
     }
 
     return nights * pricePerNight;
@@ -617,31 +591,6 @@ export default function PublicPropertyPage() {
                 </div>
               )}
 
-              {units.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Select Unit
-                  </label>
-                  <select
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    value={bookingForm.unitId}
-                    onChange={(e) =>
-                      setBookingForm({ ...bookingForm, unitId: e.target.value })
-                    }
-                  >
-                    <option value="">Main Property</option>
-                    {units.map((unit) => (
-                      <option
-                        key={unit.id || unit._id}
-                        value={unit.id || unit._id}
-                      >
-                        {unit.unitName} - {"$" + unit.price + "/night"}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -707,10 +656,6 @@ export default function PublicPropertyPage() {
                       {bookingForm.roomId
                         ? rooms.find(
                             (r) => (r.id || r._id) === bookingForm.roomId
-                          )?.price || property.price
-                        : bookingForm.unitId
-                        ? units.find(
-                            (u) => (u.id || u._id) === bookingForm.unitId
                           )?.price || property.price
                         : property.price}{" "}
                       × {calculateNights()} nights
