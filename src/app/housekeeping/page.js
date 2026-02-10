@@ -6,6 +6,8 @@ import toast from "react-hot-toast";
 import {
   getHousekeepingDashboard,
   getHousekeepingTasks,
+  getHousekeepingStatuses,
+  updateHousekeepingStatus,
   startHousekeepingTask,
   completeHousekeepingTask,
   getAllProperties,
@@ -41,6 +43,8 @@ export default function HousekeepingPage() {
   const [isCompleteModalOpen, setCompleteModalOpen] = useState(false);
   const [completionNotes, setCompletionNotes] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [statusOptions, setStatusOptions] = useState([]);
+  const [statusUpdatingId, setStatusUpdatingId] = useState(null);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -50,15 +54,28 @@ export default function HousekeepingPage() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [dashboard, tasksData, propertiesData] = await Promise.all([
+      const [dashboardRes, tasksRes, propertiesData, statusesData] = await Promise.all([
         getHousekeepingDashboard(),
         getHousekeepingTasks(filters),
         getAllProperties(),
+        getHousekeepingStatuses().catch(() => []),
       ]);
 
-      setDashboardStats(dashboard);
-      setTasks(Array.isArray(tasksData) ? tasksData : []);
+      const raw = dashboardRes?.data ?? dashboardRes;
+      const rs = raw?.roomStats ?? {};
+      const us = raw?.unitStats ?? {};
+      setDashboardStats({
+        ...raw,
+        dirtyRooms: (rs.dirty ?? 0) + (us.dirty ?? 0),
+        inProgressRooms: (rs.in_progress ?? 0) + (us.in_progress ?? 0),
+        cleanRooms: (rs.clean ?? 0) + (us.clean ?? 0),
+        totalRooms:
+          (rs.clean ?? 0) + (rs.dirty ?? 0) + (rs.in_progress ?? 0) +
+          (us.clean ?? 0) + (us.dirty ?? 0) + (us.in_progress ?? 0),
+      });
+      setTasks(Array.isArray(tasksRes) ? tasksRes : (tasksRes?.data ?? []));
       setProperties(Array.isArray(propertiesData) ? propertiesData : []);
+      setStatusOptions(Array.isArray(statusesData) ? statusesData : []);
     } catch (error) {
       // Use centralized error handler - auto-redirects on TENANT_REQUIRED
       handleApiError(error, router, toast);
@@ -102,6 +119,33 @@ export default function HousekeepingPage() {
     }
   };
 
+  /** Update room or unit housekeeping status (PATCH /api/housekeeping/status) */
+  const handleUpdateRoomUnitStatus = async (task, status) => {
+    const roomId = task.roomId?._id ?? task.roomId?.id ?? task.roomId;
+    const unitId = task.unitId?._id ?? task.unitId?.id ?? task.unitId;
+    if (!roomId && !unitId) {
+      toast.error("No room or unit linked to this task");
+      return;
+    }
+    const key = roomId ? `room-${roomId}` : `unit-${unitId}`;
+    setStatusUpdatingId(key);
+    const toastId = toast.loading("Updating status...");
+    try {
+      await updateHousekeepingStatus({
+        roomId: roomId || undefined,
+        unitId: unitId || undefined,
+        status,
+      });
+      toast.success("Status updated", { id: toastId });
+      loadData();
+    } catch (error) {
+      toast.dismiss(toastId);
+      handleApiError(error, router, toast);
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
   const getStatusColor = (status) => {
     const colors = {
       pending: "bg-yellow-100 text-yellow-700",
@@ -119,6 +163,15 @@ export default function HousekeepingPage() {
     };
     return colors[status] || "bg-slate-100 text-slate-700";
   };
+
+  const housekeepingStatusOptions =
+    statusOptions.length > 0
+      ? statusOptions
+      : [
+          { value: "clean", label: "Clean" },
+          { value: "dirty", label: "Dirty" },
+          { value: "in_progress", label: "In progress" },
+        ];
 
   if (authLoading || !isAuthenticated) {
     return <PageLoader message="Checking your access..." />;
@@ -264,7 +317,7 @@ export default function HousekeepingPage() {
         ) : (
           tasks.map((task) => {
             const taskId = task.id || task._id;
-            const property = task.propertyId;
+            const property = task.property_id ?? task.propertyId;
             const room = task.roomId;
             const unit = task.unitId;
 
@@ -287,26 +340,56 @@ export default function HousekeepingPage() {
 
                     <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
                       {room && (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 flex-wrap">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                           </svg>
                           <span>Room {room.roomNumber}</span>
-                          {room.status && (
+                          {(room.housekeepingStatus || room.status) && (
                             <StatusPill
-                              label={room.status}
-                              className={`ml-2 ${getRoomStatusColor(room.status)}`}
+                              label={room.housekeepingStatus || room.status}
+                              className={`ml-2 ${getRoomStatusColor(room.housekeepingStatus || room.status)}`}
                             />
                           )}
+                          <Select
+                            label=""
+                            value=""
+                            onChange={(value) => value && handleUpdateRoomUnitStatus(task, value)}
+                            placeholder="Set status"
+                            options={[
+                              { value: "", label: "Set status…" },
+                              ...housekeepingStatusOptions,
+                            ]}
+                            className="ml-2 min-w-[120px]"
+                            disabled={!!statusUpdatingId}
+                          />
                         </div>
                       )}
 
                       {unit && (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 flex-wrap">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                           </svg>
                           <span>Unit {unit.unitName}</span>
+                          {(unit.housekeepingStatus || unit.status) && (
+                            <StatusPill
+                              label={unit.housekeepingStatus || unit.status}
+                              className={`ml-2 ${getRoomStatusColor(unit.housekeepingStatus || unit.status)}`}
+                            />
+                          )}
+                          <Select
+                            label=""
+                            value=""
+                            onChange={(value) => value && handleUpdateRoomUnitStatus(task, value)}
+                            placeholder="Set status"
+                            options={[
+                              { value: "", label: "Set status…" },
+                              ...housekeepingStatusOptions,
+                            ]}
+                            className="ml-2 min-w-[120px]"
+                            disabled={!!statusUpdatingId}
+                          />
                         </div>
                       )}
 
@@ -381,7 +464,7 @@ export default function HousekeepingPage() {
           {selectedTask && (
             <div className="bg-slate-50 rounded-xl p-4">
               <h4 className="font-semibold text-slate-900 mb-2">
-                {selectedTask.propertyId?.title || "Property"}
+                {(selectedTask.property_id ?? selectedTask.propertyId)?.title || "Property"}
               </h4>
               {selectedTask.roomId && (
                 <p className="text-sm text-slate-600">Room {selectedTask.roomId.roomNumber}</p>

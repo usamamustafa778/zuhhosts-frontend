@@ -2193,6 +2193,35 @@ export async function completeHousekeepingTask(id, data = {}) {
   return handleResponse(res, "Failed to complete housekeeping task");
 }
 
+/**
+ * Get housekeeping status options for dropdowns
+ * Endpoint: GET /api/housekeeping/statuses
+ * @returns {Promise<Array>} Array of { value, label } e.g. [{ value: 'clean', label: 'Clean' }, ...]
+ */
+export async function getHousekeepingStatuses() {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/housekeeping/statuses`);
+  const json = await handleResponse(res, "Failed to fetch housekeeping statuses");
+  return json?.data ?? json ?? [];
+}
+
+/**
+ * Update housekeeping status for a room or unit
+ * Endpoint: PATCH /api/housekeeping/status
+ * @param {Object} payload - { roomId?: string, unitId?: string, status: 'clean' | 'dirty' | 'in_progress' }
+ * @returns {Promise<Object>} Updated room/unit document
+ */
+export async function updateHousekeepingStatus(payload) {
+  const { roomId, unitId, status } = payload;
+  if (!status || (!roomId && !unitId)) {
+    throw new Error("Provide status and either roomId or unitId");
+  }
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/housekeeping/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ roomId: roomId || undefined, unitId: unitId || undefined, status }),
+  });
+  return handleResponse(res, "Failed to update housekeeping status");
+}
+
 // ============================================
 // Analytics API Functions
 // ============================================
