@@ -182,25 +182,38 @@ export default function HousekeepingPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
+    <div className="mx-auto max-w-6xl space-y-8 pb-12">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <button
             onClick={() => router.back()}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0 lg:hidden"
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0 lg:hidden"
           >
-            <svg className="w-6 h-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h1 className="mt-2 text-3xl font-semibold text-slate-900">Housekeeping</h1>
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Housekeeping</h1>
+              <p className="text-slate-600 mt-0.5 text-sm sm:text-base">Track cleaning status across all rooms and units.</p>
+            </div>
+          </div>
         </div>
 
         <button
           onClick={() => loadData()}
-          className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+          className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 active:bg-slate-700 transition-colors shadow-sm"
         >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
           Refresh
         </button>
       </div>
@@ -259,13 +272,19 @@ export default function HousekeepingPage() {
       )}
 
       {/* Filters */}
-      <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900">Filters</h3>
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 className="text-base sm:text-lg font-semibold text-slate-900">Filters</h3>
+            <p className="text-xs text-slate-500 mt-0.5">Narrow down housekeeping tasks by status and property.</p>
+          </div>
           <button
-            className="text-sm text-slate-600 hover:text-slate-900 underline"
+            className="inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900 hover:underline"
             onClick={() => setFilters({ status: "", propertyId: "" })}
           >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
             Clear all
           </button>
         </div>
@@ -299,36 +318,50 @@ export default function HousekeepingPage() {
           />
         </div>
 
-        <div className="mt-4 pt-4 border-t border-slate-100">
-          <p className="text-sm text-slate-600">
-            Showing <span className="font-semibold text-slate-900">{tasks.length}</span> task{tasks.length !== 1 ? "s" : ""}
+        <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-sm">
+          <p className="text-slate-600">
+            Showing <span className="font-semibold text-slate-900">{tasks.length}</span> task
+            {tasks.length !== 1 ? "s" : ""}
           </p>
         </div>
       </div>
 
       {/* Tasks List */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         {tasks.length === 0 ? (
-          <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-12 text-center">
-            <div className="text-6xl mb-4">✨</div>
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">All Clean!</h3>
-            <p className="text-slate-600">No housekeeping tasks at the moment.</p>
+          <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/60 p-12 sm:p-16 text-center">
+            <div className="mx-auto w-16 h-16 rounded-2xl bg-emerald-100 flex items-center justify-center mb-4">
+              <svg className="w-8 h-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-slate-900 mb-1">All clean!</h3>
+            <p className="text-sm text-slate-600 max-w-sm mx-auto">
+              There are no housekeeping tasks at the moment. New tasks from check-outs will show here.
+            </p>
           </div>
         ) : (
           tasks.map((task) => {
             const taskId = task.id || task._id;
             const property = task.property_id ?? task.propertyId;
             const room = task.roomId;
+            const statusAccent =
+              task.status === "completed"
+                ? "bg-emerald-500"
+                : task.status === "in_progress"
+                ? "bg-blue-500"
+                : "bg-amber-500";
 
             return (
               <div
                 key={taskId}
-                className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6 hover:shadow-md transition-shadow"
+                className="rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow flex"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
+                <div className={`w-1.5 shrink-0 ${statusAccent}`} aria-hidden />
+                <div className="flex-1 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-semibold text-slate-900">
+                      <h3 className="text-base sm:text-lg font-semibold text-slate-900 truncate">
                         {property?.title || property?.name || "Unknown Property"}
                       </h3>
                       <StatusPill
@@ -337,17 +370,19 @@ export default function HousekeepingPage() {
                       />
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-slate-600">
                       {room && (
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                          </svg>
-                          <span>Room {room.roomNumber}</span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="inline-flex items-center gap-1 text-slate-700">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                            </svg>
+                            <span className="font-medium">Room {room.roomNumber}</span>
+                          </div>
                           {(room.housekeepingStatus || room.status) && (
                             <StatusPill
                               label={room.housekeepingStatus || room.status}
-                              className={`ml-2 ${getRoomStatusColor(room.housekeepingStatus || room.status)}`}
+                              className={`ml-1 ${getRoomStatusColor(room.housekeepingStatus || room.status)}`}
                             />
                           )}
                           <Select
@@ -355,27 +390,24 @@ export default function HousekeepingPage() {
                             value=""
                             onChange={(value) => value && handleUpdateRoomUnitStatus(task, value)}
                             placeholder="Set status"
-                            options={[
-                              { value: "", label: "Set status…" },
-                              ...housekeepingStatusOptions,
-                            ]}
-                            className="ml-2 min-w-[120px]"
+                            options={housekeepingStatusOptions}
+                            className="ml-1 min-w-[140px]"
                             disabled={!!statusUpdatingId}
                           />
                         </div>
                       )}
 
                       {task.assignedTo && (
-                        <div className="flex items-center gap-1">
+                        <div className="inline-flex items-center gap-1 text-slate-700">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                           </svg>
-                          <span>{task.assignedTo.name}</span>
+                          <span className="truncate max-w-[140px]">{task.assignedTo.name}</span>
                         </div>
                       )}
 
                       {task.priority && (
-                        <div className="flex items-center gap-1">
+                        <div className="inline-flex items-center gap-1 text-slate-700">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                           </svg>
@@ -385,15 +417,32 @@ export default function HousekeepingPage() {
                     </div>
 
                     {task.notes && (
-                      <p className="mt-2 text-sm text-slate-600">{task.notes}</p>
+                      <div className="mt-3 text-sm text-slate-600">
+                        {typeof task.notes === "string" ? (
+                          <p>{task.notes}</p>
+                        ) : typeof task.notes === "object" && task.notes !== null ? (
+                          <ul className="list-disc list-inside space-y-0.5">
+                            {Object.entries(task.notes)
+                              .filter(([, v]) => v != null && String(v).trim() !== "")
+                              .map(([k, v]) => (
+                                <li key={k}>
+                                  <span className="font-medium text-slate-700">
+                                    {k.replace(/_/g, " ")}:
+                                  </span>{" "}
+                                  {String(v)}
+                                </li>
+                              ))}
+                          </ul>
+                        ) : null}
+                      </div>
                     )}
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 sm:flex-col sm:items-end shrink-0">
                     {task.status === "pending" && (
                       <button
                         onClick={() => handleStartTask(taskId)}
-                        className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                        className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 active:bg-blue-800 transition-colors"
                       >
                         Start
                       </button>
@@ -405,7 +454,7 @@ export default function HousekeepingPage() {
                           setSelectedTask(task);
                           setCompleteModalOpen(true);
                         }}
-                        className="rounded-full bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
+                        className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 active:bg-emerald-800 transition-colors"
                       >
                         Complete
                       </button>
@@ -432,10 +481,10 @@ export default function HousekeepingPage() {
         onPrimaryAction={handleCompleteTask}
         disabled={isProcessing}
       >
-        <div className="space-y-4">
+        <div className="space-y-5">
           {selectedTask && (
-            <div className="bg-slate-50 rounded-xl p-4">
-              <h4 className="font-semibold text-slate-900 mb-2">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
+              <h4 className="font-semibold text-slate-900 mb-1">
                 {(selectedTask.property_id ?? selectedTask.propertyId)?.title || "Property"}
               </h4>
               {selectedTask.roomId && (
@@ -445,12 +494,12 @@ export default function HousekeepingPage() {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Completion Notes (Optional)
+            <label className="block text-sm font-semibold text-slate-800 mb-2">
+              Completion notes <span className="font-normal text-slate-500">(optional)</span>
             </label>
             <textarea
               rows={4}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50"
+              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition disabled:opacity-50"
               value={completionNotes}
               onChange={(e) => setCompletionNotes(e.target.value)}
               placeholder="Fresh linens, deep cleaned bathroom, restocked amenities..."

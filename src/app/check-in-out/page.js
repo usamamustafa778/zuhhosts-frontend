@@ -7,10 +7,10 @@ import {
   getAllBookings,
   checkInBooking,
   checkOutBooking,
+  updateBookingStatus,
 } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
-import StatusPill from "@/components/common/StatusPill";
 import Modal from "@/components/common/Modal";
 import PageLoader from "@/components/common/PageLoader";
 import { formatCurrency } from "@/utils/currencyUtils";
@@ -27,7 +27,8 @@ export default function CheckInOutPage() {
   });
 
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("checkin");
+  const [activeTab, setActiveTab] = useState("arrivals");
+  const [pendingArrivals, setPendingArrivals] = useState([]);
   const [todaysCheckIns, setTodaysCheckIns] = useState([]);
   const [todaysCheckOuts, setTodaysCheckOuts] = useState([]);
   
@@ -53,52 +54,40 @@ export default function CheckInOutPage() {
   const loadBookings = async () => {
     try {
       setIsLoading(true);
-      
-      // Get today's date
+
       const today = new Date().toISOString().split("T")[0];
-      
-      // Fetch bookings
-      const allBookings = await getAllBookings();
-      const bookings = Array.isArray(allBookings) ? allBookings : [];
 
-      // ── Check-Ins tab ──
-      // Show ALL bookings whose status is checked_in (regardless of checkInTime).
-      // Guests may be checked in via status dropdown OR via the dedicated check-in flow.
-      const checkIns = bookings.filter((booking) => {
-        return booking.status === "checked_in";
-      });
+      const response = await getAllBookings();
+      // API may return { data: [...] } or { bookings: [...] } or array directly
+      const raw = response?.data ?? response?.bookings ?? response;
+      const bookings = Array.isArray(raw) ? raw : [];
 
-      // ── Check-Outs tab ──
-      // Show ALL bookings whose status is checked_out.
-      const checkOuts = bookings.filter((booking) => {
-        return booking.status === "checked_out";
-      });
+      const normStatus = (s) =>
+        (s || "").toLowerCase().trim().replace(/-/g, "_").replace(/\s+/g, "_");
 
-      console.log("[Check-In/Out] Today:", today);
-      console.log("[Check-In/Out] All bookings from API:", bookings.length);
-      console.log(
-        "[Check-In/Out] Check-ins (status=checked_in):",
-        checkIns.length,
-        checkIns.map((b) => ({
-          id: b._id || b.id,
-          status: b.status,
-          checkInTime: b.checkInTime || "not set",
-        }))
+      // Checked-in guests (any casing: checked_in, checked-in, Checked In)
+      const checkIns = bookings.filter(
+        (b) => normStatus(b.status) === "checked_in"
       );
-      console.log(
-        "[Check-In/Out] Check-outs (status=checked_out):",
-        checkOuts.length,
-        checkOuts.map((b) => ({
-          id: b._id || b.id,
-          status: b.status,
-          checkOutTime: b.checkOutTime || "not set",
-        }))
+
+      // Checked-out guests
+      const checkOuts = bookings.filter(
+        (b) => normStatus(b.status) === "checked_out"
       );
+
+      // Pending arrivals: not yet checked in, stay overlaps today (so we can check them in)
+      const pendingArrivals = bookings.filter((b) => {
+        const status = normStatus(b.status);
+        if (status === "checked_in" || status === "checked_out") return false;
+        const start = (b.start_date || b.startDate || "").split("T")[0];
+        const end = (b.end_date || b.endDate || "").split("T")[0];
+        return start && end && start <= today && end >= today;
+      });
 
       setTodaysCheckIns(checkIns);
       setTodaysCheckOuts(checkOuts);
+      setPendingArrivals(pendingArrivals);
     } catch (error) {
-      // Use centralized error handler - auto-redirects on TENANT_REQUIRED
       handleApiError(error, router, toast);
     } finally {
       setIsLoading(false);
@@ -130,14 +119,21 @@ export default function CheckInOutPage() {
 
     try {
       const bookingId = selectedBooking.id || selectedBooking._id;
+      const status = (selectedBooking.status || "").toLowerCase().trim().replace(/-/g, "_");
+
+      // Backend only allows check-in for "confirmed" bookings. If status is "pending", confirm first.
+      if (status === "pending") {
+        toast.loading("Confirming booking first...", { id: toastId });
+        await updateBookingStatus(bookingId, "confirmed");
+      }
+
       const response = await checkInBooking(bookingId, checkInData);
       const updatedBooking = response?.data || response?.booking || response;
-      console.log("[Check-In] Response →", { bookingId, checkInTime: updatedBooking?.checkInTime, status: updatedBooking?.status });
 
       toast.success("Guest checked in successfully!", { id: toastId });
       setCheckInModalOpen(false);
       setSelectedBooking(null);
-      loadBookings(); // Reload to update lists
+      loadBookings();
     } catch (error) {
       toast.error(error.message || "Failed to check-in", { id: toastId });
     } finally {
@@ -190,41 +186,67 @@ export default function CheckInOutPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
+    <div className="mx-auto max-w-6xl space-y-8 pb-12">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <button
             onClick={() => router.back()}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0 lg:hidden"
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0 lg:hidden"
           >
-            <svg className="w-6 h-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <div>
-            <h1 className="text-3xl font-semibold text-slate-900">Check-In / Check-Out</h1>
-            <p className="text-slate-600 mt-1">Manage today's arrivals and departures</p>
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Check-In / Check-Out</h1>
+              <p className="text-slate-600 mt-0.5 text-sm sm:text-base">Manage today&apos;s arrivals and departures</p>
+            </div>
           </div>
         </div>
 
         <button
           onClick={() => loadBookings()}
-          className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+          className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 active:bg-slate-700 transition-colors shadow-sm"
         >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
           Refresh
         </button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border-2 border-amber-200/60 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-600">Checked In</p>
-              <p className="text-3xl font-bold text-slate-900 mt-2">{todaysCheckIns.length}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-amber-700/90">Arrivals</p>
+              <p className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">{pendingArrivals.length}</p>
+              <p className="text-xs text-slate-500 mt-0.5">Pending check-in</p>
             </div>
-            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
+              <svg className="w-6 h-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border-2 border-blue-200/60 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-blue-700/90">Checked In</p>
+              <p className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">{todaysCheckIns.length}</p>
+              <p className="text-xs text-slate-500 mt-0.5">Currently staying</p>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
               <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
               </svg>
@@ -232,14 +254,15 @@ export default function CheckInOutPage() {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6">
+        <div className="rounded-2xl border-2 border-emerald-200/60 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-600">Checked Out</p>
-              <p className="text-3xl font-bold text-slate-900 mt-2">{todaysCheckOuts.length}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700/90">Checked Out</p>
+              <p className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">{todaysCheckOuts.length}</p>
+              <p className="text-xs text-slate-500 mt-0.5">Completed today</p>
             </div>
-            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-              <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
+              <svg className="w-6 h-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
             </div>
@@ -248,46 +271,142 @@ export default function CheckInOutPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-slate-200">
-        <div className="flex gap-1">
-          <button
-            onClick={() => setActiveTab("checkin")}
-            className={`flex items-center gap-2 px-6 py-3 text-sm font-semibold border-b-2 transition-colors ${
-              activeTab === "checkin"
-                ? "border-slate-900 text-slate-900"
-                : "border-transparent text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-            </svg>
-            Check-Ins ({todaysCheckIns.length})
-          </button>
+      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-1.5 inline-flex flex-wrap gap-1">
+        <button
+          onClick={() => setActiveTab("arrivals")}
+          className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
+            activeTab === "arrivals"
+              ? "bg-amber-500 text-white shadow-sm"
+              : "text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm"
+          }`}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          Arrivals
+          <span className={`ml-0.5 rounded-full px-2 py-0.5 text-xs font-bold ${activeTab === "arrivals" ? "bg-white/20" : "bg-slate-200/80 text-slate-600"}`}>
+            {pendingArrivals.length}
+          </span>
+        </button>
 
-          <button
-            onClick={() => setActiveTab("checkout")}
-            className={`flex items-center gap-2 px-6 py-3 text-sm font-semibold border-b-2 transition-colors ${
-              activeTab === "checkout"
-                ? "border-slate-900 text-slate-900"
-                : "border-transparent text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            Check-Outs ({todaysCheckOuts.length})
-          </button>
-        </div>
+        <button
+          onClick={() => setActiveTab("checkin")}
+          className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
+            activeTab === "checkin"
+              ? "bg-blue-500 text-white shadow-sm"
+              : "text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm"
+          }`}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+          </svg>
+          Checked In
+          <span className={`ml-0.5 rounded-full px-2 py-0.5 text-xs font-bold ${activeTab === "checkin" ? "bg-white/20" : "bg-slate-200/80 text-slate-600"}`}>
+            {todaysCheckIns.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("checkout")}
+          className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
+            activeTab === "checkout"
+              ? "bg-emerald-500 text-white shadow-sm"
+              : "text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm"
+          }`}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Checked Out
+          <span className={`ml-0.5 rounded-full px-2 py-0.5 text-xs font-bold ${activeTab === "checkout" ? "bg-white/20" : "bg-slate-200/80 text-slate-600"}`}>
+            {todaysCheckOuts.length}
+          </span>
+        </button>
       </div>
+
+      {/* Pending Arrivals — today's bookings that need check-in */}
+      {activeTab === "arrivals" && (
+        <div className="space-y-4">
+          {pendingArrivals.length === 0 ? (
+            <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-12 sm:p-16 text-center">
+              <div className="mx-auto w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center mb-4">
+                <svg className="w-8 h-8 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-1">No arrivals today</h3>
+              <p className="text-sm text-slate-600 max-w-sm mx-auto">Bookings whose stay includes today will appear here for check-in.</p>
+            </div>
+          ) : (
+            pendingArrivals.map((booking) => {
+              const bookingId = booking.id || booking._id;
+              const guest = booking.guest_id;
+              const property = booking.property_id;
+              const room = booking.roomId;
+
+              return (
+                <div
+                  key={bookingId}
+                  className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow flex"
+                >
+                  <div className="w-1.5 shrink-0 bg-amber-500" aria-hidden />
+                  <div className="flex-1 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-11 h-11 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-lg shrink-0">
+                          {guest?.name?.[0]?.toUpperCase() || "G"}
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="text-base font-semibold text-slate-900 truncate">
+                            {guest?.name || "Guest"}
+                          </h3>
+                          <p className="text-sm text-slate-600 truncate">{guest?.phone || guest?.email || "—"}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                        <span className="text-slate-500">
+                          <span className="font-medium text-slate-700">{property?.title || property?.name || "N/A"}</span>
+                          {room?.roomNumber != null && (
+                            <span className="text-slate-400 ml-1">· Room {room.roomNumber}</span>
+                          )}
+                        </span>
+                        <span className="text-slate-500">
+                          {formatDate(booking.start_date || booking.startDate)} – {formatDate(booking.end_date || booking.endDate)}
+                        </span>
+                        <span className="font-medium text-slate-900">
+                          {formatCurrency(booking.amount, booking.currency)}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleOpenCheckIn(booking)}
+                      className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 active:bg-blue-800 transition-colors shrink-0 flex items-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                      </svg>
+                      Check In
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
 
       {/* Check-Ins List */}
       {activeTab === "checkin" && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {todaysCheckIns.length === 0 ? (
-            <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-12 text-center">
-              <div className="text-6xl mb-4">✅</div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">All Clear!</h3>
-              <p className="text-slate-600">No checked-in guests at this time.</p>
+            <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-12 sm:p-16 text-center">
+              <div className="mx-auto w-16 h-16 rounded-2xl bg-blue-100 flex items-center justify-center mb-4">
+                <svg className="w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-1">All clear</h3>
+              <p className="text-sm text-slate-600 max-w-sm mx-auto">No checked-in guests at this time.</p>
             </div>
           ) : (
             todaysCheckIns.map((booking) => {
@@ -299,56 +418,48 @@ export default function CheckInOutPage() {
               return (
                 <div
                   key={bookingId}
-                  className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6 hover:shadow-md transition-shadow"
+                  className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow flex"
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-lg">
+                  <div className="w-1.5 shrink-0 bg-blue-500" aria-hidden />
+                  <div className="flex-1 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-lg shrink-0">
                           {guest?.name?.[0]?.toUpperCase() || "G"}
                         </div>
-                        <div>
-                          <h3 className="text-lg font-semibold text-slate-900">
+                        <div className="min-w-0">
+                          <h3 className="text-base font-semibold text-slate-900 truncate">
                             {guest?.name || "Guest"}
                           </h3>
-                          <p className="text-sm text-slate-600">{guest?.phone || guest?.email}</p>
+                          <p className="text-sm text-slate-600 truncate">{guest?.phone || guest?.email || "—"}</p>
                         </div>
                       </div>
-
-                      <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <p className="text-slate-500">Property</p>
-                          <p className="font-medium text-slate-900">{property?.title || "N/A"}</p>
-                        </div>
-                        {room && (
-                          <div>
-                            <p className="text-slate-500">Room</p>
-                            <p className="font-medium text-slate-900">Room {room.roomNumber}</p>
-                          </div>
-                        )}
-                        <div>
-                          <p className="text-slate-500">Checked In</p>
-                          <p className="font-medium text-slate-900">
-                            {booking.checkInTime
-                              ? new Date(booking.checkInTime).toLocaleString("en-US", {
-                                  month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
-                                })
-                              : "N/A"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-slate-500">Amount</p>
-                          <p className="font-medium text-slate-900">
-                            {formatCurrency(booking.amount, booking.currency)}
-                          </p>
-                        </div>
+                      <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                        <span className="text-slate-500">
+                          <span className="font-medium text-slate-700">{property?.title || "N/A"}</span>
+                          {room?.roomNumber != null && (
+                            <span className="text-slate-400 ml-1">· Room {room.roomNumber}</span>
+                          )}
+                        </span>
+                        <span className="text-slate-500">
+                          Checked in {booking.checkInTime
+                            ? new Date(booking.checkInTime).toLocaleString("en-US", {
+                                month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+                              })
+                            : "N/A"}
+                        </span>
+                        <span className="font-medium text-slate-900">
+                          {formatCurrency(booking.amount, booking.currency)}
+                        </span>
                       </div>
                     </div>
-
                     <button
                       onClick={() => handleOpenCheckOut(booking)}
-                      className="rounded-full bg-green-600 px-6 py-3 text-sm font-semibold text-white hover:bg-green-700"
+                      className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 active:bg-emerald-800 transition-colors shrink-0 flex items-center gap-2"
                     >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
                       Check Out
                     </button>
                   </div>
@@ -361,12 +472,16 @@ export default function CheckInOutPage() {
 
       {/* Check-Outs List */}
       {activeTab === "checkout" && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {todaysCheckOuts.length === 0 ? (
-            <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-12 text-center">
-              <div className="text-6xl mb-4">✅</div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">All Clear!</h3>
-              <p className="text-slate-600">No checked-out guests at this time.</p>
+            <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-12 sm:p-16 text-center">
+              <div className="mx-auto w-16 h-16 rounded-2xl bg-emerald-100 flex items-center justify-center mb-4">
+                <svg className="w-8 h-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-1">All clear</h3>
+              <p className="text-sm text-slate-600 max-w-sm mx-auto">No checked-out guests at this time.</p>
             </div>
           ) : (
             todaysCheckOuts.map((booking) => {
@@ -378,55 +493,45 @@ export default function CheckInOutPage() {
               return (
                 <div
                   key={bookingId}
-                  className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6 hover:shadow-md transition-shadow"
+                  className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow flex"
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-lg">
+                  <div className="w-1.5 shrink-0 bg-emerald-500" aria-hidden />
+                  <div className="flex-1 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-11 h-11 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-lg shrink-0">
                           {guest?.name?.[0]?.toUpperCase() || "G"}
                         </div>
-                        <div>
-                          <h3 className="text-lg font-semibold text-slate-900">
+                        <div className="min-w-0">
+                          <h3 className="text-base font-semibold text-slate-900 truncate">
                             {guest?.name || "Guest"}
                           </h3>
-                          <p className="text-sm text-slate-600">{guest?.phone || guest?.email}</p>
+                          <p className="text-sm text-slate-600 truncate">{guest?.phone || guest?.email || "—"}</p>
                         </div>
                       </div>
-
-                      <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <p className="text-slate-500">Property</p>
-                          <p className="font-medium text-slate-900">{property?.title || "N/A"}</p>
-                        </div>
-                        {room && (
-                          <div>
-                            <p className="text-slate-500">Room</p>
-                            <p className="font-medium text-slate-900">Room {room.roomNumber}</p>
-                          </div>
-                        )}
-                        <div>
-                          <p className="text-slate-500">Checked Out</p>
-                          <p className="font-medium text-slate-900">
-                            {booking.checkOutTime
-                              ? new Date(booking.checkOutTime).toLocaleString("en-US", {
-                                  month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
-                                })
-                              : "N/A"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-slate-500">Amount</p>
-                          <p className="font-medium text-slate-900">
-                            {formatCurrency(booking.amount, booking.currency)}
-                          </p>
-                        </div>
+                      <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                        <span className="text-slate-500">
+                          <span className="font-medium text-slate-700">{property?.title || "N/A"}</span>
+                          {room?.roomNumber != null && (
+                            <span className="text-slate-400 ml-1">· Room {room.roomNumber}</span>
+                          )}
+                        </span>
+                        <span className="text-slate-500">
+                          Checked out {booking.checkOutTime
+                            ? new Date(booking.checkOutTime).toLocaleString("en-US", {
+                                month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+                              })
+                            : "N/A"}
+                        </span>
+                        <span className="font-medium text-slate-900">
+                          {formatCurrency(booking.amount, booking.currency)}
+                        </span>
                       </div>
                     </div>
-
-                    <span
-                      className="rounded-full bg-slate-100 px-6 py-3 text-sm font-semibold text-slate-600"
-                    >
+                    <span className="rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-600 shrink-0 inline-flex items-center gap-1.5">
+                      <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
                       Completed
                     </span>
                   </div>
@@ -451,34 +556,44 @@ export default function CheckInOutPage() {
         disabled={isProcessing}
       >
         {selectedBooking && (
-          <div className="space-y-4">
-            <div className="bg-slate-50 rounded-xl p-4">
-              <h4 className="font-semibold text-slate-900 mb-2">
-                {selectedBooking.guest_id?.name}
-              </h4>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-slate-600">Property</p>
-                  <p className="font-medium text-slate-900">
-                    {selectedBooking.property_id?.title}
-                  </p>
+          <div className="space-y-5">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-lg shrink-0">
+                  {selectedBooking.guest_id?.name?.[0]?.toUpperCase() || "G"}
                 </div>
                 <div>
-                  <p className="text-slate-600">Amount</p>
-                  <p className="font-medium text-slate-900">
+                  <h4 className="font-semibold text-slate-900 text-lg">
+                    {selectedBooking.guest_id?.name || "Guest"}
+                  </h4>
+                  <p className="text-sm text-slate-600">
+                    {selectedBooking.property_id?.title || "—"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-4 pt-4 border-t border-slate-200 text-sm">
+                <div>
+                  <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">Amount</p>
+                  <p className="font-semibold text-slate-900 mt-0.5">
                     {formatCurrency(selectedBooking.amount, selectedBooking.currency)}
                   </p>
                 </div>
+                {selectedBooking.roomId?.roomNumber != null && (
+                  <div>
+                    <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">Room</p>
+                    <p className="font-semibold text-slate-900 mt-0.5">Room {selectedBooking.roomId.roomNumber}</p>
+                  </div>
+                )}
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Verification Notes (Optional)
+              <label className="block text-sm font-semibold text-slate-800 mb-2">
+                Verification notes <span className="font-normal text-slate-500">(optional)</span>
               </label>
               <textarea
                 rows={3}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50"
+                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition disabled:opacity-50"
                 value={checkInData.verificationNotes}
                 onChange={(e) =>
                   setCheckInData({ ...checkInData, verificationNotes: e.target.value })
@@ -488,9 +603,14 @@ export default function CheckInOutPage() {
               />
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-              <p className="text-sm text-blue-900">
-                ✓ This will mark the booking as checked-in and the room/unit as occupied.
+            <div className="rounded-2xl bg-blue-50 border border-blue-200/80 p-4 flex gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="text-sm text-blue-900 leading-relaxed">
+                This will mark the booking as checked-in and the room/unit as occupied.
               </p>
             </div>
           </div>
@@ -511,55 +631,65 @@ export default function CheckInOutPage() {
         disabled={isProcessing}
       >
         {selectedBooking && (
-          <div className="space-y-4">
-            <div className="bg-slate-50 rounded-xl p-4">
-              <h4 className="font-semibold text-slate-900 mb-2">
-                {selectedBooking.guest_id?.name}
-              </h4>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-slate-600">Property</p>
-                  <p className="font-medium text-slate-900">
-                    {selectedBooking.property_id?.title}
-                  </p>
+          <div className="space-y-5">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-lg shrink-0">
+                  {selectedBooking.guest_id?.name?.[0]?.toUpperCase() || "G"}
                 </div>
                 <div>
-                  <p className="text-slate-600">Original Amount</p>
-                  <p className="font-medium text-slate-900">
+                  <h4 className="font-semibold text-slate-900 text-lg">
+                    {selectedBooking.guest_id?.name || "Guest"}
+                  </h4>
+                  <p className="text-sm text-slate-600">
+                    {selectedBooking.property_id?.title || "—"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-4 pt-4 border-t border-slate-200 text-sm">
+                <div>
+                  <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">Original amount</p>
+                  <p className="font-semibold text-slate-900 mt-0.5">
                     {formatCurrency(selectedBooking.amount, selectedBooking.currency)}
                   </p>
                 </div>
+                {selectedBooking.roomId?.roomNumber != null && (
+                  <div>
+                    <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">Room</p>
+                    <p className="font-semibold text-slate-900 mt-0.5">Room {selectedBooking.roomId.roomNumber}</p>
+                  </div>
+                )}
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Final Charges (Optional)
+              <label className="block text-sm font-semibold text-slate-800 mb-2">
+                Final charges <span className="font-normal text-slate-500">(optional)</span>
               </label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50"
+                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition disabled:opacity-50"
                 value={checkOutData.finalCharges}
                 onChange={(e) =>
                   setCheckOutData({ ...checkOutData, finalCharges: e.target.value })
                 }
-                placeholder={selectedBooking.amount?.toString()}
+                placeholder={selectedBooking.amount?.toString() ?? "Same as original"}
                 disabled={isProcessing}
               />
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-slate-500 mt-1.5">
                 Leave blank to use original amount. Update if there are additional charges.
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Check-Out Notes (Optional)
+              <label className="block text-sm font-semibold text-slate-800 mb-2">
+                Check-out notes <span className="font-normal text-slate-500">(optional)</span>
               </label>
               <textarea
                 rows={3}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50"
+                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition disabled:opacity-50"
                 value={checkOutData.checkoutNotes}
                 onChange={(e) =>
                   setCheckOutData({ ...checkOutData, checkoutNotes: e.target.value })
@@ -569,9 +699,14 @@ export default function CheckInOutPage() {
               />
             </div>
 
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-              <p className="text-sm text-green-900">
-                ✓ This will mark the booking as checked-out, set room/unit to dirty, and create a housekeeping task.
+            <div className="rounded-2xl bg-emerald-50 border border-emerald-200/80 p-4 flex gap-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="text-sm text-emerald-900 leading-relaxed">
+                This will mark the booking as checked-out, set room/unit to dirty, and create a housekeeping task.
               </p>
             </div>
           </div>

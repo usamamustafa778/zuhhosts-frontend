@@ -64,6 +64,13 @@ export default function TasksPage() {
     description: "",
     assigned_to: "",
     status: "dirty",
+    notes: {
+      maintenance_check: "",
+      inspection_quality_check: "",
+      amenities_availability: "",
+      inventory_check: "",
+      issue_status: "",
+    },
     includePayment: false,
     payment: {
       amount: "",
@@ -135,59 +142,48 @@ export default function TasksPage() {
   };
 
   const handleStatusChange = async (taskId, newStatus) => {
-    // Find the task to get its current state for rollback
-    const currentTask = tasks.find((t) => (t.id || t._id) === taskId);
+    const idStr = String(taskId);
+    // Find the task (compare as strings so id/_id object vs string never breaks)
+    const currentTask = tasks.find((t) => String(t.id || t._id) === idStr);
     if (!currentTask) return;
 
-    // Optimistic update - immediately update local state
+    // Optimistic update — move card to new column immediately
     setTasks((prev) =>
       prev.map((t) => {
-        const id = t.id || t._id;
-        if (id === taskId) {
-          return { ...t, status: newStatus };
-        }
-        return t;
+        if (String(t.id || t._id) !== idStr) return t;
+        return { ...t, status: newStatus };
       })
     );
 
-    // Mark task as processing
-    setProcessingTasks((prev) => new Set(prev).add(taskId));
-
+    setProcessingTasks((prev) => new Set(prev).add(idStr));
     const toastId = toast.loading("Updating task status...");
 
     try {
       setError(null);
-      const updatedTask = await updateTask(taskId, { status: newStatus });
+      const updatedTask = await updateTask(idStr, { status: newStatus });
 
-      // Update with server response
+      // Keep newStatus so card stays in dropped column even if backend returns different casing
       setTasks((prev) =>
         prev.map((t) => {
-          const id = t.id || t._id;
-          return id === taskId ? updatedTask : t;
+          if (String(t.id || t._id) !== idStr) return t;
+          return { ...t, ...updatedTask, status: newStatus };
         })
       );
 
       toast.success("Task status updated successfully", { id: toastId });
     } catch (err) {
-      // Rollback on error
       setTasks((prev) =>
         prev.map((t) => {
-          const id = t.id || t._id;
-          if (id === taskId) {
-            return currentTask; // Restore original task
-          }
-          return t;
+          if (String(t.id || t._id) !== idStr) return t;
+          return currentTask;
         })
       );
       setError(err.message || "Failed to update task");
-      toast.error(err.message || "Failed to update task status", {
-        id: toastId,
-      });
+      toast.error(err.message || "Failed to update task status", { id: toastId });
     } finally {
-      // Remove from processing
       setProcessingTasks((prev) => {
         const next = new Set(prev);
-        next.delete(taskId);
+        next.delete(idStr);
         return next;
       });
     }
@@ -214,6 +210,14 @@ export default function TasksPage() {
         assigned_to: formData.assigned_to,
         status: formData.status,
       };
+
+      // Map notes object for API
+      const notesEntries = formData.notes && typeof formData.notes === "object"
+        ? Object.entries(formData.notes).filter(([, v]) => v != null && String(v).trim() !== "")
+        : [];
+      if (notesEntries.length > 0) {
+        taskData.notes = Object.fromEntries(notesEntries);
+      }
 
       // Include payment if checkbox is checked and required fields are filled
       if (
@@ -245,6 +249,13 @@ export default function TasksPage() {
         description: "",
         assigned_to: "",
         status: "dirty",
+        notes: {
+          maintenance_check: "",
+          inspection_quality_check: "",
+          amenities_availability: "",
+          inventory_check: "",
+          issue_status: "",
+        },
         includePayment: false,
         payment: {
           amount: "",
@@ -305,6 +316,13 @@ export default function TasksPage() {
       if (formData.assigned_to) taskData.assigned_to = formData.assigned_to;
       if (formData.status) taskData.status = formData.status;
 
+      const notesEntries = formData.notes && typeof formData.notes === "object"
+        ? Object.entries(formData.notes).filter(([, v]) => v != null && String(v).trim() !== "")
+        : [];
+      if (notesEntries.length > 0) {
+        taskData.notes = Object.fromEntries(notesEntries);
+      }
+
       // Include payment if checkbox is checked and required fields are filled
       if (
         formData.includePayment &&
@@ -337,6 +355,13 @@ export default function TasksPage() {
         description: "",
         assigned_to: "",
         status: "dirty",
+        notes: {
+          maintenance_check: "",
+          inspection_quality_check: "",
+          amenities_availability: "",
+          inventory_check: "",
+          issue_status: "",
+        },
         includePayment: false,
         payment: {
           amount: "",
@@ -363,20 +388,20 @@ export default function TasksPage() {
     completed: "Completed",
   };
 
-  // Transform API task data to Kanban format
+  // Transform API task data to Kanban format (id as string so drag/drop and API always match)
   const kanbanTasks = tasks.map((task) => {
-    const taskId = task.id || task._id;
+    const taskId = String(task.id || task._id);
 
-    // Normalize status from API
-    const rawStatus = (task.status || "").toLowerCase().trim();
+    // Normalize status from API (backend may send "in-progress", "in progress", "In Progress", etc.)
+    const rawStatus = (task.status || "").toLowerCase().trim().replace(/\s+/g, "_");
     let normalizedStatus = rawStatus;
-    if (rawStatus === "in-progress") normalizedStatus = "in_progress";
+    if (rawStatus === "in-progress" || rawStatus === "in_progress") normalizedStatus = "in_progress";
     if (rawStatus === "complete") normalizedStatus = "completed";
 
-    // Map status to Kanban column names
+    // Map status to Kanban column names — must match KanbanBoard: ["Dirty", "In Progress", "Clean", "Completed"]
     let column = "Dirty";
     if (normalizedStatus === "in_progress") {
-      column = "In progress";
+      column = "In Progress";
     } else if (normalizedStatus === "clean") {
       column = "Clean";
     } else if (normalizedStatus === "completed") {
@@ -449,8 +474,8 @@ export default function TasksPage() {
         </div>
 
         <div className="flex gap-2 items-center">
-          {/* View Mode Switcher - Hidden on mobile */}
-          <div className="hidden md:flex rounded-full border border-slate-200 p-1">
+          {/* View Mode Switcher - Kanban has touch drag on mobile */}
+          <div className="flex rounded-full border border-slate-200 p-1">
             <button
               className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
                 viewMode === "cards"
@@ -680,6 +705,7 @@ export default function TasksPage() {
                                     .split("T")[0]
                                 : new Date().toISOString().split("T")[0];
 
+                              const taskNotes = task.notes && typeof task.notes === "object" ? task.notes : {};
                               setFormData({
                                 property_id:
                                   typeof task.property_id === "object"
@@ -694,6 +720,13 @@ export default function TasksPage() {
                                       task.assigned_to._id
                                     : task.assigned_to || "",
                                 status: task.status || "dirty",
+                                notes: {
+                                  maintenance_check: taskNotes.maintenance_check ?? "",
+                                  inspection_quality_check: taskNotes.inspection_quality_check ?? "",
+                                  amenities_availability: taskNotes.amenities_availability ?? "",
+                                  inventory_check: taskNotes.inventory_check ?? "",
+                                  issue_status: taskNotes.issue_status ?? "",
+                                },
                                 includePayment: Boolean(
                                   taskPayment && taskPayment.amount !== undefined
                                 ),
@@ -936,6 +969,7 @@ export default function TasksPage() {
                   const paymentDate = taskPayment.date
                     ? new Date(taskPayment.date).toISOString().split("T")[0]
                     : new Date().toISOString().split("T")[0];
+                  const taskNotes = originalTask.notes && typeof originalTask.notes === "object" ? originalTask.notes : {};
 
                   setFormData({
                     property_id:
@@ -951,6 +985,13 @@ export default function TasksPage() {
                           originalTask.assigned_to._id
                         : originalTask.assigned_to || "",
                     status: originalTask.status || "dirty",
+                    notes: {
+                      maintenance_check: taskNotes.maintenance_check ?? "",
+                      inspection_quality_check: taskNotes.inspection_quality_check ?? "",
+                      amenities_availability: taskNotes.amenities_availability ?? "",
+                      inventory_check: taskNotes.inventory_check ?? "",
+                      issue_status: taskNotes.issue_status ?? "",
+                    },
                     includePayment: Boolean(taskPayment && taskPayment.amount !== undefined),
                     payment: {
                       amount: taskPayment.amount?.toString() || "",
@@ -985,6 +1026,13 @@ export default function TasksPage() {
             description: "",
             assigned_to: "",
             status: "dirty",
+            notes: {
+              maintenance_check: "",
+              inspection_quality_check: "",
+              amenities_availability: "",
+              inventory_check: "",
+              issue_status: "",
+            },
             includePayment: false,
             payment: {
               amount: "",
@@ -1090,6 +1138,92 @@ export default function TasksPage() {
                 <option value="clean">Clean</option>
                 <option value="completed">Completed</option>
               </select>
+            </div>
+          </div>
+
+          {/* Task notes (API notes object) */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-slate-700">Task notes</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-slate-600 mb-1">Maintenance check</label>
+                <input
+                  type="text"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="e.g. AC cooling is low"
+                  value={formData.notes?.maintenance_check ?? ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      notes: { ...formData.notes, maintenance_check: e.target.value },
+                    })
+                  }
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-slate-600 mb-1">Inspection / quality check</label>
+                <input
+                  type="text"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="e.g. Dust on shelves, deep clean needed"
+                  value={formData.notes?.inspection_quality_check ?? ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      notes: { ...formData.notes, inspection_quality_check: e.target.value },
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Amenities availability</label>
+                <input
+                  type="text"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="e.g. Missing 2 water bottles"
+                  value={formData.notes?.amenities_availability ?? ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      notes: { ...formData.notes, amenities_availability: e.target.value },
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Inventory check</label>
+                <input
+                  type="text"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="e.g. Toiletries to refill"
+                  value={formData.notes?.inventory_check ?? ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      notes: { ...formData.notes, inventory_check: e.target.value },
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Issue status</label>
+                <select
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={formData.notes?.issue_status ?? ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      notes: { ...formData.notes, issue_status: e.target.value },
+                    })
+                  }
+                >
+                  <option value="">—</option>
+                  <option value="Open">Open</option>
+                  <option value="In progress">In progress</option>
+                  <option value="Resolved">Resolved</option>
+                  <option value="Closed">Closed</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -1298,6 +1432,13 @@ export default function TasksPage() {
             description: "",
             assigned_to: "",
             status: "dirty",
+            notes: {
+              maintenance_check: "",
+              inspection_quality_check: "",
+              amenities_availability: "",
+              inventory_check: "",
+              issue_status: "",
+            },
             includePayment: false,
             payment: {
               amount: "",
@@ -1404,6 +1545,92 @@ export default function TasksPage() {
                 <option value="clean">Clean</option>
                 <option value="completed">Completed</option>
               </select>
+            </div>
+          </div>
+
+          {/* Task notes (API notes object) - Create modal */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-slate-700">Task notes</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-slate-600 mb-1">Maintenance check</label>
+                <input
+                  type="text"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="e.g. AC cooling is low"
+                  value={formData.notes?.maintenance_check ?? ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      notes: { ...formData.notes, maintenance_check: e.target.value },
+                    })
+                  }
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-slate-600 mb-1">Inspection / quality check</label>
+                <input
+                  type="text"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="e.g. Dust on shelves, deep clean needed"
+                  value={formData.notes?.inspection_quality_check ?? ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      notes: { ...formData.notes, inspection_quality_check: e.target.value },
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Amenities availability</label>
+                <input
+                  type="text"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="e.g. Missing 2 water bottles"
+                  value={formData.notes?.amenities_availability ?? ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      notes: { ...formData.notes, amenities_availability: e.target.value },
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Inventory check</label>
+                <input
+                  type="text"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="e.g. Toiletries to refill"
+                  value={formData.notes?.inventory_check ?? ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      notes: { ...formData.notes, inventory_check: e.target.value },
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Issue status</label>
+                <select
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={formData.notes?.issue_status ?? ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      notes: { ...formData.notes, issue_status: e.target.value },
+                    })
+                  }
+                >
+                  <option value="">—</option>
+                  <option value="Open">Open</option>
+                  <option value="In progress">In progress</option>
+                  <option value="Resolved">Resolved</option>
+                  <option value="Closed">Closed</option>
+                </select>
+              </div>
             </div>
           </div>
 

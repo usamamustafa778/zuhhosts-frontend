@@ -35,6 +35,13 @@ export default function CreateTaskPage() {
     description: "",
     assigned_to: "",
     status: "dirty",
+    notes: {
+      maintenance_check: "",
+      inspection_quality_check: "",
+      amenities_availability: "",
+      inventory_check: "",
+      issue_status: "",
+    },
     includePayment: false,
     payment: {
       amount: "",
@@ -80,6 +87,14 @@ export default function CreateTaskPage() {
       assigned_to: formData.assigned_to,
       status: formData.status,
     };
+
+    // Map notes object for API (only include if at least one field has value)
+    const notesEntries = formData.notes && typeof formData.notes === "object"
+      ? Object.entries(formData.notes).filter(([, v]) => v != null && String(v).trim() !== "")
+      : [];
+    if (notesEntries.length > 0) {
+      taskData.notes = Object.fromEntries(notesEntries);
+    }
 
     // Include payment if checkbox is checked and payment fields are filled
     if (
@@ -241,6 +256,92 @@ export default function CreateTaskPage() {
                   <option value="clean">Clean</option>
                   <option value="completed">Completed</option>
                 </select>
+              </div>
+            </div>
+
+            {/* Task notes (API notes object) */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+              <h3 className="text-sm font-semibold text-slate-700">Task notes</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Maintenance check</label>
+                  <input
+                    type="text"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    placeholder="e.g. AC cooling is low, please check"
+                    value={formData.notes?.maintenance_check ?? ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        notes: { ...formData.notes, maintenance_check: e.target.value },
+                      })
+                    }
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Inspection / quality check</label>
+                  <input
+                    type="text"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    placeholder="e.g. Dust on shelves, deep clean needed"
+                    value={formData.notes?.inspection_quality_check ?? ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        notes: { ...formData.notes, inspection_quality_check: e.target.value },
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Amenities availability</label>
+                  <input
+                    type="text"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    placeholder="e.g. Missing 2 water bottles, 1 towel"
+                    value={formData.notes?.amenities_availability ?? ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        notes: { ...formData.notes, amenities_availability: e.target.value },
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Inventory check</label>
+                  <input
+                    type="text"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    placeholder="e.g. Toiletries to be refilled"
+                    value={formData.notes?.inventory_check ?? ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        notes: { ...formData.notes, inventory_check: e.target.value },
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Issue status</label>
+                  <select
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    value={formData.notes?.issue_status ?? ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        notes: { ...formData.notes, issue_status: e.target.value },
+                      })
+                    }
+                  >
+                    <option value="">—</option>
+                    <option value="Open">Open</option>
+                    <option value="In progress">In progress</option>
+                    <option value="Resolved">Resolved</option>
+                    <option value="Closed">Closed</option>
+                  </select>
+                </div>
               </div>
             </div>
         </div>

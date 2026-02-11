@@ -2,9 +2,10 @@
 
 import {
   DndContext,
-  closestCenter,
+  pointerWithin,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragOverlay,
@@ -29,8 +30,24 @@ const columnToStatus = {
   Completed: "completed",
 };
 
+// Column header styles (accent per column)
+const columnStyles = {
+  Dirty: "bg-rose-50 border-rose-200/80 text-rose-800",
+  "In Progress": "bg-blue-50 border-blue-200/80 text-blue-800",
+  Clean: "bg-emerald-50 border-emerald-200/80 text-emerald-800",
+  Completed: "bg-slate-50 border-slate-200/80 text-slate-700",
+};
+
+const cardAccentByColumn = {
+  Dirty: "border-l-4 border-l-rose-400",
+  "In Progress": "border-l-4 border-l-blue-500",
+  Clean: "border-l-4 border-l-emerald-500",
+  Completed: "border-l-4 border-l-slate-400",
+};
+
 function SortableTask({
   task,
+  column,
   onEdit,
   onDelete,
   isProcessing,
@@ -46,7 +63,7 @@ function SortableTask({
     isDragging,
   } = useSortable({
     id: task.id,
-    disabled: isProcessing, // Disable dragging while processing
+    disabled: isProcessing,
   });
 
   const style = {
@@ -56,8 +73,8 @@ function SortableTask({
   };
 
   const isDropdownOpen = openDropdownId === task.id;
+  const cardAccent = cardAccentByColumn[column] || cardAccentByColumn["Dirty"];
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (isDropdownOpen && !event.target.closest(".dropdown-container")) {
@@ -76,10 +93,10 @@ function SortableTask({
     <div
       ref={setNodeRef}
       style={style}
-      className={`rounded-2xl border p-3 hover:shadow-sm transition-shadow relative ${
+      className={`rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm hover:shadow-md transition-all relative ${cardAccent} ${
         isProcessing
-          ? "border-blue-300 bg-blue-50/50 cursor-wait"
-          : "border-slate-100 bg-slate-50/70"
+          ? "border-blue-300 bg-blue-50/60 cursor-wait ring-1 ring-blue-200"
+          : ""
       }`}
     >
       {isProcessing && (
@@ -110,38 +127,40 @@ function SortableTask({
         </div>
       )}
 
-      {/* Drag handle area - applies drag listeners here instead of whole card */}
+      {/* Drag handle area */}
       <div
         {...(isProcessing ? {} : attributes)}
         {...(isProcessing ? {} : listeners)}
-        className="cursor-grab active:cursor-grabbing"
+        className="cursor-grab active:cursor-grabbing touch-manipulation"
+        style={{ touchAction: "manipulation" }}
       >
-        <div className="flex items-start justify-between gap-2 mb-1 pr-8">
-          <p className="text-sm font-semibold text-slate-900 line-clamp-2 flex-1">
+        <div className="flex items-start justify-between gap-2 pr-7">
+          <p className="text-sm font-semibold text-slate-900 line-clamp-2 flex-1 leading-snug">
             {task.title}
           </p>
         </div>
         {task.description && (
-          <p className="mt-1 text-xs text-slate-500 line-clamp-2">
+          <p className="mt-1.5 text-xs text-slate-500 line-clamp-2 leading-relaxed">
             {task.description}
           </p>
         )}
         {task.property && (
-          <p className="mt-2 text-xs text-slate-600 font-medium truncate">
-            📍 {task.property}
+          <p className="mt-2 text-xs text-slate-600 font-medium truncate flex items-center gap-1">
+            <span className="text-slate-400">📍</span> {task.property}
           </p>
         )}
-        <div className="mt-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7  shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-[10px] font-bold text-white">
+
+        <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-600 to-slate-700 text-xs font-bold text-white shadow-sm">
               {task.assignee?.charAt(0)?.toUpperCase() || "?"}
             </div>
-            <div className="flex flex-col gap-1">
-              <p className="text-xs text-slate-600 truncate block font-medium">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-700 truncate">
                 {task.assignee}
               </p>
               {task.createdAt && (
-                <p className="text-[10px] text-slate-600 truncate block -mt-1">
+                <p className="text-[10px] text-slate-500">
                   {new Date(task.createdAt).toLocaleDateString("en-US", {
                     month: "short",
                     day: "numeric",
@@ -150,27 +169,23 @@ function SortableTask({
               )}
             </div>
           </div>
-          {/* Payment details and actions dropdown - outside drag handle */}
-          <div className="mt-2 flex items-center justify-end gap-2 relative">
+
+          <div className="flex items-center gap-1.5 shrink-0">
             {task.payment && task.payment.amount !== undefined && (
-              <div className="flex items-center gap-1 text-[10px] text-slate-600">
-                <span className="font-medium">${task.payment.amount || 0}</span>
-                <span className="text-slate-400">•</span>
+              <div className="flex items-center gap-1 text-[10px] text-slate-600 bg-slate-50 rounded-md px-1.5 py-0.5">
+                <span className="font-semibold">${task.payment.amount || 0}</span>
                 <span
-                  className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium ${
+                  className={`px-1 py-0.5 rounded text-[9px] font-medium ${
                     (task.payment.status || "unpaid") === "paid"
                       ? "bg-green-100 text-green-700"
-                      : "bg-yellow-100 text-yellow-700"
+                      : "bg-amber-100 text-amber-700"
                   }`}
                 >
-                  {(task.payment.status || "unpaid") === "paid"
-                    ? "Paid"
-                    : "Unpaid"}
+                  {(task.payment.status || "unpaid") === "paid" ? "Paid" : "Unpaid"}
                 </span>
               </div>
             )}
 
-            {/* Actions Dropdown - Three dots icon */}
             <div
               className="dropdown-container z-20"
               onPointerDown={(e) => e.stopPropagation()}
@@ -183,32 +198,17 @@ function SortableTask({
                   e.preventDefault();
                   setOpenDropdownId(isDropdownOpen ? null : task.id);
                 }}
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                }}
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                }}
-                className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-slate-200 active:bg-slate-300 transition-colors pointer-events-auto"
+                onPointerDown={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-slate-100 active:bg-slate-200 transition-colors text-slate-500 hover:text-slate-700"
               >
-                <svg
-                  className="w-4 h-4 text-slate-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-                  />
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                 </svg>
               </button>
 
-              {/* Dropdown Menu */}
               {isDropdownOpen && (
-                <div className="absolute right-0 bottom-8 z-30 w-40 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+                <div className="absolute right-0 bottom-8 z-30 w-40 rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden">
                   {onEdit && (
                     <button
                       className="w-full px-4 py-2.5 text-left text-sm text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2"
@@ -284,19 +284,27 @@ function DroppableColumn({
     id: column,
   });
 
+  const accent = columnStyles[column] || columnStyles["Dirty"];
+
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-3xl border p-4 shadow-sm transition-colors ${
-        isOver ? "border-blue-300 bg-blue-50/50" : "border-slate-100 bg-white"
+      className={`rounded-2xl border-2 min-h-[320px] flex flex-col transition-all duration-200 ${
+        isOver
+          ? "border-slate-400 bg-slate-50/80 shadow-md scale-[1.02]"
+          : `border-slate-200/90 bg-white shadow-sm hover:shadow-md`
       }`}
     >
-      <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-slate-600">{column}</h4>
-        <span className="text-xs text-slate-400">{tasks.length}</span>
+      <div
+        className={`flex items-center justify-between rounded-t-2xl border-b px-4 py-3 shrink-0 ${accent}`}
+      >
+        <h4 className="text-sm font-bold tracking-tight">{column}</h4>
+        <span className="inline-flex h-6 min-w-[24px] items-center justify-center rounded-full bg-white/80 px-2 text-xs font-semibold text-slate-600 shadow-sm">
+          {tasks.length}
+        </span>
       </div>
       <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-        <div className="mt-3 space-y-3">
+        <div className="flex-1 overflow-y-auto p-3 space-y-3">
           {tasks.map((task) => (
             <SortableTask
               key={task.id}
@@ -328,9 +336,10 @@ export default function KanbanBoard({
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -366,37 +375,42 @@ export default function KanbanBoard({
     const draggedTask = tasks.find((task) => task.id === activeId);
     if (!draggedTask) return;
 
-    // Normalize current status
+    // Normalize current status so In Progress tasks always compare as "in_progress"
     const normalizeStatus = (status) => {
-      if (!status) return "pending";
-      const normalized = status.toLowerCase().trim();
-      if (normalized === "in-progress") return "in_progress";
-      if (normalized === "complete") return "completed";
-      if (normalized === "canceled") return "cancelled";
-      return normalized;
+      if (status == null || status === "") return "dirty";
+      const s = String(status).toLowerCase().trim().replace(/\s+/g, "_");
+      if (s === "in-progress" || s === "in_progress") return "in_progress";
+      if (s === "complete") return "completed";
+      if (s === "canceled" || s === "cancelled") return "cancelled";
+      return s;
     };
 
     const currentStatus = normalizeStatus(draggedTask.status);
 
-    // Check if dropped on a column (droppable area)
-    const targetColumn = columns.find((col) => col === overId);
-    if (targetColumn) {
-      const newStatus = columnToStatus[targetColumn];
+    // Normalize column name so "In progress" (any casing) matches "In Progress"
+    const toColumnKey = (col) => {
+      if (!col || typeof col !== "string") return null;
+      const c = col.trim();
+      if (c.toLowerCase() === "in progress") return "In Progress";
+      return columns.find((colName) => colName.toLowerCase() === c.toLowerCase()) || c;
+    };
 
-      // Only update if status actually changed
-      if (newStatus && newStatus !== currentStatus) {
+    // Check if dropped on a column (droppable area)
+    const targetColumnByOver = columns.find((col) => col === overId) || toColumnKey(overId);
+    if (targetColumnByOver && columnToStatus[targetColumnByOver]) {
+      const newStatus = columnToStatus[targetColumnByOver];
+      if (newStatus !== currentStatus) {
         onStatusChange?.(activeId, newStatus);
       }
       return;
     }
 
-    // Check if dropped on another task - find which column it belongs to
+    // Check if dropped on another task — use that task's column
     const targetTask = tasks.find((task) => task.id === overId);
     if (targetTask) {
-      const targetColumn = targetTask.column;
+      const targetColumn = toColumnKey(targetTask.column) || targetTask.column;
       const newStatus = columnToStatus[targetColumn];
 
-      // Only update if status actually changed
       if (newStatus && newStatus !== currentStatus) {
         onStatusChange?.(activeId, newStatus);
       }
@@ -416,11 +430,11 @@ export default function KanbanBoard({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={pointerWithin}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
         {columns.map((column) => (
           <DroppableColumn
             key={column}
@@ -437,15 +451,18 @@ export default function KanbanBoard({
       </div>
       <DragOverlay>
         {activeTask ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-lg opacity-90 rotate-3">
-            <div className="flex items-start justify-between gap-2 mb-1">
-              <p className="text-sm font-semibold text-slate-900 line-clamp-2 flex-1">
-                {activeTask.title}
-              </p>
-            </div>
+          <div className="rounded-xl border-2 border-slate-200 bg-white p-3.5 shadow-xl opacity-95 rotate-1 w-[280px]">
+            <p className="text-sm font-semibold text-slate-900 line-clamp-2 leading-snug">
+              {activeTask.title}
+            </p>
             {activeTask.description && (
-              <p className="mt-1 text-xs text-slate-500 line-clamp-2">
+              <p className="mt-1.5 text-xs text-slate-500 line-clamp-2">
                 {activeTask.description}
+              </p>
+            )}
+            {activeTask.property && (
+              <p className="mt-2 text-xs text-slate-600 font-medium truncate">
+                📍 {activeTask.property}
               </p>
             )}
           </div>
