@@ -7,16 +7,12 @@ import {
   getPropertyById,
   updateProperty,
   getRooms,
-  getUnits,
   getRoomTypes,
   addRoom,
-  addUnit,
   addRoomType,
   updateRoom,
-  updateUnit,
   updateRoomType,
   deleteRoom,
-  deleteUnit,
   deleteRoomType,
 } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
@@ -48,11 +44,9 @@ export default function PropertyDetailsPage() {
   const [property, setProperty] = useState(null);
   const [rooms, setRooms] = useState([]);
   const [roomTypes, setRoomTypes] = useState([]);
-  const [units, setUnits] = useState([]);
   const [isHotel, setIsHotel] = useState(false);
 
   const [isAddRoomModalOpen, setAddRoomModalOpen] = useState(false);
-  const [isAddUnitModalOpen, setAddUnitModalOpen] = useState(false);
   const [isAddRoomTypeModalOpen, setAddRoomTypeModalOpen] = useState(false);
   const [isEditRoomTypeModalOpen, setEditRoomTypeModalOpen] = useState(false);
   const [editingRoomTypeId, setEditingRoomTypeId] = useState(null);
@@ -76,12 +70,6 @@ export default function PropertyDetailsPage() {
     amenities: [],
   };
   const [roomTypeForm, setRoomTypeForm] = useState(defaultRoomTypeForm);
-
-  const [unitForm, setUnitForm] = useState({
-    unitName: "",
-    price: "",
-    maxOccupancy: "",
-  });
 
   // Edit property form
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
@@ -206,7 +194,7 @@ export default function PropertyDetailsPage() {
       const isHotelProperty = modelType === "hotel";
       setIsHotel(isHotelProperty);
 
-      // Load rooms, room types (hotel), or units based on modelType
+      // Load rooms and room types for hotel properties
       if (isHotelProperty) {
         const [roomsData, roomTypesData] = await Promise.all([
           getRooms(propertyId),
@@ -214,10 +202,7 @@ export default function PropertyDetailsPage() {
         ]);
         setRooms(Array.isArray(roomsData) ? roomsData : []);
         setRoomTypes(Array.isArray(roomTypesData) ? roomTypesData : []);
-        setUnits([]);
       } else {
-        const unitsData = await getUnits(propertyId);
-        setUnits(Array.isArray(unitsData) ? unitsData : []);
         setRooms([]);
         setRoomTypes([]);
       }
@@ -230,7 +215,7 @@ export default function PropertyDetailsPage() {
   };
 
   const handleAddRoom = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setIsSaving(true);
     const toastId = toast.loading("Adding room...");
 
@@ -248,29 +233,6 @@ export default function PropertyDetailsPage() {
       loadProperty();
     } catch (error) {
       toast.error(error.message || "Failed to add room", { id: toastId });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleAddUnit = async (e) => {
-    e.preventDefault();
-    setIsSaving(true);
-    const toastId = toast.loading("Adding unit...");
-
-    try {
-      await addUnit(propertyId, {
-        unitName: unitForm.unitName,
-        price: Number(unitForm.price),
-        maxOccupancy: unitForm.maxOccupancy ? Number(unitForm.maxOccupancy) : 2,
-      });
-
-      toast.success("Unit added successfully!", { id: toastId });
-      setAddUnitModalOpen(false);
-      setUnitForm({ unitName: "", price: "", maxOccupancy: "" });
-      loadProperty();
-    } catch (error) {
-      toast.error(error.message || "Failed to add unit", { id: toastId });
     } finally {
       setIsSaving(false);
     }
@@ -377,19 +339,6 @@ export default function PropertyDetailsPage() {
       loadProperty();
     } catch (error) {
       toast.error(error.message || "Failed to delete room type", { id: toastId });
-    }
-  };
-
-  const handleDeleteUnit = async (unitId) => {
-    if (!confirm("Are you sure you want to delete this unit?")) return;
-
-    const toastId = toast.loading("Deleting unit...");
-    try {
-      await deleteUnit(propertyId, unitId);
-      toast.success("Unit deleted successfully!", { id: toastId });
-      loadProperty();
-    } catch (error) {
-      toast.error(error.message || "Failed to delete unit", { id: toastId });
     }
   };
 
@@ -748,108 +697,66 @@ export default function PropertyDetailsPage() {
       </div>
       )}
 
-      {/* Room Types (Hotel) / Units (Airbnb) Section */}
-      {isHotel ? (
-        <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-slate-900">
-              Room types ({roomTypes.length})
-            </h2>
-            <button
-              onClick={() => {
-                setRoomTypeForm(defaultRoomTypeForm);
-                setAddRoomTypeModalOpen(true);
-              }}
-              className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-            >
-              Add room type
-            </button>
-          </div>
-
-          {roomTypes.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
-              <p>No room types yet. Add a room type to auto-create rooms (e.g. Deluxe King × 12).</p>
-            </div>
-          ) : (
-            <DataTable
-              headers={["Name", "Bed", "Occupancy", "Price/night", "Inventory", "Actions"]}
-              rows={roomTypes.map((rt) => ({
-                id: rt.id ?? rt._id,
-                cells: [
-                  rt.name,
-                  `${rt.bedCount ?? 1} × ${rt.bedType ?? "—"}`,
-                  rt.maxOccupancy ?? 2,
-                  `$${Number(rt.price ?? 0).toLocaleString()}`,
-                  rt.inventory ?? 0,
-                  <span key="actions" className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openEditRoomType(rt)}
-                      className="text-slate-600 hover:text-slate-800 text-sm underline"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteRoomType(rt.id ?? rt._id)}
-                      className="text-rose-600 hover:text-rose-700 text-sm underline"
-                    >
-                      Delete
-                    </button>
-                  </span>,
-                ],
-              }))}
-            />
-          )}
-          {rooms.length > 0 && (
-            <div className="mt-6 pt-6 border-t border-slate-100">
-              <p className="text-sm text-slate-500">
-                {rooms.length} individual room{rooms.length !== 1 ? "s" : ""} (created from room types).
-              </p>
-            </div>
-          )}
+      {/* Room Types Section */}
+      <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold text-slate-900">
+            Room types ({roomTypes.length})
+          </h2>
+          <button
+            onClick={() => {
+              setRoomTypeForm(defaultRoomTypeForm);
+              setAddRoomTypeModalOpen(true);
+            }}
+            className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+          >
+            Add room type
+          </button>
         </div>
-      ) : (
-        <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-slate-900">
-              Units ({units.length})
-            </h2>
-            <button
-              onClick={() => setAddUnitModalOpen(true)}
-              className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-            >
-              Add Unit
-            </button>
-          </div>
 
-          {units.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
-              <p>No units added. This property uses base pricing.</p>
-              <p className="text-sm mt-2">Add units if you have multiple rental spaces.</p>
-            </div>
-          ) : (
-            <DataTable
-              headers={["Unit Name", "Price/Night", "Max Occupancy", "Actions"]}
-              rows={units.map((unit) => ({
-                id: unit.id || unit._id,
-                cells: [
-                  unit.unitName,
-                  `$${unit.price}`,
-                  unit.maxOccupancy || 2,
+        {roomTypes.length === 0 ? (
+          <div className="text-center py-12 text-slate-500">
+            <p>No room types yet. Add a room type to auto-create rooms (e.g. Deluxe King x 12).</p>
+          </div>
+        ) : (
+          <DataTable
+            headers={["Name", "Bed", "Occupancy", "Price/night", "Inventory", "Actions"]}
+            rows={roomTypes.map((rt) => ({
+              id: rt.id ?? rt._id,
+              cells: [
+                rt.name,
+                `${rt.bedCount ?? 1} x ${rt.bedType ?? "—"}`,
+                rt.maxOccupancy ?? 2,
+                `$${Number(rt.price ?? 0).toLocaleString()}`,
+                rt.inventory ?? 0,
+                <span key="actions" className="flex gap-2">
                   <button
-                    key="delete"
-                    onClick={() => handleDeleteUnit(unit.id || unit._id)}
+                    type="button"
+                    onClick={() => openEditRoomType(rt)}
+                    className="text-slate-600 hover:text-slate-800 text-sm underline"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteRoomType(rt.id ?? rt._id)}
                     className="text-rose-600 hover:text-rose-700 text-sm underline"
                   >
                     Delete
-                  </button>,
-                ],
-              }))}
-            />
-          )}
-        </div>
-      )}
+                  </button>
+                </span>,
+              ],
+            }))}
+          />
+        )}
+        {rooms.length > 0 && (
+          <div className="mt-6 pt-6 border-t border-slate-100">
+            <p className="text-sm text-slate-500">
+              {rooms.length} individual room{rooms.length !== 1 ? "s" : ""} (created from room types).
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Add Room Type Modal */}
       <Modal
@@ -1096,49 +1003,6 @@ export default function PropertyDetailsPage() {
         </form>
       </Modal>
 
-      {/* Add Unit Modal */}
-      <Modal
-        title="Add Unit"
-        description="Add a new unit to this property"
-        isOpen={isAddUnitModalOpen}
-        onClose={() => {
-          setAddUnitModalOpen(false);
-          setUnitForm({ unitName: "", price: "", maxOccupancy: "" });
-        }}
-        primaryActionLabel={isSaving ? "Adding..." : "Add Unit"}
-        onPrimaryAction={handleAddUnit}
-        disabled={isSaving}
-      >
-        <form className="space-y-4">
-          <FormField
-            label="Unit Name *"
-            value={unitForm.unitName}
-            onChange={(e) => setUnitForm({ ...unitForm, unitName: e.target.value })}
-            placeholder="Unit A, Villa 1, etc."
-          />
-
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              label="Price per Night (USD) *"
-              type="number"
-              min="0"
-              step="0.01"
-              value={unitForm.price}
-              onChange={(e) => setUnitForm({ ...unitForm, price: e.target.value })}
-              placeholder="100"
-            />
-
-            <FormField
-              label="Max Occupancy"
-              type="number"
-              min="1"
-              value={unitForm.maxOccupancy}
-              onChange={(e) => setUnitForm({ ...unitForm, maxOccupancy: e.target.value })}
-              placeholder="2"
-            />
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 }

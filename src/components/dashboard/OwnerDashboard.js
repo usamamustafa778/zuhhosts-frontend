@@ -166,7 +166,7 @@ export default function OwnerDashboard({ user }) {
     <div className="mx-auto max-w-4xl space-y-6 py-0 lg:space-y-12 lg:py-4">
       {/* Stats */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 p-4 text-white shadow-lg">
+        <div className="rounded-2xl bg-linear-to-br from-slate-900 to-slate-800 p-4 text-white shadow-lg">
           <p className="text-xs font-medium text-slate-300">Total Revenue</p>
           <p className="mt-1 text-2xl font-bold">${(stats?.totalRevenue || 0).toLocaleString()}</p>
           <div className="mt-2 flex items-center gap-1.5 text-xs">
@@ -190,7 +190,7 @@ export default function OwnerDashboard({ user }) {
         >
           <p className="text-xs font-medium text-slate-500">Active Bookings</p>
           <p className="mt-1 text-2xl font-bold text-slate-900">
-            {stats?.bookings ?? allBookings.filter((b) => ["confirmed", "checked-in", "pending"].includes(b.status)).length}
+            {stats?.bookings ?? allBookings.filter((b) => ["confirmed", "checked_in", "pending"].includes(b.status)).length}
           </p>
           <span className="mt-2 inline-block text-xs font-medium text-blue-600">View all →</span>
         </button>
@@ -239,7 +239,7 @@ export default function OwnerDashboard({ user }) {
           {isSearching && <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />}
         </div>
         {isSearchOpen && searchResults && (
-          <div className="absolute z-[100] mt-2 max-h-[400px] w-full overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
+          <div className="absolute z-100 mt-2 max-h-[400px] w-full overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
             <div className="sticky top-0 border-b border-slate-100 bg-white px-4 py-3">
               <span className="text-sm font-semibold text-slate-700">Results ({searchResults.total})</span>
               <button type="button" className="ml-2 text-xs text-slate-400 hover:text-slate-600" onClick={() => { setIsSearchOpen(false); setSearchQuery(""); }}>Close</button>
