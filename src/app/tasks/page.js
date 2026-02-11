@@ -39,9 +39,9 @@ export default function TasksPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filterStatus, setFilterStatus] = useState(() => {
-    // Default to all on desktop, pending on mobile
+    // Default to all on desktop, dirty on mobile
     if (typeof window !== "undefined") {
-      return window.innerWidth >= 768 ? "all" : "pending";
+      return window.innerWidth >= 768 ? "all" : "dirty";
     }
     return "all";
   });
@@ -63,7 +63,7 @@ export default function TasksPage() {
     title: "",
     description: "",
     assigned_to: "",
-    status: "pending",
+    status: "dirty",
     includePayment: false,
     payment: {
       amount: "",
@@ -244,7 +244,7 @@ export default function TasksPage() {
         title: "",
         description: "",
         assigned_to: "",
-        status: "pending",
+        status: "dirty",
         includePayment: false,
         payment: {
           amount: "",
@@ -336,7 +336,7 @@ export default function TasksPage() {
         title: "",
         description: "",
         assigned_to: "",
-        status: "pending",
+        status: "dirty",
         includePayment: false,
         payment: {
           amount: "",
@@ -356,22 +356,31 @@ export default function TasksPage() {
     }
   };
 
+  const NORMALIZED_STATUS_LABELS = {
+    dirty: "Dirty",
+    in_progress: "In progress",
+    clean: "Clean",
+    completed: "Completed",
+  };
+
   // Transform API task data to Kanban format
   const kanbanTasks = tasks.map((task) => {
     const taskId = task.id || task._id;
 
-    // Map API status to Kanban column names (explicitly handle all cases)
-    let column = "Pending";
-    const status = (task.status || "").toLowerCase().trim();
-    if (status === "in_progress" || status === "in-progress") {
-      column = "In Progress";
-    } else if (status === "completed" || status === "complete") {
+    // Normalize status from API
+    const rawStatus = (task.status || "").toLowerCase().trim();
+    let normalizedStatus = rawStatus;
+    if (rawStatus === "in-progress") normalizedStatus = "in_progress";
+    if (rawStatus === "complete") normalizedStatus = "completed";
+
+    // Map status to Kanban column names
+    let column = "Dirty";
+    if (normalizedStatus === "in_progress") {
+      column = "In progress";
+    } else if (normalizedStatus === "clean") {
+      column = "Clean";
+    } else if (normalizedStatus === "completed") {
       column = "Completed";
-    } else if (status === "cancelled" || status === "canceled") {
-      column = "Cancelled";
-    } else {
-      // Default to Pending for "pending" or any other status
-      column = "Pending";
     }
 
     // Handle nested objects from API response
@@ -391,7 +400,7 @@ export default function TasksPage() {
       assignee: assignedTo.name || "Unassigned",
       property: property.title || property.name || "No property",
       description: task.description || "",
-      status: task.status,
+      status: normalizedStatus,
       column: column,
       createdAt: task.createdAt,
       payment: task.payment || null, // Include payment info for display
@@ -499,10 +508,10 @@ export default function TasksPage() {
             onChange={(e) => setFilterStatus(e.target.value)}
           >
             <option value="all">All Tasks</option>
-            <option value="pending">Pending</option>
-            <option value="in_progress">In Progress</option>
+            <option value="dirty">Dirty</option>
+            <option value="in_progress">In progress</option>
+            <option value="clean">Clean</option>
             <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
           </select>
 
           <button
@@ -529,13 +538,13 @@ export default function TasksPage() {
         </button>
         <button
           className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-            filterStatus === "pending"
+            filterStatus === "dirty"
               ? "bg-slate-900 text-white"
               : "bg-slate-100 text-slate-700 hover:bg-slate-200"
           }`}
-          onClick={() => setFilterStatus("pending")}
+          onClick={() => setFilterStatus("dirty")}
         >
-          Pending
+          Dirty
         </button>
         <button
           className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
@@ -545,17 +554,17 @@ export default function TasksPage() {
           }`}
           onClick={() => setFilterStatus("in_progress")}
         >
-          Progress
+          In progress
         </button>
         <button
           className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-            filterStatus === "completed"
+            filterStatus === "clean"
               ? "bg-slate-900 text-white"
               : "bg-slate-100 text-slate-700 hover:bg-slate-200"
           }`}
-          onClick={() => setFilterStatus("completed")}
+          onClick={() => setFilterStatus("clean")}
         >
-          Completed
+          Clean
         </button>
         <button
           className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
@@ -684,7 +693,7 @@ export default function TasksPage() {
                                     ? task.assigned_to.id ||
                                       task.assigned_to._id
                                     : task.assigned_to || "",
-                                status: task.status || "pending",
+                                status: task.status || "dirty",
                                 includePayment: Boolean(
                                   taskPayment && taskPayment.amount !== undefined
                                 ),
@@ -791,28 +800,22 @@ export default function TasksPage() {
                             )
                           }
                           className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
-                            task.status === "completed" ||
-                            task.status === "complete"
+                            task.status === "completed"
+                              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                              : task.status === "clean"
                               ? "bg-green-100 text-green-700 hover:bg-green-200"
-                              : task.status === "in_progress" ||
-                                task.status === "in-progress"
+                              : task.status === "in_progress"
                               ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                              : task.status === "cancelled" ||
-                                task.status === "canceled"
-                              ? "bg-rose-100 text-rose-700 hover:bg-rose-200"
                               : "bg-red-100 text-red-600 hover:bg-red-200"
                           }`}
                         >
-                          {task.status === "completed" ||
-                          task.status === "complete"
-                            ? "Done"
-                            : task.status === "in_progress" ||
-                              task.status === "in-progress"
-                            ? "Active"
-                            : task.status === "cancelled" ||
-                              task.status === "canceled"
-                            ? "Cancelled"
-                            : "Pending"}
+                          {task.status === "completed"
+                            ? "Completed"
+                            : task.status === "clean"
+                            ? "Clean"
+                            : task.status === "in_progress"
+                            ? "In progress"
+                            : "Dirty"}
                           <svg
                             className="ml-1 h-3 w-3"
                             fill="none"
@@ -833,21 +836,20 @@ export default function TasksPage() {
                           <div className="absolute right-0 top-8 z-20 w-36 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
                             <button
                               className={`w-full px-3 py-2 text-left text-xs font-medium transition-colors ${
-                                task.status === "pending"
+                                task.status === "dirty"
                                   ? "bg-slate-50 text-slate-900"
                                   : "text-slate-700 hover:bg-slate-50"
                               }`}
                               onClick={() => {
-                                handleStatusChange(taskId, "pending");
+                                handleStatusChange(taskId, "dirty");
                                 setOpenStatusDropdownId(null);
                               }}
                             >
-                              Pending
+                              Dirty
                             </button>
                             <button
                               className={`w-full px-3 py-2 text-left text-xs font-medium transition-colors border-t border-slate-100 ${
-                                task.status === "in_progress" ||
-                                task.status === "in-progress"
+                                task.status === "in_progress"
                                   ? "bg-blue-50 text-blue-900"
                                   : "text-slate-700 hover:bg-slate-50"
                               }`}
@@ -860,31 +862,16 @@ export default function TasksPage() {
                             </button>
                             <button
                               className={`w-full px-3 py-2 text-left text-xs font-medium transition-colors border-t border-slate-100 ${
-                                task.status === "completed" ||
-                                task.status === "complete"
+                                task.status === "clean"
                                   ? "bg-green-50 text-green-900"
                                   : "text-slate-700 hover:bg-slate-50"
                               }`}
                               onClick={() => {
-                                handleStatusChange(taskId, "completed");
+                                handleStatusChange(taskId, "clean");
                                 setOpenStatusDropdownId(null);
                               }}
                             >
-                              Completed
-                            </button>
-                            <button
-                              className={`w-full px-3 py-2 text-left text-xs font-medium transition-colors border-t border-slate-100 ${
-                                task.status === "cancelled" ||
-                                task.status === "canceled"
-                                  ? "bg-rose-50 text-rose-900"
-                                  : "text-slate-700 hover:bg-slate-50"
-                              }`}
-                              onClick={() => {
-                                handleStatusChange(taskId, "cancelled");
-                                setOpenStatusDropdownId(null);
-                              }}
-                            >
-                              Cancelled
+                              Clean
                             </button>
                           </div>
                         )}
@@ -963,7 +950,7 @@ export default function TasksPage() {
                         ? originalTask.assigned_to.id ||
                           originalTask.assigned_to._id
                         : originalTask.assigned_to || "",
-                    status: originalTask.status || "pending",
+                    status: originalTask.status || "dirty",
                     includePayment: Boolean(taskPayment && taskPayment.amount !== undefined),
                     payment: {
                       amount: taskPayment.amount?.toString() || "",
@@ -997,7 +984,7 @@ export default function TasksPage() {
             title: "",
             description: "",
             assigned_to: "",
-            status: "pending",
+            status: "dirty",
             includePayment: false,
             payment: {
               amount: "",
@@ -1098,10 +1085,10 @@ export default function TasksPage() {
                   setFormData({ ...formData, status: e.target.value })
                 }
               >
-                <option value="pending">Pending</option>
-                <option value="in_progress">In Progress</option>
+                <option value="dirty">Dirty</option>
+                <option value="in_progress">In progress</option>
+                <option value="clean">Clean</option>
                 <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
               </select>
             </div>
           </div>
@@ -1310,7 +1297,7 @@ export default function TasksPage() {
             title: "",
             description: "",
             assigned_to: "",
-            status: "pending",
+            status: "dirty",
             includePayment: false,
             payment: {
               amount: "",
@@ -1412,10 +1399,10 @@ export default function TasksPage() {
                   setFormData({ ...formData, status: e.target.value })
                 }
               >
-                <option value="pending">Pending</option>
-                <option value="in_progress">In Progress</option>
+                <option value="dirty">Dirty</option>
+                <option value="in_progress">In progress</option>
+                <option value="clean">Clean</option>
                 <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
               </select>
             </div>
           </div>

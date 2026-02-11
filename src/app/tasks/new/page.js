@@ -34,7 +34,7 @@ export default function CreateTaskPage() {
     title: "",
     description: "",
     assigned_to: "",
-    status: "pending",
+    status: "dirty",
     includePayment: false,
     payment: {
       amount: "",
@@ -236,10 +236,10 @@ export default function CreateTaskPage() {
                     setFormData({ ...formData, status: e.target.value })
                   }
                 >
-                  <option value="pending">Pending</option>
-                  <option value="in_progress">In Progress</option>
+                  <option value="dirty">Dirty</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="clean">Clean</option>
                   <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
                 </select>
               </div>
             </div>

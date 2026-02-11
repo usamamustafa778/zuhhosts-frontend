@@ -19,14 +19,14 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useState, useEffect } from "react";
 
-const columns = ["Pending", "In Progress", "Completed", "Cancelled"];
+const columns = ["Dirty", "In Progress", "Clean", "Completed"];
 
 // Map column names to status values
 const columnToStatus = {
-  Pending: "pending",
+  Dirty: "dirty",
   "In Progress": "in_progress",
+  Clean: "clean",
   Completed: "completed",
-  Cancelled: "cancelled",
 };
 
 function SortableTask({
