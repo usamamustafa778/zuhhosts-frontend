@@ -2027,73 +2027,7 @@ export async function deleteRoomType(propertyId, roomTypeId) {
 }
 
 // ============================================
-// Airbnb Property Model API Functions
-// ============================================
-
-/**
- * Add a unit to a property (Airbnb model)
- * Endpoint: POST /api/properties/:propertyId/units
- * @param {string} propertyId - Property ID
- * @param {Object} data - Unit data
- * @param {string} [data.unitName] - Unit name (optional)
- * @param {number} data.price - Price per night (required)
- * @param {number} [data.maxOccupancy] - Maximum occupancy (optional)
- * @returns {Promise<Object>} Created unit object
- */
-export async function addUnit(propertyId, data) {
-  const res = await fetchWithAuth(`${API_BASE_URL}/api/properties/${propertyId}/units`, {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-  return handleResponse(res, "Failed to add unit");
-}
-
-/**
- * Get all units for a property
- * Endpoint: GET /api/properties/:propertyId/units
- * @param {string} propertyId - Property ID
- * @param {string} [startDate] - Filter available units from start date
- * @param {string} [endDate] - Filter available units to end date
- * @returns {Promise<Array>} Array of unit objects
- */
-export async function getUnits(propertyId, startDate = null, endDate = null) {
-  let url = `${API_BASE_URL}/api/properties/${propertyId}/units`;
-  if (startDate && endDate) {
-    url += `?startDate=${startDate}&endDate=${endDate}`;
-  }
-  const res = await fetchWithAuth(url);
-  return handleResponse(res, "Failed to fetch units");
-}
-
-/**
- * Update a unit
- * Endpoint: PUT /api/properties/:propertyId/units/:unitId
- * @param {string} propertyId - Property ID
- * @param {string} unitId - Unit ID
- * @param {Object} data - Update data
- * @returns {Promise<Object>} Updated unit object
- */
-export async function updateUnit(propertyId, unitId, data) {
-  const res = await fetchWithAuth(`${API_BASE_URL}/api/properties/${propertyId}/units/${unitId}`, {
-    method: "PUT",
-    body: JSON.stringify(data),
-  });
-  return handleResponse(res, "Failed to update unit");
-}
-
-/**
- * Delete a unit
- * Endpoint: DELETE /api/properties/:propertyId/units/:unitId
- * @param {string} propertyId - Property ID
- * @param {string} unitId - Unit ID
- * @returns {Promise<Object>} Success message
- */
-export async function deleteUnit(propertyId, unitId) {
-  const res = await fetchWithAuth(`${API_BASE_URL}/api/properties/${propertyId}/units/${unitId}`, {
-    method: "DELETE",
-  });
-  return handleResponse(res, "Failed to delete unit");
-}
+// (Units removed — replaced by Room Types / Room Categories)
 
 // ============================================
 // Check-In / Check-Out API Functions
@@ -2449,15 +2383,6 @@ export async function getPublicRooms(tenantSlug, propertyId) {
 }
 
 /**
- * Get public units for a property (airbnb; no auth required)
- * Endpoint: GET /public/:tenantSlug/properties/:propertyId/units
- */
-export async function getPublicUnits(tenantSlug, propertyId) {
-  const res = await fetch(`${API_BASE_URL}/public/${tenantSlug}/properties/${propertyId}/units`);
-  return handleResponse(res, "Failed to fetch units");
-}
-
-/**
  * Check property availability (no auth required)
  * Endpoint: GET /public/:tenantSlug/properties/:propertyId/availability
  * @param {string} tenantSlug - Tenant slug
@@ -2466,7 +2391,6 @@ export async function getPublicUnits(tenantSlug, propertyId) {
  * @param {string} params.startDate - Start date (YYYY-MM-DD)
  * @param {string} params.endDate - End date (YYYY-MM-DD)
  * @param {string} [params.roomId] - Room ID (optional)
- * @param {string} [params.unitId] - Unit ID (optional)
  * @returns {Promise<Object>} Availability information
  */
 export async function checkPublicAvailability(tenantSlug, propertyId, params) {
@@ -2474,7 +2398,6 @@ export async function checkPublicAvailability(tenantSlug, propertyId, params) {
   if (params.startDate) queryParams.append("startDate", params.startDate);
   if (params.endDate) queryParams.append("endDate", params.endDate);
   if (params.roomId) queryParams.append("roomId", params.roomId);
-  if (params.unitId) queryParams.append("unitId", params.unitId);
   
   const url = `${API_BASE_URL}/public/${tenantSlug}/properties/${propertyId}/availability?${queryParams.toString()}`;
   const res = await fetch(url);
@@ -2488,7 +2411,6 @@ export async function checkPublicAvailability(tenantSlug, propertyId, params) {
  * @param {Object} data - Booking data
  * @param {string} data.propertyId - Property ID
  * @param {string} [data.roomId] - Room ID (for hotel)
- * @param {string} [data.unitId] - Unit ID (for airbnb)
  * @param {string} data.startDate - Start date (YYYY-MM-DD)
  * @param {string} data.endDate - End date (YYYY-MM-DD)
  * @param {Object} data.guestInfo - Guest information

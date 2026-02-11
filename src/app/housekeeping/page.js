@@ -319,7 +319,6 @@ export default function HousekeepingPage() {
             const taskId = task.id || task._id;
             const property = task.property_id ?? task.propertyId;
             const room = task.roomId;
-            const unit = task.unitId;
 
             return (
               <div
@@ -349,33 +348,6 @@ export default function HousekeepingPage() {
                             <StatusPill
                               label={room.housekeepingStatus || room.status}
                               className={`ml-2 ${getRoomStatusColor(room.housekeepingStatus || room.status)}`}
-                            />
-                          )}
-                          <Select
-                            label=""
-                            value=""
-                            onChange={(value) => value && handleUpdateRoomUnitStatus(task, value)}
-                            placeholder="Set status"
-                            options={[
-                              { value: "", label: "Set status…" },
-                              ...housekeepingStatusOptions,
-                            ]}
-                            className="ml-2 min-w-[120px]"
-                            disabled={!!statusUpdatingId}
-                          />
-                        </div>
-                      )}
-
-                      {unit && (
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                          </svg>
-                          <span>Unit {unit.unitName}</span>
-                          {(unit.housekeepingStatus || unit.status) && (
-                            <StatusPill
-                              label={unit.housekeepingStatus || unit.status}
-                              className={`ml-2 ${getRoomStatusColor(unit.housekeepingStatus || unit.status)}`}
                             />
                           )}
                           <Select
@@ -468,9 +440,6 @@ export default function HousekeepingPage() {
               </h4>
               {selectedTask.roomId && (
                 <p className="text-sm text-slate-600">Room {selectedTask.roomId.roomNumber}</p>
-              )}
-              {selectedTask.unitId && (
-                <p className="text-sm text-slate-600">Unit {selectedTask.unitId.unitName}</p>
               )}
             </div>
           )}

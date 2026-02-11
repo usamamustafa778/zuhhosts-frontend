@@ -61,17 +61,39 @@ export default function CheckInOutPage() {
       const allBookings = await getAllBookings();
       const bookings = Array.isArray(allBookings) ? allBookings : [];
 
-      // Filter today's check-ins (status = confirmed, start_date = today)
+      // ── Check-Ins tab ──
+      // Show ALL bookings whose status is checked_in (regardless of checkInTime).
+      // Guests may be checked in via status dropdown OR via the dedicated check-in flow.
       const checkIns = bookings.filter((booking) => {
-        const startDate = booking.start_date?.split("T")[0];
-        return startDate === today && booking.status === "confirmed";
+        return booking.status === "checked_in";
       });
 
-      // Filter today's check-outs (status = checked_in, end_date = today)
+      // ── Check-Outs tab ──
+      // Show ALL bookings whose status is checked_out.
       const checkOuts = bookings.filter((booking) => {
-        const endDate = booking.end_date?.split("T")[0];
-        return endDate === today && booking.status === "checked_in";
+        return booking.status === "checked_out";
       });
+
+      console.log("[Check-In/Out] Today:", today);
+      console.log("[Check-In/Out] All bookings from API:", bookings.length);
+      console.log(
+        "[Check-In/Out] Check-ins (status=checked_in):",
+        checkIns.length,
+        checkIns.map((b) => ({
+          id: b._id || b.id,
+          status: b.status,
+          checkInTime: b.checkInTime || "not set",
+        }))
+      );
+      console.log(
+        "[Check-In/Out] Check-outs (status=checked_out):",
+        checkOuts.length,
+        checkOuts.map((b) => ({
+          id: b._id || b.id,
+          status: b.status,
+          checkOutTime: b.checkOutTime || "not set",
+        }))
+      );
 
       setTodaysCheckIns(checkIns);
       setTodaysCheckOuts(checkOuts);
@@ -108,7 +130,9 @@ export default function CheckInOutPage() {
 
     try {
       const bookingId = selectedBooking.id || selectedBooking._id;
-      await checkInBooking(bookingId, checkInData);
+      const response = await checkInBooking(bookingId, checkInData);
+      const updatedBooking = response?.data || response?.booking || response;
+      console.log("[Check-In] Response →", { bookingId, checkInTime: updatedBooking?.checkInTime, status: updatedBooking?.status });
 
       toast.success("Guest checked in successfully!", { id: toastId });
       setCheckInModalOpen(false);
@@ -129,10 +153,12 @@ export default function CheckInOutPage() {
 
     try {
       const bookingId = selectedBooking.id || selectedBooking._id;
-      await checkOutBooking(bookingId, {
+      const response = await checkOutBooking(bookingId, {
         finalCharges: checkOutData.finalCharges ? Number(checkOutData.finalCharges) : undefined,
         checkoutNotes: checkOutData.checkoutNotes,
       });
+      const updatedBooking = response?.data || response?.booking || response;
+      console.log("[Check-Out] Response →", { bookingId, checkOutTime: updatedBooking?.checkOutTime, status: updatedBooking?.status });
 
       toast.success("Guest checked out successfully!", { id: toastId });
       setCheckOutModalOpen(false);
@@ -195,7 +221,7 @@ export default function CheckInOutPage() {
         <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-600">Today's Check-Ins</p>
+              <p className="text-sm font-medium text-slate-600">Checked In</p>
               <p className="text-3xl font-bold text-slate-900 mt-2">{todaysCheckIns.length}</p>
             </div>
             <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
@@ -209,7 +235,7 @@ export default function CheckInOutPage() {
         <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-600">Today's Check-Outs</p>
+              <p className="text-sm font-medium text-slate-600">Checked Out</p>
               <p className="text-3xl font-bold text-slate-900 mt-2">{todaysCheckOuts.length}</p>
             </div>
             <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
@@ -261,7 +287,7 @@ export default function CheckInOutPage() {
             <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-12 text-center">
               <div className="text-6xl mb-4">✅</div>
               <h3 className="text-xl font-semibold text-slate-900 mb-2">All Clear!</h3>
-              <p className="text-slate-600">No check-ins scheduled for today.</p>
+              <p className="text-slate-600">No checked-in guests at this time.</p>
             </div>
           ) : (
             todaysCheckIns.map((booking) => {
@@ -269,7 +295,6 @@ export default function CheckInOutPage() {
               const guest = booking.guest_id;
               const property = booking.property_id;
               const room = booking.roomId;
-              const unit = booking.unitId;
 
               return (
                 <div
@@ -301,15 +326,15 @@ export default function CheckInOutPage() {
                             <p className="font-medium text-slate-900">Room {room.roomNumber}</p>
                           </div>
                         )}
-                        {unit && (
-                          <div>
-                            <p className="text-slate-500">Unit</p>
-                            <p className="font-medium text-slate-900">{unit.unitName}</p>
-                          </div>
-                        )}
                         <div>
-                          <p className="text-slate-500">Guests</p>
-                          <p className="font-medium text-slate-900">{booking.numberOfGuests || 1}</p>
+                          <p className="text-slate-500">Checked In</p>
+                          <p className="font-medium text-slate-900">
+                            {booking.checkInTime
+                              ? new Date(booking.checkInTime).toLocaleString("en-US", {
+                                  month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+                                })
+                              : "N/A"}
+                          </p>
                         </div>
                         <div>
                           <p className="text-slate-500">Amount</p>
@@ -321,10 +346,10 @@ export default function CheckInOutPage() {
                     </div>
 
                     <button
-                      onClick={() => handleOpenCheckIn(booking)}
-                      className="rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+                      onClick={() => handleOpenCheckOut(booking)}
+                      className="rounded-full bg-green-600 px-6 py-3 text-sm font-semibold text-white hover:bg-green-700"
                     >
-                      Check In
+                      Check Out
                     </button>
                   </div>
                 </div>
@@ -341,7 +366,7 @@ export default function CheckInOutPage() {
             <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-12 text-center">
               <div className="text-6xl mb-4">✅</div>
               <h3 className="text-xl font-semibold text-slate-900 mb-2">All Clear!</h3>
-              <p className="text-slate-600">No check-outs scheduled for today.</p>
+              <p className="text-slate-600">No checked-out guests at this time.</p>
             </div>
           ) : (
             todaysCheckOuts.map((booking) => {
@@ -349,7 +374,6 @@ export default function CheckInOutPage() {
               const guest = booking.guest_id;
               const property = booking.property_id;
               const room = booking.roomId;
-              const unit = booking.unitId;
 
               return (
                 <div
@@ -381,15 +405,15 @@ export default function CheckInOutPage() {
                             <p className="font-medium text-slate-900">Room {room.roomNumber}</p>
                           </div>
                         )}
-                        {unit && (
-                          <div>
-                            <p className="text-slate-500">Unit</p>
-                            <p className="font-medium text-slate-900">{unit.unitName}</p>
-                          </div>
-                        )}
                         <div>
-                          <p className="text-slate-500">Guests</p>
-                          <p className="font-medium text-slate-900">{booking.numberOfGuests || 1}</p>
+                          <p className="text-slate-500">Checked Out</p>
+                          <p className="font-medium text-slate-900">
+                            {booking.checkOutTime
+                              ? new Date(booking.checkOutTime).toLocaleString("en-US", {
+                                  month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+                                })
+                              : "N/A"}
+                          </p>
                         </div>
                         <div>
                           <p className="text-slate-500">Amount</p>
@@ -400,12 +424,11 @@ export default function CheckInOutPage() {
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => handleOpenCheckOut(booking)}
-                      className="rounded-full bg-green-600 px-6 py-3 text-sm font-semibold text-white hover:bg-green-700"
+                    <span
+                      className="rounded-full bg-slate-100 px-6 py-3 text-sm font-semibold text-slate-600"
                     >
-                      Check Out
-                    </button>
+                      Completed
+                    </span>
                   </div>
                 </div>
               );

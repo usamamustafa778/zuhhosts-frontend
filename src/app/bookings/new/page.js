@@ -13,6 +13,7 @@ import {
   getAllProperties,
   getAllGuests,
   createGuest,
+  getRooms,
 } from "@/lib/api";
 import { getDefaultCurrency } from "@/utils/currencyUtils";
 import { useRequireAuth } from "@/hooks/useAuth";
@@ -21,6 +22,7 @@ import { useSEO } from "@/hooks/useSEO";
 const getInitialFormState = () => ({
   property_id: "",
   guest_id: "",
+  roomId: "",
   start_date: "",
   end_date: "",
   amount: "",
@@ -68,6 +70,7 @@ export default function NewBookingPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
   const [isCreatingNewGuest, setIsCreatingNewGuest] = useState(false);
+  const [roomsData, setRoomsData] = useState([]);
   const [idCardFiles, setIdCardFiles] = useState([]);
 
   const [createForm, setCreateForm] = useState(() => getInitialFormState());
@@ -136,6 +139,16 @@ export default function NewBookingPage() {
     loadData();
   }, [isAuthenticated]);
 
+  // Fetch rooms when property changes
+  useEffect(() => {
+    if (!createForm.property_id) {
+      setRoomsData([]);
+      return;
+    }
+    getRooms(createForm.property_id)
+      .then((data) => setRoomsData(Array.isArray(data) ? data : []))
+      .catch(() => setRoomsData([]));
+  }, [createForm.property_id]);
 
   const handleCreateGuest = async () => {
     try {
@@ -167,6 +180,11 @@ export default function NewBookingPage() {
       return;
     }
 
+    if (!createForm.roomId) {
+      toast.error("Please select a room");
+      return;
+    }
+
     try {
       setIsSaving(true);
       setError(null);
@@ -178,6 +196,8 @@ export default function NewBookingPage() {
       Object.keys(createForm).forEach((key) => {
         if (key === "currency") {
           formData.append(key, getDefaultCurrency());
+        } else if (key === "roomId" && !createForm[key]) {
+          // Skip empty roomId
         } else {
           formData.append(key, createForm[key]);
         }
@@ -403,6 +423,33 @@ export default function NewBookingPage() {
               noOptionsMessage="No properties found"
             />
           </div>
+
+          {/* Room Selection */}
+          {createForm.property_id && (
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Room *
+              </label>
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={createForm.roomId}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, roomId: e.target.value })
+                }
+                required
+              >
+                <option value="">Select a room</option>
+                {roomsData.map((room) => {
+                  const rId = room._id || room.id;
+                  return (
+                    <option key={rId} value={rId}>
+                      Room {room.roomNumber} — {room.roomType} — ${room.price}/night
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
 
           {/* Dates */}
           <div className="grid gap-4 sm:grid-cols-2">

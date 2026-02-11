@@ -24,6 +24,7 @@ import {
   createGuest,
   updateGuest,
   getCurrencies,
+  getRooms,
 } from "@/lib/api";
 import { getDefaultCurrency, formatCurrency, getCurrencyMap } from "@/utils/currencyUtils";
 import { useRequireAuth } from "@/hooks/useAuth";
@@ -32,6 +33,7 @@ import { useSEO } from "@/hooks/useSEO";
 const getInitialFormState = () => ({
   property_id: "",
   guest_id: "",
+  roomId: "",
   start_date: "",
   end_date: "",
   amount: "",
@@ -113,13 +115,28 @@ const formatAmount = (amount, currency = null) => {
   return formatCurrency(amount, currency);
 };
 
+const STATUS_OPTIONS = [
+  { label: "Pending", value: "pending" },
+  { label: "Confirmed", value: "confirmed" },
+  { label: "Checked In", value: "checked_in" },
+  { label: "Checked Out", value: "checked_out" },
+  { label: "Cancelled", value: "cancelled" },
+  { label: "No Show", value: "no_show" },
+];
+
+const getStatusLabel = (status) => {
+  const found = STATUS_OPTIONS.find((opt) => opt.value === status);
+  return found ? found.label : status || "Pending";
+};
+
 const getStatusColor = (status) => {
   const colors = {
     pending: "bg-yellow-100 text-yellow-700",
     confirmed: "bg-blue-100 text-blue-700",
-    "checked-in": "bg-green-100 text-green-700",
-    "checked-out": "bg-slate-100 text-slate-700",
+    checked_in: "bg-green-100 text-green-700",
+    checked_out: "bg-slate-100 text-slate-700",
     cancelled: "bg-rose-100 text-rose-700",
+    no_show: "bg-orange-100 text-orange-700",
   };
   return colors[status] || "bg-slate-100 text-slate-700";
 };
@@ -214,6 +231,8 @@ export default function BookingsPage() {
     phone: "",
   });
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [createRooms, setCreateRooms] = useState([]);
+  const [editRooms, setEditRooms] = useState([]);
   const [createIdCardFiles, setCreateIdCardFiles] = useState([]);
   const [editIdCardFiles, setEditIdCardFiles] = useState([]);
   const [viewBooking, setViewBooking] = useState(null);
@@ -255,56 +274,84 @@ export default function BookingsPage() {
     loadData();
   }, [isAuthenticated, filterPeriod, filterStatus, filterPaymentStatus]);
 
+  // Fetch rooms when create form property changes
   useEffect(() => {
-    if (
-      createForm.property_id &&
-      createForm.start_date &&
-      createForm.end_date
-    ) {
+    if (!createForm.property_id) {
+      setCreateRooms([]);
+      return;
+    }
+    getRooms(createForm.property_id)
+      .then((data) => setCreateRooms(Array.isArray(data) ? data : []))
+      .catch(() => setCreateRooms([]));
+  }, [createForm.property_id]);
+
+  // Fetch rooms when edit form property changes
+  useEffect(() => {
+    if (!editForm.property_id) {
+      setEditRooms([]);
+      return;
+    }
+    getRooms(editForm.property_id)
+      .then((data) => setEditRooms(Array.isArray(data) ? data : []))
+      .catch(() => setEditRooms([]));
+  }, [editForm.property_id]);
+
+  // Auto-calculate amount for create form
+  useEffect(() => {
+    if (!createForm.property_id || !createForm.start_date || !createForm.end_date) return;
+
+    // Use selected room's price if available, otherwise property base price
+    let pricePerNight = 0;
+    if (createForm.roomId && createRooms.length > 0) {
+      const selectedRoom = createRooms.find(
+        (r) => (r._id || r.id) === createForm.roomId
+      );
+      pricePerNight = selectedRoom?.price || 0;
+    }
+    if (!pricePerNight) {
       const property = propertiesData.find(
         (p) => (p._id || p.id) === createForm.property_id
       );
-      if (property?.price) {
-        const nights = calculateNights(
-          createForm.start_date,
-          createForm.end_date
-        );
-        const baseAmount = property.price * nights;
-        const discountPercent = Number(createForm.discount) || 0;
-        const discountAmount = (baseAmount * discountPercent) / 100;
-        const finalAmount = baseAmount - discountAmount;
-        setCreateForm((prev) => ({ ...prev, amount: finalAmount }));
-      }
+      pricePerNight = property?.price || 0;
     }
-  }, [
-    createForm.property_id,
-    createForm.start_date,
-    createForm.end_date,
-    createForm.discount,
-    propertiesData,
-  ]);
+    if (pricePerNight) {
+      const nights = calculateNights(createForm.start_date, createForm.end_date);
+      const baseAmount = pricePerNight * nights;
+      const discountPercent = Number(createForm.discount) || 0;
+      const discountAmount = (baseAmount * discountPercent) / 100;
+      const finalAmount = baseAmount - discountAmount;
+      setCreateForm((prev) => ({ ...prev, amount: finalAmount }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createForm.property_id, createForm.roomId, createForm.start_date, createForm.end_date, createForm.discount, propertiesData, createRooms]);
 
+  // Auto-calculate amount for edit form
   useEffect(() => {
-    if (editForm.property_id && editForm.start_date && editForm.end_date) {
+    if (!editForm.property_id || !editForm.start_date || !editForm.end_date) return;
+
+    let pricePerNight = 0;
+    if (editForm.roomId && editRooms.length > 0) {
+      const selectedRoom = editRooms.find(
+        (r) => (r._id || r.id) === editForm.roomId
+      );
+      pricePerNight = selectedRoom?.price || 0;
+    }
+    if (!pricePerNight) {
       const property = propertiesData.find(
         (p) => (p._id || p.id) === editForm.property_id
       );
-      if (property?.price) {
-        const nights = calculateNights(editForm.start_date, editForm.end_date);
-        const baseAmount = property.price * nights;
-        const discountPercent = Number(editForm.discount) || 0;
-        const discountAmount = (baseAmount * discountPercent) / 100;
-        const finalAmount = baseAmount - discountAmount;
-        setEditForm((prev) => ({ ...prev, amount: finalAmount }));
-      }
+      pricePerNight = property?.price || 0;
     }
-  }, [
-    editForm.property_id,
-    editForm.start_date,
-    editForm.end_date,
-    editForm.discount,
-    propertiesData,
-  ]);
+    if (pricePerNight) {
+      const nights = calculateNights(editForm.start_date, editForm.end_date);
+      const baseAmount = pricePerNight * nights;
+      const discountPercent = Number(editForm.discount) || 0;
+      const discountAmount = (baseAmount * discountPercent) / 100;
+      const finalAmount = baseAmount - discountAmount;
+      setEditForm((prev) => ({ ...prev, amount: finalAmount }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editForm.property_id, editForm.roomId, editForm.start_date, editForm.end_date, editForm.discount, propertiesData, editRooms]);
 
   const loadData = async () => {
     try {
@@ -375,6 +422,14 @@ export default function BookingsPage() {
         return;
       }
 
+      // Validate room selection
+      if (!createForm.roomId) {
+        const errorMsg = "Please select a room";
+        setError(errorMsg);
+        toast.error(errorMsg, { id: toastId });
+        return;
+      }
+
       // Validate numberOfGuests
       const numberOfGuests = parseInt(createForm.numberOfGuests) || 1;
       if (numberOfGuests < 1) {
@@ -389,6 +444,7 @@ export default function BookingsPage() {
         const formData = new FormData();
         formData.append("property_id", createForm.property_id);
         formData.append("guest_id", guestId);
+        formData.append("roomId", createForm.roomId);
         formData.append("start_date", createForm.start_date);
         formData.append("end_date", createForm.end_date);
         formData.append("amount", createForm.amount);
@@ -440,12 +496,13 @@ export default function BookingsPage() {
           }
         }
       } else {
-        const newBooking = await createBooking({
+        const payload = {
           ...createForm,
           guest_id: guestId,
           numberOfGuests,
           currency: getDefaultCurrency(),
-        });
+        };
+        const newBooking = await createBooking(payload);
         setBookingsData((prev) => [...prev, newBooking]);
       }
 
@@ -490,6 +547,7 @@ export default function BookingsPage() {
         const formData = new FormData();
         formData.append("property_id", editForm.property_id);
         formData.append("guest_id", editForm.guest_id);
+        if (editForm.roomId) formData.append("roomId", editForm.roomId);
         formData.append("start_date", editForm.start_date);
         formData.append("end_date", editForm.end_date);
         formData.append("amount", editForm.amount);
@@ -542,11 +600,12 @@ export default function BookingsPage() {
           }
         }
       } else {
-        const updatedBooking = await updateBooking(bookingId, {
+        const payload = {
           ...editForm,
           numberOfGuests,
           currency: editForm.currency || getDefaultCurrency(),
-        });
+        };
+        const updatedBooking = await updateBooking(bookingId, payload);
         setBookingsData((prev) =>
           prev.map((booking) =>
             getBookingId(booking) === bookingId ? updatedBooking : booking
@@ -587,15 +646,20 @@ export default function BookingsPage() {
   };
 
   const handleStatusChange = async (bookingId, newStatus) => {
+    console.log("[Booking] Updating status →", { bookingId, newStatus });
     const toastId = toast.loading("Updating status...");
 
     try {
       setError(null);
-      await updateBookingStatus(bookingId, newStatus);
+      const response = await updateBookingStatus(bookingId, newStatus);
+      // Use full backend response to capture checkInTime / checkOutTime etc.
+      const updatedBooking = response?.data || response?.booking || response;
+      console.log("[Booking] Status update response →", updatedBooking);
+
       setBookingsData((prev) =>
         prev.map((booking) =>
           getBookingId(booking) === bookingId
-            ? { ...booking, status: newStatus }
+            ? { ...booking, ...updatedBooking }
             : booking
         )
       );
@@ -633,10 +697,11 @@ export default function BookingsPage() {
     setEditForm({
       property_id: booking.property_id?.id || booking.property_id?._id || "",
       guest_id: booking.guest_id?.id || booking.guest_id?._id || "",
+      roomId: booking.roomId?.id || booking.roomId?._id || booking.roomId || "",
       start_date: formatDateForInput(booking.start_date),
       end_date: formatDateForInput(booking.end_date),
       amount: booking.amount || "",
-      currency: booking.currency || getDefaultCurrency(), // Use booking's currency or default
+      currency: booking.currency || getDefaultCurrency(),
       discount: booking.discount || "0",
       payment_status: booking.payment_status || "unpaid",
       numberOfGuests: booking.numberOfGuests || "1",
@@ -759,11 +824,9 @@ export default function BookingsPage() {
             value={booking.status || "pending"}
             onChange={(e) => handleStatusChange(bookingId, e.target.value)}
           >
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="checked-in">Checked In</option>
-            <option value="checked-out">Checked Out</option>
-            <option value="cancelled">Cancelled</option>
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
           </select>
         </div>,
         <div key={`payment-${bookingId}`}>
@@ -983,11 +1046,9 @@ export default function BookingsPage() {
             onChange={(e) => setFilterStatus(e.target.value)}
           >
             <option value="">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="checked-in">Checked In</option>
-            <option value="checked-out">Checked Out</option>
-            <option value="cancelled">Cancelled</option>
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
           </select>
               </div>
 
@@ -1043,7 +1104,7 @@ export default function BookingsPage() {
               >
                 {/* Top Section - Guest & Property */}
                 <div 
-                  className="p-4 bg-gradient-to-r from-slate-50 to-white cursor-pointer"
+                  className="p-4  from-slate-50 to-white cursor-pointer"
                   onClick={() => openViewModal(booking)}
                 >
                   <div className="flex items-start justify-between">
@@ -1108,7 +1169,7 @@ export default function BookingsPage() {
                     <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
                       booking.status || "pending"
                     )}`}>
-                      {booking.status || "pending"}
+                      {getStatusLabel(booking.status)}
             </span>
                     
                     {/* Edit Button */}
@@ -1228,6 +1289,34 @@ export default function BookingsPage() {
               disabled={isUpdating}
             />
           </div>
+
+          {/* Room Selection */}
+          {editForm.property_id && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Room *
+              </label>
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                value={editForm.roomId}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, roomId: e.target.value })
+                }
+                disabled={isUpdating}
+                required
+              >
+                <option value="">Select a room</option>
+                {editRooms.map((room) => {
+                  const rId = room._id || room.id;
+                  return (
+                    <option key={rId} value={rId}>
+                      Room {room.roomNumber} — {room.roomType} — ${room.price}/night
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -1515,6 +1604,33 @@ export default function BookingsPage() {
             />
           </div>
 
+          {/* Room Selection */}
+          {createForm.property_id && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Room *
+              </label>
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={createForm.roomId}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, roomId: e.target.value })
+                }
+                required
+              >
+                <option value="">Select a room</option>
+                {createRooms.map((room) => {
+                  const rId = room._id || room.id;
+                  return (
+                    <option key={rId} value={rId}>
+                      Room {room.roomNumber} — {room.roomType} — ${room.price}/night
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
@@ -1796,11 +1912,9 @@ export default function BookingsPage() {
                       setViewBooking({ ...viewBooking, status: e.target.value });
                     }}
                   >
-                    <option value="pending">Pending</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="checked-in">Checked In</option>
-                    <option value="checked-out">Checked Out</option>
-                    <option value="cancelled">Cancelled</option>
+                    {STATUS_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
                   </select>
               </div>
                 <div>
