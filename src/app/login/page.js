@@ -129,7 +129,7 @@ export default function LoginPage() {
 
   const validateField = (name, value) => {
     let error = "";
-    
+
     if (name === "email") {
       if (!value) {
         error = "Email is required";
@@ -143,19 +143,19 @@ export default function LoginPage() {
         error = "Password must be at least 6 characters";
       }
     }
-    
+
     return error;
   };
 
   const handleChange = (event) => {
     const { name, value } = event.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    
+
     // Clear field error when user starts typing
     if (fieldErrors[name]) {
       setFieldErrors((prev) => ({ ...prev, [name]: "" }));
     }
-    
+
     // Clear general error when user starts typing
     if (error) {
       setError("");
@@ -176,7 +176,7 @@ export default function LoginPage() {
     // Validate all fields
     const emailError = validateField("email", formData.email);
     const passwordError = validateField("password", formData.password);
-    
+
     setFieldErrors({
       email: emailError,
       password: passwordError,
@@ -208,14 +208,19 @@ export default function LoginPage() {
       }
 
       const token = response?.data?.token || response?.token;
+      const refreshToken = response?.data?.refreshToken || response?.refreshToken;
       const user = response?.data?.user || response?.user;
 
       if (!token) {
         throw new Error("Login succeeded but no token was returned.");
       }
 
-      // Store token and user in localStorage (luxeboard.authToken, luxeboard.authUser)
+      // Store token, refresh token, and user in localStorage
       setAuthToken(token);
+      if (refreshToken) {
+        const { setRefreshToken } = await import("@/lib/auth");
+        setRefreshToken(refreshToken);
+      }
       setAuthUser(user ?? { email: formData.email });
 
       setSuccess(true);

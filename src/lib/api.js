@@ -68,8 +68,12 @@ function createHeaders(requireAuth = true) {
   return headers;
 }
 
+// Flag to prevent multiple simultaneous refresh attempts
+let isRefreshing = false;
+let refreshPromise = null;
+
 /**
- * Centralized fetch wrapper with automatic auth token injection
+ * Centralized fetch wrapper with automatic auth token injection and refresh
  * @param {string} url - API endpoint URL
  * @param {Object} options - Fetch options
  * @param {boolean} requireAuth - Whether to require authentication (default: true)
@@ -83,10 +87,73 @@ async function fetchWithAuth(url, options = {}, requireAuth = true) {
     Object.assign(headers, options.headers);
   }
 
-  return fetch(url, {
+  let response = await fetch(url, {
     ...options,
     headers,
   });
+
+  // If we get a 401 and have a refresh token, try to refresh
+  if (response.status === 401 && requireAuth && typeof window !== "undefined") {
+    const refreshToken = localStorage.getItem("luxeboard.refreshToken");
+
+    if (refreshToken && !isRefreshing) {
+      isRefreshing = true;
+
+      // Create a single refresh promise that all requests can wait for
+      if (!refreshPromise) {
+        refreshPromise = (async () => {
+          try {
+            const { refreshAccessToken } = await import("./api");
+            const result = await refreshAccessToken(refreshToken);
+
+            // Update tokens
+            if (result.token) {
+              localStorage.setItem("luxeboard.authToken", result.token);
+            }
+            if (result.refreshToken) {
+              localStorage.setItem("luxeboard.refreshToken", result.refreshToken);
+            }
+            if (result.user) {
+              localStorage.setItem("luxeboard.authUser", JSON.stringify(result.user));
+            }
+
+            return result.token;
+          } catch (error) {
+            // Refresh failed - clear auth and redirect to login
+            localStorage.removeItem("luxeboard.authToken");
+            localStorage.removeItem("luxeboard.refreshToken");
+            localStorage.removeItem("luxeboard.authUser");
+
+            // Redirect to login if not already there
+            if (window.location.pathname !== "/login") {
+              window.location.href = "/login";
+            }
+
+            throw error;
+          } finally {
+            isRefreshing = false;
+            refreshPromise = null;
+          }
+        })();
+      }
+
+      // Wait for refresh to complete
+      await refreshPromise;
+
+      // Retry the original request with new token
+      const newHeaders = createHeaders(requireAuth);
+      if (options.headers) {
+        Object.assign(newHeaders, options.headers);
+      }
+
+      response = await fetch(url, {
+        ...options,
+        headers: newHeaders,
+      });
+    }
+  }
+
+  return response;
 }
 
 async function handleResponse(response, fallbackMessage) {
@@ -299,6 +366,39 @@ export async function registerUser(data) {
     body: JSON.stringify(data),
   }, false); // No auth required for registration
   return handleResponse(res, "Failed to register user");
+}
+
+/**
+ * Refresh access token using refresh token
+ * POST /api/auth/refresh
+ * Body: { refreshToken }
+ * Returns: { success, token, refreshToken, user }
+ */
+export async function refreshAccessToken(refreshToken) {
+  const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ refreshToken }),
+  });
+  return handleResponse(res, "Failed to refresh token");
+}
+
+/**
+ * Revoke refresh token (logout)
+ * POST /api/auth/revoke
+ * Body: { refreshToken }
+ */
+export async function revokeRefreshToken(refreshToken) {
+  const res = await fetch(`${API_BASE_URL}/auth/revoke`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ refreshToken }),
+  });
+  return handleResponse(res, "Failed to revoke token");
 }
 
 /**
