@@ -27,7 +27,6 @@ const getInitialFormState = () => ({
   end_date: "",
   amount: "",
   currency: getDefaultCurrency(),
-  discount: "0",
   payment_status: "unpaid",
   numberOfGuests: "1",
 });
@@ -149,6 +148,31 @@ export default function NewBookingPage() {
       .then((data) => setRoomsData(Array.isArray(data) ? data : []))
       .catch(() => setRoomsData([]));
   }, [createForm.property_id]);
+
+  // Auto-calculate amount: room basePrice × number of nights
+  useEffect(() => {
+    if (!createForm.property_id || !createForm.start_date || !createForm.end_date) return;
+
+    let pricePerNight = 0;
+    if (createForm.roomId && roomsData.length > 0) {
+      const selectedRoom = roomsData.find(
+        (r) => (r._id || r.id) === createForm.roomId
+      );
+      pricePerNight = selectedRoom?.basePrice || selectedRoom?.price || 0;
+    }
+    if (!pricePerNight) {
+      const property = propertiesData.find(
+        (p) => (p._id || p.id) === createForm.property_id
+      );
+      pricePerNight = property?.basePrice || property?.price || 0;
+    }
+    const start = new Date(createForm.start_date);
+    const end = new Date(createForm.end_date);
+    const nights = Math.max(Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24)), 0);
+    const amount = pricePerNight * nights;
+    setCreateForm((prev) => ({ ...prev, amount: amount || "" }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createForm.property_id, createForm.roomId, createForm.start_date, createForm.end_date, propertiesData, roomsData]);
 
   const handleCreateGuest = async () => {
     try {
@@ -443,7 +467,7 @@ export default function NewBookingPage() {
                   const rId = room._id || room.id;
                   return (
                     <option key={rId} value={rId}>
-                      Room {room.roomNumber} — {room.roomType} — ${room.price}/night
+                      Room {room.roomNumber} — {room.roomType} — ${room.basePrice || room.price || 0}/night
                     </option>
                   );
                 })}
@@ -461,8 +485,9 @@ export default function NewBookingPage() {
                 type="date"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 value={createForm.start_date}
+                min={new Date().toISOString().split("T")[0]}
                 onChange={(e) =>
-                  setCreateForm({ ...createForm, start_date: e.target.value })
+                  setCreateForm({ ...createForm, start_date: e.target.value, end_date: "" })
                 }
                 required
               />
@@ -475,6 +500,7 @@ export default function NewBookingPage() {
                 type="date"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 value={createForm.end_date}
+                min={createForm.start_date || new Date().toISOString().split("T")[0]}
                 onChange={(e) =>
                   setCreateForm({ ...createForm, end_date: e.target.value })
                 }
@@ -487,36 +513,18 @@ export default function NewBookingPage() {
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
-                Amount *
+                Amount
               </label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm cursor-not-allowed"
                 value={createForm.amount}
-                onChange={(e) =>
-                  setCreateForm({ ...createForm, amount: e.target.value })
-                }
-                placeholder="0.00"
+                readOnly
+                tabIndex={-1}
+                placeholder="Select room & dates"
                 required
-              />
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Discount (%)
-              </label>
-              <input
-                type="number"
-                step="1"
-                min="0"
-                max="100"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                value={createForm.discount}
-                onChange={(e) =>
-                  setCreateForm({ ...createForm, discount: e.target.value })
-                }
-                placeholder="0"
               />
             </div>
             <div>
