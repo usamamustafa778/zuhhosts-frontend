@@ -97,11 +97,15 @@ export default function EarningsPage() {
         params.currency = selectedCurrency;
       }
 
+      console.log("[Earnings] Fetching with params:", params);
+
       // Load properties and earnings in parallel
       const [earningsResponse, propertiesResponse] = await Promise.all([
         getEarnings(params),
         getAllProperties(),
       ]);
+
+      console.log("[Earnings] API response:", earningsResponse);
 
       // Handle earnings data
       const earnings = earningsResponse || {};

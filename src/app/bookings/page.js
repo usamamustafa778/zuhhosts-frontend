@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { UserPlus, X, Calendar, Eye } from "lucide-react";
+import { Calendar, Eye } from "lucide-react";
 import toast from "react-hot-toast";
 import DataTable from "@/components/common/DataTable";
 import Modal from "@/components/common/Modal";
@@ -11,7 +11,6 @@ import FileUpload from "@/components/common/FileUpload";
 import IdCardGallery from "@/components/common/IdCardGallery";
 import PageLoader from "@/components/common/PageLoader";
 import Combobox from "@/components/common/Combobox";
-import PhoneInput from "@/components/common/PhoneInput";
 import {
   getAllBookings,
   createBooking,
@@ -21,7 +20,6 @@ import {
   updateBookingPaymentStatus,
   getAllProperties,
   getAllGuests,
-  createGuest,
   updateGuest,
   getCurrencies,
   getRooms,
@@ -38,7 +36,6 @@ const getInitialFormState = () => ({
   end_date: "",
   amount: "",
   currency: getDefaultCurrency(),
-  discount: "0",
   payment_status: "unpaid",
   numberOfGuests: "1",
   bookingSource: "walkin",
@@ -225,11 +222,6 @@ export default function BookingsPage() {
   const [filterPaymentStatus, setFilterPaymentStatus] = useState("");
   const [createForm, setCreateForm] = useState(() => getInitialFormState());
   const [editForm, setEditForm] = useState(() => getInitialFormState());
-  const [isCreatingNewGuest, setIsCreatingNewGuest] = useState(false);
-  const [newGuestForm, setNewGuestForm] = useState({
-    name: "",
-    phone: "",
-  });
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [createRooms, setCreateRooms] = useState([]);
   const [editRooms, setEditRooms] = useState([]);
@@ -300,30 +292,25 @@ export default function BookingsPage() {
   useEffect(() => {
     if (!createForm.property_id || !createForm.start_date || !createForm.end_date) return;
 
-    // Use selected room's price if available, otherwise property base price
+    // Use selected room's price (basePrice or price), otherwise property base price
     let pricePerNight = 0;
     if (createForm.roomId && createRooms.length > 0) {
       const selectedRoom = createRooms.find(
         (r) => (r._id || r.id) === createForm.roomId
       );
-      pricePerNight = selectedRoom?.price || 0;
+      pricePerNight = selectedRoom?.basePrice || selectedRoom?.price || 0;
     }
     if (!pricePerNight) {
       const property = propertiesData.find(
         (p) => (p._id || p.id) === createForm.property_id
       );
-      pricePerNight = property?.price || 0;
+      pricePerNight = property?.basePrice || property?.price || 0;
     }
-    if (pricePerNight) {
-      const nights = calculateNights(createForm.start_date, createForm.end_date);
-      const baseAmount = pricePerNight * nights;
-      const discountPercent = Number(createForm.discount) || 0;
-      const discountAmount = (baseAmount * discountPercent) / 100;
-      const finalAmount = baseAmount - discountAmount;
-      setCreateForm((prev) => ({ ...prev, amount: finalAmount }));
-    }
+    const nights = calculateNights(createForm.start_date, createForm.end_date);
+    const amount = pricePerNight * nights;
+    setCreateForm((prev) => ({ ...prev, amount: amount || "" }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [createForm.property_id, createForm.roomId, createForm.start_date, createForm.end_date, createForm.discount, propertiesData, createRooms]);
+  }, [createForm.property_id, createForm.roomId, createForm.start_date, createForm.end_date, propertiesData, createRooms]);
 
   // Auto-calculate amount for edit form
   useEffect(() => {
@@ -334,24 +321,19 @@ export default function BookingsPage() {
       const selectedRoom = editRooms.find(
         (r) => (r._id || r.id) === editForm.roomId
       );
-      pricePerNight = selectedRoom?.price || 0;
+      pricePerNight = selectedRoom?.basePrice || selectedRoom?.price || 0;
     }
     if (!pricePerNight) {
       const property = propertiesData.find(
         (p) => (p._id || p.id) === editForm.property_id
       );
-      pricePerNight = property?.price || 0;
+      pricePerNight = property?.basePrice || property?.price || 0;
     }
-    if (pricePerNight) {
-      const nights = calculateNights(editForm.start_date, editForm.end_date);
-      const baseAmount = pricePerNight * nights;
-      const discountPercent = Number(editForm.discount) || 0;
-      const discountAmount = (baseAmount * discountPercent) / 100;
-      const finalAmount = baseAmount - discountAmount;
-      setEditForm((prev) => ({ ...prev, amount: finalAmount }));
-    }
+    const nights = calculateNights(editForm.start_date, editForm.end_date);
+    const amount = pricePerNight * nights;
+    setEditForm((prev) => ({ ...prev, amount: amount || "" }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editForm.property_id, editForm.roomId, editForm.start_date, editForm.end_date, editForm.discount, propertiesData, editRooms]);
+  }, [editForm.property_id, editForm.roomId, editForm.start_date, editForm.end_date, propertiesData, editRooms]);
 
   const loadData = async () => {
     try {
@@ -403,19 +385,9 @@ export default function BookingsPage() {
 
     try {
       setError(null);
-      let guestId = createForm.guest_id;
+      const guestId = createForm.guest_id;
 
-      if (isCreatingNewGuest) {
-        if (!newGuestForm.name || !newGuestForm.phone) {
-          const errorMsg = "Please fill in guest name and phone number";
-          setError(errorMsg);
-          toast.error(errorMsg, { id: toastId });
-          return;
-        }
-        const newGuest = await createGuest(newGuestForm);
-        guestId = newGuest.id || newGuest._id;
-        setGuestsData((prev) => [...prev, newGuest]);
-      } else if (!guestId) {
+      if (!guestId) {
         const errorMsg = "Please select a guest";
         setError(errorMsg);
         toast.error(errorMsg, { id: toastId });
@@ -449,7 +421,6 @@ export default function BookingsPage() {
         formData.append("end_date", createForm.end_date);
         formData.append("amount", createForm.amount);
         formData.append("currency", getDefaultCurrency());
-        formData.append("discount", createForm.discount || "0");
         formData.append(
           "payment_status",
           createForm.payment_status || "unpaid"
@@ -510,8 +481,6 @@ export default function BookingsPage() {
       setCreateOpen(false);
       setCreateForm(getInitialFormState());
       setCreateIdCardFiles([]);
-      setIsCreatingNewGuest(false);
-      setNewGuestForm({ name: "", phone: "" });
     } catch (err) {
       const errorMsg = formatErrorMessage(err);
       setError(errorMsg);
@@ -552,7 +521,6 @@ export default function BookingsPage() {
         formData.append("end_date", editForm.end_date);
         formData.append("amount", editForm.amount);
         formData.append("currency", editForm.currency || getDefaultCurrency());
-        formData.append("discount", editForm.discount || "0");
         formData.append("payment_status", editForm.payment_status || "unpaid");
         formData.append("numberOfGuests", numberOfGuests.toString());
 
@@ -702,7 +670,6 @@ export default function BookingsPage() {
       end_date: formatDateForInput(booking.end_date),
       amount: booking.amount || "",
       currency: booking.currency || getDefaultCurrency(),
-      discount: booking.discount || "0",
       payment_status: booking.payment_status || "unpaid",
       numberOfGuests: booking.numberOfGuests || "1",
     });
@@ -738,8 +705,6 @@ export default function BookingsPage() {
     setCreateOpen(false);
     setCreateForm(getInitialFormState());
     setCreateIdCardFiles([]);
-    setIsCreatingNewGuest(false);
-    setNewGuestForm({ name: "", phone: "" });
   };
 
   const openViewModal = (booking) => {
@@ -1310,7 +1275,7 @@ export default function BookingsPage() {
                   const rId = room._id || room.id;
                   return (
                     <option key={rId} value={rId}>
-                      Room {room.roomNumber} — {room.roomType} — ${room.price}/night
+                      Room {room.roomNumber} — {room.roomType} — ${room.basePrice || room.price || 0}/night
                     </option>
                   );
                 })}
@@ -1327,8 +1292,9 @@ export default function BookingsPage() {
                 type="date"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 value={editForm.start_date}
+                min={new Date().toISOString().split("T")[0]}
                 onChange={(e) =>
-                  setEditForm({ ...editForm, start_date: e.target.value })
+                  setEditForm({ ...editForm, start_date: e.target.value, end_date: "" })
                 }
                 required
                 disabled={isUpdating}
@@ -1342,6 +1308,7 @@ export default function BookingsPage() {
                 type="date"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 value={editForm.end_date}
+                min={editForm.start_date || new Date().toISOString().split("T")[0]}
                 onChange={(e) =>
                   setEditForm({ ...editForm, end_date: e.target.value })
                 }
@@ -1380,38 +1347,18 @@ export default function BookingsPage() {
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
-                Amount *
+                Amount
               </label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm cursor-not-allowed"
                 value={editForm.amount}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, amount: e.target.value })
-                }
-                placeholder="0.00"
+                readOnly
+                tabIndex={-1}
+                placeholder="Select room & dates"
                 required
-                disabled={isUpdating}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Discount (%)
-              </label>
-              <input
-                type="number"
-                step="1"
-                min="0"
-                max="100"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                value={editForm.discount}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, discount: e.target.value })
-                }
-                placeholder="0"
-                disabled={isUpdating}
               />
             </div>
             <div>
@@ -1477,88 +1424,21 @@ export default function BookingsPage() {
                 Guest
               </label>
 
-              {!isCreatingNewGuest ? (
-                <>
-                  <Combobox
-                    value={createForm.guest_id}
-                    onChange={(value) =>
-                      setCreateForm({ ...createForm, guest_id: value })
-                    }
-                    options={guestsData}
-                    getOptionLabel={(guest) => guest.name}
-                    getOptionValue={(guest) => getBookingId(guest)}
-                    getOptionDescription={(guest) =>
-                      `${guest.phone}${guest.email ? ` • ${guest.email}` : ""}`
-                    }
-                    placeholder="Search guest by name, phone, or email..."
-                    required
-                    noOptionsMessage="No guests found"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setIsCreatingNewGuest(true)}
-                    className="mt-2 flex items-center gap-1.5 text-sm text-rose-600 hover:text-rose-700 font-medium"
-                  >
-                    <UserPlus className="h-4 w-4" />
-                    Create new guest
-                  </button>
-                </>
-              ) : (
-                <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-700">
-                      New Guest
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsCreatingNewGuest(false);
-                        setNewGuestForm({ name: "", phone: "" });
-                      }}
-                      className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
-                    >
-                      <X className="h-3 w-3" />
-                      Cancel
-                    </button>
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-600">
-                      Guest Name *
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
-                      value={newGuestForm.name}
-                      onChange={(e) =>
-                        setNewGuestForm({
-                          ...newGuestForm,
-                          name: e.target.value,
-                        })
-                      }
-                      placeholder="John Doe"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-600">
-                      Phone Number *
-                    </label>
-                    <PhoneInput
-                      value={newGuestForm.phone}
-                      onChange={(e) =>
-                        setNewGuestForm({
-                          ...newGuestForm,
-                          phone: e.target.value,
-                        })
-                      }
-                      placeholder="123 456 7890"
-                      className="bg-white"
-                      required
-                    />
-                  </div>
-                </div>
-              )}
+              <Combobox
+                value={createForm.guest_id}
+                onChange={(value) =>
+                  setCreateForm({ ...createForm, guest_id: value })
+                }
+                options={guestsData}
+                getOptionLabel={(guest) => guest.name}
+                getOptionValue={(guest) => getBookingId(guest)}
+                getOptionDescription={(guest) =>
+                  `${guest.phone}${guest.email ? ` • ${guest.email}` : ""}`
+                }
+                placeholder="Search guest by name, phone, or email..."
+                required
+                noOptionsMessage="No guests found"
+              />
             </div>
 
             <div>
@@ -1623,7 +1503,7 @@ export default function BookingsPage() {
                   const rId = room._id || room.id;
                   return (
                     <option key={rId} value={rId}>
-                      Room {room.roomNumber} — {room.roomType} — ${room.price}/night
+                      Room {room.roomNumber} — {room.roomType} — ${room.basePrice || room.price || 0}/night
                     </option>
                   );
                 })}
@@ -1640,8 +1520,9 @@ export default function BookingsPage() {
                 type="date"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 value={createForm.start_date}
+                min={new Date().toISOString().split("T")[0]}
                 onChange={(e) =>
-                  setCreateForm({ ...createForm, start_date: e.target.value })
+                  setCreateForm({ ...createForm, start_date: e.target.value, end_date: "" })
                 }
                 required
               />
@@ -1654,6 +1535,7 @@ export default function BookingsPage() {
                 type="date"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 value={createForm.end_date}
+                min={createForm.start_date || new Date().toISOString().split("T")[0]}
                 onChange={(e) =>
                   setCreateForm({ ...createForm, end_date: e.target.value })
                 }
@@ -1665,36 +1547,18 @@ export default function BookingsPage() {
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
-                Amount *
+                Amount
               </label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm cursor-not-allowed"
                 value={createForm.amount}
-                onChange={(e) =>
-                  setCreateForm({ ...createForm, amount: e.target.value })
-                }
-                placeholder="0.00"
+                readOnly
+                tabIndex={-1}
+                placeholder="Select room & dates"
                 required
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Discount (%)
-              </label>
-              <input
-                type="number"
-                step="1"
-                min="0"
-                max="100"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                value={createForm.discount}
-                onChange={(e) =>
-                  setCreateForm({ ...createForm, discount: e.target.value })
-                }
-                placeholder="0"
               />
             </div>
             <div>
@@ -1880,12 +1744,6 @@ export default function BookingsPage() {
                   <span className="text-xs text-slate-500">Amount</span>
                   <p className="text-sm font-medium text-slate-800">
                     {formatAmount(viewBooking.amount, viewBooking.currency)}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <span className="text-xs text-slate-500">Discount</span>
-                  <p className="text-sm font-medium text-slate-800">
-                    {viewBooking.discount || 0}%
                   </p>
                 </div>
               </div>
