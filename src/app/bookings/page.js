@@ -95,9 +95,8 @@ const calculatePeriod = (startDate, endDate) => {
   if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks`;
   if (diffDays < 60) return "1 month";
   if (diffDays < 365) return `${Math.floor(diffDays / 30)} months`;
-  return `${Math.floor(diffDays / 365)} year${
-    Math.floor(diffDays / 365) > 1 ? "s" : ""
-  }`;
+  return `${Math.floor(diffDays / 365)} year${Math.floor(diffDays / 365) > 1 ? "s" : ""
+    }`;
 };
 
 const calculateNights = (startDate, endDate) => {
@@ -197,14 +196,14 @@ const generateCalendarData = (bookingsData) => {
 export default function BookingsPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useRequireAuth();
-  
+
   // SEO
   useSEO({
     title: "Bookings | Zuha Host",
     description: "Manage all your property bookings. View, create, and update reservations for your listings.",
     keywords: "bookings, reservations, guest bookings, manage bookings, booking calendar",
   });
-  
+
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [bookingsData, setBookingsData] = useState([]);
@@ -376,11 +375,11 @@ export default function BookingsPage() {
       setBookingsData(Array.isArray(bookings) ? bookings : []);
       setPropertiesData(Array.isArray(properties) ? properties : []);
       setGuestsData(Array.isArray(guests) ? guests : []);
-      
+
       // Load currencies from local storage for edit modal
       const currencyMap = getCurrencyMap();
       setCurrencies(Object.entries(currencyMap).map(([code, name]) => ({ code, name })));
-      
+
       // Set default currency from local storage (ensure it's current)
       const defaultCurrency = getDefaultCurrency();
       setCreateForm((prev) => ({
@@ -403,19 +402,9 @@ export default function BookingsPage() {
 
     try {
       setError(null);
-      let guestId = createForm.guest_id;
+      const guestId = createForm.guest_id;
 
-      if (isCreatingNewGuest) {
-        if (!newGuestForm.name || !newGuestForm.phone) {
-          const errorMsg = "Please fill in guest name and phone number";
-          setError(errorMsg);
-          toast.error(errorMsg, { id: toastId });
-          return;
-        }
-        const newGuest = await createGuest(newGuestForm);
-        guestId = newGuest.id || newGuest._id;
-        setGuestsData((prev) => [...prev, newGuest]);
-      } else if (!guestId) {
+      if (!guestId) {
         const errorMsg = "Please select a guest";
         setError(errorMsg);
         toast.error(errorMsg, { id: toastId });
@@ -449,7 +438,6 @@ export default function BookingsPage() {
         formData.append("end_date", createForm.end_date);
         formData.append("amount", createForm.amount);
         formData.append("currency", getDefaultCurrency());
-        formData.append("discount", createForm.discount || "0");
         formData.append(
           "payment_status",
           createForm.payment_status || "unpaid"
@@ -473,7 +461,7 @@ export default function BookingsPage() {
                 : null;
             const guestFormData = new FormData();
             guestFormData.append("idCard", createIdCardFiles[0]);
-            
+
             const response = await fetch(
               `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/guests/${guestId}`,
               {
@@ -510,8 +498,6 @@ export default function BookingsPage() {
       setCreateOpen(false);
       setCreateForm(getInitialFormState());
       setCreateIdCardFiles([]);
-      setIsCreatingNewGuest(false);
-      setNewGuestForm({ name: "", phone: "" });
     } catch (err) {
       const errorMsg = formatErrorMessage(err);
       setError(errorMsg);
@@ -577,7 +563,7 @@ export default function BookingsPage() {
                 : null;
             const guestFormData = new FormData();
             guestFormData.append("idCard", editIdCardFiles[0]);
-            
+
             const response = await fetch(
               `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/guests/${editForm.guest_id}`,
               {
@@ -707,14 +693,14 @@ export default function BookingsPage() {
       numberOfGuests: booking.numberOfGuests || "1",
     });
     setEditIdCardFiles([]);
-    
+
     // Load currencies from local storage first (for immediate display)
     const currencyMap = getCurrencyMap();
     const localCurrencies = Object.entries(currencyMap).map(([code, name]) => ({ code, name }));
     if (localCurrencies.length > 0) {
       setCurrencies(localCurrencies);
     }
-    
+
     // Fetch currencies from API when opening edit modal (to get latest list)
     try {
       const response = await getCurrencies();
@@ -895,9 +881,9 @@ export default function BookingsPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-          <h1 className="mt-2 text-3xl font-semibold text-slate-900">
-            Bookings
-          </h1>
+            <h1 className="mt-2 text-3xl font-semibold text-slate-900">
+              Bookings
+            </h1>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -931,11 +917,10 @@ export default function BookingsPage() {
             {/* View Mode Toggle */}
             <div className="flex rounded-full border border-slate-200 p-1">
               <button
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                  viewMode === "cards"
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-600 hover:bg-slate-50"
-                }`}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "cards"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+                  }`}
                 onClick={() => setViewMode("cards")}
               >
                 <svg
@@ -954,11 +939,10 @@ export default function BookingsPage() {
                 </svg>
               </button>
               <button
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                  viewMode === "table"
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-600 hover:bg-slate-50"
-                }`}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "table"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+                  }`}
                 onClick={() => setViewMode("table")}
               >
                 <svg
@@ -1017,57 +1001,57 @@ export default function BookingsPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Period Filter */}
+              {/* Period Filter */}
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">
                   Period
                 </label>
-          <select
+                <select
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
-            value={filterPeriod}
-            onChange={(e) => setFilterPeriod(e.target.value)}
-          >
-            <option value="">All Periods</option>
-            <option value="today">Today</option>
-            <option value="current">Current</option>
-            <option value="upcoming">Upcoming</option>
-            <option value="past">Past</option>
-          </select>
+                  value={filterPeriod}
+                  onChange={(e) => setFilterPeriod(e.target.value)}
+                >
+                  <option value="">All Periods</option>
+                  <option value="today">Today</option>
+                  <option value="current">Current</option>
+                  <option value="upcoming">Upcoming</option>
+                  <option value="past">Past</option>
+                </select>
               </div>
 
-          {/* Status Filter */}
+              {/* Status Filter */}
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">
                   Status
                 </label>
-          <select
+                <select
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-          >
-            <option value="">All Status</option>
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                >
+                  <option value="">All Status</option>
+                  {STATUS_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
               </div>
 
-          {/* Payment Status Filter */}
+              {/* Payment Status Filter */}
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">
                   Payment Status
                 </label>
-          <select
+                <select
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
-            value={filterPaymentStatus}
-            onChange={(e) => setFilterPaymentStatus(e.target.value)}
-          >
-            <option value="">All Payment Status</option>
-            <option value="unpaid">Unpaid</option>
-            <option value="partially-paid">Partially Paid</option>
-            <option value="paid">Paid</option>
-            <option value="refunded">Refunded</option>
-          </select>
+                  value={filterPaymentStatus}
+                  onChange={(e) => setFilterPaymentStatus(e.target.value)}
+                >
+                  <option value="">All Payment Status</option>
+                  <option value="unpaid">Unpaid</option>
+                  <option value="partially-paid">Partially Paid</option>
+                  <option value="paid">Paid</option>
+                  <option value="refunded">Refunded</option>
+                </select>
               </div>
             </div>
 
@@ -1103,7 +1087,7 @@ export default function BookingsPage() {
                 className="rounded-2xl border border-slate-200 bg-white overflow-hidden active:scale-[0.98] transition-transform relative"
               >
                 {/* Top Section - Guest & Property */}
-                <div 
+                <div
                   className="p-4  from-slate-50 to-white cursor-pointer"
                   onClick={() => openViewModal(booking)}
                 >
@@ -1137,7 +1121,7 @@ export default function BookingsPage() {
                 </div>
 
                 {/* Bottom Section - Dates & Info */}
-                <div 
+                <div
                   className="px-4 py-3 border-t border-slate-100 cursor-pointer relative"
                   onClick={() => openViewModal(booking)}
                 >
@@ -1163,15 +1147,15 @@ export default function BookingsPage() {
                       )}
                     </div>
                   </div>
-                  
+
                   {/* Status Badge & Edit Button */}
                   <div className="mt-2 flex items-center justify-between gap-2">
                     <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
                       booking.status || "pending"
                     )}`}>
                       {getStatusLabel(booking.status)}
-            </span>
-                    
+                    </span>
+
                     {/* Edit Button */}
                     <button
                       onClick={(e) => {
@@ -1186,8 +1170,8 @@ export default function BookingsPage() {
                       </svg>
                       <span className="text-xs font-medium">Edit</span>
                     </button>
-        </div>
-      </div>
+                  </div>
+                </div>
               </div>
             );
           })}
@@ -1196,23 +1180,23 @@ export default function BookingsPage() {
 
       {/* Table View */}
       {viewMode === "table" && (
-      <DataTable
-        headers={[
-          "#",
-          "Guest",
-          "Property",
-          "Check In",
-          "Check Out",
-          "Period",
-          "Guests",
-          "ID Cards",
-          "Status",
-          "Payment",
-          "Amount",
-          "",
-        ]}
-        rows={tableRows}
-      />
+        <DataTable
+          headers={[
+            "#",
+            "Guest",
+            "Property",
+            "Check In",
+            "Check Out",
+            "Period",
+            "Guests",
+            "ID Cards",
+            "Status",
+            "Payment",
+            "Amount",
+            "",
+          ]}
+          rows={tableRows}
+        />
       )}
 
       <Modal
@@ -1476,89 +1460,21 @@ export default function BookingsPage() {
               <label className="mb-1 block text-sm font-medium text-slate-700">
                 Guest
               </label>
-
-              {!isCreatingNewGuest ? (
-                <>
-                  <Combobox
-                    value={createForm.guest_id}
-                    onChange={(value) =>
-                      setCreateForm({ ...createForm, guest_id: value })
-                    }
-                    options={guestsData}
-                    getOptionLabel={(guest) => guest.name}
-                    getOptionValue={(guest) => getBookingId(guest)}
-                    getOptionDescription={(guest) =>
-                      `${guest.phone}${guest.email ? ` • ${guest.email}` : ""}`
-                    }
-                    placeholder="Search guest by name, phone, or email..."
-                    required
-                    noOptionsMessage="No guests found"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setIsCreatingNewGuest(true)}
-                    className="mt-2 flex items-center gap-1.5 text-sm text-rose-600 hover:text-rose-700 font-medium"
-                  >
-                    <UserPlus className="h-4 w-4" />
-                    Create new guest
-                  </button>
-                </>
-              ) : (
-                <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-700">
-                      New Guest
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsCreatingNewGuest(false);
-                        setNewGuestForm({ name: "", phone: "" });
-                      }}
-                      className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
-                    >
-                      <X className="h-3 w-3" />
-                      Cancel
-                    </button>
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-600">
-                      Guest Name *
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
-                      value={newGuestForm.name}
-                      onChange={(e) =>
-                        setNewGuestForm({
-                          ...newGuestForm,
-                          name: e.target.value,
-                        })
-                      }
-                      placeholder="John Doe"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-600">
-                      Phone Number *
-                    </label>
-                    <PhoneInput
-                      value={newGuestForm.phone}
-                      onChange={(e) =>
-                        setNewGuestForm({
-                          ...newGuestForm,
-                          phone: e.target.value,
-                        })
-                      }
-                      placeholder="123 456 7890"
-                      className="bg-white"
-                      required
-                    />
-                  </div>
-                </div>
-              )}
+              <Combobox
+                value={createForm.guest_id}
+                onChange={(value) =>
+                  setCreateForm({ ...createForm, guest_id: value })
+                }
+                options={guestsData}
+                getOptionLabel={(guest) => guest.name}
+                getOptionValue={(guest) => getBookingId(guest)}
+                getOptionDescription={(guest) =>
+                  `${guest.phone}${guest.email ? ` • ${guest.email}` : ""}`
+                }
+                placeholder="Search guest by name, phone, or email..."
+                required
+                noOptionsMessage="No guests found"
+              />
             </div>
 
             <div>
@@ -1643,6 +1559,7 @@ export default function BookingsPage() {
                 onChange={(e) =>
                   setCreateForm({ ...createForm, start_date: e.target.value })
                 }
+                min={new Date().toISOString().split('T')[0]}
                 required
               />
             </div>
@@ -1657,12 +1574,13 @@ export default function BookingsPage() {
                 onChange={(e) =>
                   setCreateForm({ ...createForm, end_date: e.target.value })
                 }
+                min={createForm.start_date || new Date().toISOString().split('T')[0]}
                 required
               />
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
                 Amount *
@@ -1678,23 +1596,6 @@ export default function BookingsPage() {
                 }
                 placeholder="0.00"
                 required
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Discount (%)
-              </label>
-              <input
-                type="number"
-                step="1"
-                min="0"
-                max="100"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                value={createForm.discount}
-                onChange={(e) =>
-                  setCreateForm({ ...createForm, discount: e.target.value })
-                }
-                placeholder="0"
               />
             </div>
             <div>
@@ -1744,27 +1645,27 @@ export default function BookingsPage() {
               </select>
             </div>
 
-            {(createForm.bookingSource === "airbnb" || 
-              createForm.bookingSource === "bookingcom" || 
+            {(createForm.bookingSource === "airbnb" ||
+              createForm.bookingSource === "bookingcom" ||
               createForm.bookingSource === "other") && (
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  OTA Reference / Booking ID
-                </label>
-                <input
-                  type="text"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  value={createForm.otaReference}
-                  onChange={(e) =>
-                    setCreateForm({
-                      ...createForm,
-                      otaReference: e.target.value,
-                    })
-                  }
-                  placeholder="e.g. HMABCD1234"
-                />
-              </div>
-            )}
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                    OTA Reference / Booking ID
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    value={createForm.otaReference}
+                    onChange={(e) =>
+                      setCreateForm({
+                        ...createForm,
+                        otaReference: e.target.value,
+                      })
+                    }
+                    placeholder="e.g. HMABCD1234"
+                  />
+                </div>
+              )}
           </div>
 
           <div>
@@ -1896,15 +1797,15 @@ export default function BookingsPage() {
               <h4 className="text-sm font-semibold text-slate-700 mb-3">
                 Update Status
               </h4>
-            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className="text-xs text-slate-500 block mb-2">
-                  Booking Status
+                    Booking Status
                   </label>
                   <select
                     className={`w-full rounded-lg px-4 py-3 text-sm font-medium border-0 ${getStatusColor(
-                    viewBooking.status || "pending"
-                  )}`}
+                      viewBooking.status || "pending"
+                    )}`}
                     value={viewBooking.status || "pending"}
                     onChange={(e) => {
                       const bookingId = getBookingId(viewBooking);
@@ -1916,15 +1817,15 @@ export default function BookingsPage() {
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
                   </select>
-              </div>
+                </div>
                 <div>
                   <label className="text-xs text-slate-500 block mb-2">
-                  Payment Status
+                    Payment Status
                   </label>
                   <select
                     className={`w-full rounded-lg px-4 py-3 text-sm font-medium border-0 ${getPaymentStatusColor(
-                    viewBooking.payment_status || "unpaid"
-                  )}`}
+                      viewBooking.payment_status || "unpaid"
+                    )}`}
                     value={viewBooking.payment_status || "unpaid"}
                     onChange={(e) => {
                       const bookingId = getBookingId(viewBooking);
