@@ -4,7 +4,7 @@ const DEFAULT_API_BASE = "https://zuhahosts-backend.onrender.com";
 
 /**
  * Effective API base URL for the current environment.
- * On the client, when NEXT_PUBLIC_API_BASE_URL is missing (e.g. not set in Vercel build),
+ * On the client, when NEXT_PUBLIC_APzI_BASE_URL is missing (e.g. not set in Vercel build),
  * use default so images still load on live tenant subdomains.
  */
 function getEffectiveApiBase() {
@@ -2092,7 +2092,7 @@ export async function getHousekeepingTasks(filters = {}) {
   const queryParams = new URLSearchParams();
   if (filters.status) queryParams.append("status", filters.status);
   if (filters.propertyId) queryParams.append("propertyId", filters.propertyId);
-  
+
   const url = `${API_BASE_URL}/api/housekeeping/tasks${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
   const res = await fetchWithAuth(url);
   return handleResponse(res, "Failed to fetch housekeeping tasks");
@@ -2174,7 +2174,7 @@ export async function getOccupancyAnalytics(params = {}) {
   if (params.propertyId) queryParams.append("propertyId", params.propertyId);
   if (params.startDate) queryParams.append("startDate", params.startDate);
   if (params.endDate) queryParams.append("endDate", params.endDate);
-  
+
   const url = `${API_BASE_URL}/api/analytics/occupancy${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
   const res = await fetchWithAuth(url);
   return handleResponse(res, "Failed to fetch occupancy analytics");
@@ -2192,7 +2192,7 @@ export async function getRevenueAnalytics(params = {}) {
   const queryParams = new URLSearchParams();
   if (params.startDate) queryParams.append("startDate", params.startDate);
   if (params.endDate) queryParams.append("endDate", params.endDate);
-  
+
   const url = `${API_BASE_URL}/api/analytics/revenue${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
   const res = await fetchWithAuth(url);
   return handleResponse(res, "Failed to fetch revenue analytics");
@@ -2210,7 +2210,7 @@ export async function getBookingSourcesAnalytics(params = {}) {
   const queryParams = new URLSearchParams();
   if (params.startDate) queryParams.append("startDate", params.startDate);
   if (params.endDate) queryParams.append("endDate", params.endDate);
-  
+
   const url = `${API_BASE_URL}/api/analytics/booking-sources${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
   const res = await fetchWithAuth(url);
   return handleResponse(res, "Failed to fetch booking sources analytics");
@@ -2228,7 +2228,7 @@ export async function getGuestTrendsAnalytics(params = {}) {
   const queryParams = new URLSearchParams();
   if (params.startDate) queryParams.append("startDate", params.startDate);
   if (params.endDate) queryParams.append("endDate", params.endDate);
-  
+
   const url = `${API_BASE_URL}/api/analytics/guest-trends${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
   const res = await fetchWithAuth(url);
   return handleResponse(res, "Failed to fetch guest trends analytics");
@@ -2246,7 +2246,7 @@ export async function getDirectBookingsAnalytics(params = {}) {
   const queryParams = new URLSearchParams();
   if (params.startDate) queryParams.append("startDate", params.startDate);
   if (params.endDate) queryParams.append("endDate", params.endDate);
-  
+
   const url = `${API_BASE_URL}/api/analytics/direct-bookings${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
   const res = await fetchWithAuth(url);
   return handleResponse(res, "Failed to fetch direct bookings analytics");
@@ -2294,7 +2294,7 @@ export async function getWebsiteConfig() {
  */
 export async function updateWebsiteConfig(data) {
   const isFormData = data instanceof FormData;
-  
+
   const token = getToken();
   if (!token) {
     throw new Error("No authentication token found");
@@ -2398,7 +2398,7 @@ export async function checkPublicAvailability(tenantSlug, propertyId, params) {
   if (params.startDate) queryParams.append("startDate", params.startDate);
   if (params.endDate) queryParams.append("endDate", params.endDate);
   if (params.roomId) queryParams.append("roomId", params.roomId);
-  
+
   const url = `${API_BASE_URL}/public/${tenantSlug}/properties/${propertyId}/availability?${queryParams.toString()}`;
   const res = await fetch(url);
   return handleResponse(res, "Failed to check availability");
