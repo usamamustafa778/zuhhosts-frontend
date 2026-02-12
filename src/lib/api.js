@@ -96,13 +96,12 @@ async function fetchWithAuth(url, options = {}, requireAuth = true) {
   if (response.status === 401 && requireAuth && typeof window !== "undefined") {
     const refreshToken = localStorage.getItem("luxeboard.refreshToken");
 
-    if (refreshToken && !isRefreshing) {
-      isRefreshing = true;
-
+    if (refreshToken) {
       // Create a single refresh promise that all requests can wait for
       if (!refreshPromise) {
         refreshPromise = (async () => {
           try {
+            isRefreshing = true;
             const { refreshAccessToken } = await import("./api");
             const result = await refreshAccessToken(refreshToken);
 
@@ -119,6 +118,7 @@ async function fetchWithAuth(url, options = {}, requireAuth = true) {
 
             return result.token;
           } catch (error) {
+            console.error("Token refresh failed:", error);
             // Refresh failed - clear auth and redirect to login
             localStorage.removeItem("luxeboard.authToken");
             localStorage.removeItem("luxeboard.refreshToken");
@@ -137,19 +137,33 @@ async function fetchWithAuth(url, options = {}, requireAuth = true) {
         })();
       }
 
-      // Wait for refresh to complete
-      await refreshPromise;
+      // Wait for refresh to complete (even if another request initiated it)
+      try {
+        await refreshPromise;
 
-      // Retry the original request with new token
-      const newHeaders = createHeaders(requireAuth);
-      if (options.headers) {
-        Object.assign(newHeaders, options.headers);
+        // Retry the original request with new token
+        const newHeaders = createHeaders(requireAuth);
+        if (options.headers) {
+          Object.assign(newHeaders, options.headers);
+        }
+
+        response = await fetch(url, {
+          ...options,
+          headers: newHeaders,
+        });
+      } catch (error) {
+        // If refresh failed, return the original 401 response
+        return response;
       }
-
-      response = await fetch(url, {
-        ...options,
-        headers: newHeaders,
-      });
+    } else {
+      // No refresh token - clear auth and redirect to login
+      localStorage.removeItem("luxeboard.authToken");
+      localStorage.removeItem("luxeboard.refreshToken");
+      localStorage.removeItem("luxeboard.authUser");
+      
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
     }
   }
 
@@ -375,13 +389,22 @@ export async function registerUser(data) {
  * Returns: { success, token, refreshToken, user }
  */
 export async function refreshAccessToken(refreshToken) {
-  const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+  const baseUrl = getEffectiveApiBase();
+  const url = `${baseUrl}/api/auth/refresh`;
+  
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ refreshToken }),
   });
+  
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({ error: "Failed to refresh token" }));
+    throw new Error(errorData.error || errorData.message || "Failed to refresh token");
+  }
+  
   return handleResponse(res, "Failed to refresh token");
 }
 
