@@ -1829,7 +1829,8 @@ export async function getMyTenant() {
 
 /**
  * Create a new tenant (during onboarding)
- * Endpoint: POST /api/tenants
+ * @deprecated Use setupTenant instead. This function now calls /api/tenants/setup endpoint.
+ * Endpoint: POST /api/tenants/setup (backend only has this route, not /api/tenants)
  * @param {Object} data - Tenant data
  * @param {string} data.name - Tenant name (required)
  * @param {string} data.country - Country (required)
@@ -1837,7 +1838,8 @@ export async function getMyTenant() {
  * @returns {Promise<Object>} Created tenant object
  */
 export async function createTenant(data) {
-  const res = await fetchWithAuth(`${API_BASE_URL}/api/tenants`, {
+  // Backend only has /api/tenants/setup route, not /api/tenants
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/tenants/setup`, {
     method: "POST",
     body: JSON.stringify(data),
   });
