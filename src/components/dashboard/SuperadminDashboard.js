@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL } from "@/lib/api";
 import { getAuthToken } from "@/lib/auth";
+import { useCurrencyConversion } from "@/hooks/useCurrencyConversion";
 
 export default function SuperadminDashboard({ user }) {
   const router = useRouter();
+  const { formatWithConversion } = useCurrencyConversion();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     hosts: 0,
@@ -88,7 +90,7 @@ export default function SuperadminDashboard({ user }) {
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-sm font-medium text-slate-500">Platform Revenue</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">${stats.revenue}</p>
+          <p className="mt-2 text-3xl font-bold text-slate-900">{formatWithConversion(stats.revenue || 0, "USD")}</p>
         </div>
         <button type="button" onClick={() => router.push("/superadmin/staff")} className="rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:shadow-md">
           <p className="text-sm font-medium text-slate-500">Platform Staff</p>

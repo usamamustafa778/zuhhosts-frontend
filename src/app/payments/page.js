@@ -12,7 +12,7 @@ import { getAllGuests } from "@/lib/api";
 import { getAllProperties } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
-import { formatCurrency } from "@/utils/currencyUtils";
+import { useCurrencyConversion } from "@/hooks/useCurrencyConversion";
 
 // Helper function to format payment type labels
 const getPaymentTypeLabel = (paymentType) => {
@@ -29,14 +29,15 @@ const getPaymentTypeLabel = (paymentType) => {
 export default function PaymentsPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useRequireAuth();
-  
+  const { formatWithConversion } = useCurrencyConversion();
+
   // SEO
   useSEO({
     title: "Payments | Zuha Host",
     description: "Track payment settlements, manage transactions, and capture manual payments.",
     keywords: "payments, transactions, settlements, finance management",
   });
-  
+
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [paymentsData, setPaymentsData] = useState([]);
   const [guestsData, setGuestsData] = useState([]);
@@ -116,7 +117,7 @@ export default function PaymentsPage() {
         paid_by: formData.paid_by || undefined,
         notes: formData.notes || undefined,
       };
-      
+
       const newPayment = await createPayment(paymentData);
       setPaymentsData((prev) => [...prev, newPayment]);
       setCreateOpen(false);
@@ -155,19 +156,19 @@ export default function PaymentsPage() {
 
   const rows = paymentsData.map((payment, index) => {
     const paymentId = payment.id || payment._id || `payment-${index}`;
-    const property = payment.property_id 
+    const property = payment.property_id
       ? (typeof payment.property_id === 'object' ? payment.property_id : propertiesData.find(p => (p.id || p._id) === payment.property_id))
       : null;
-    const task = payment.task_id 
+    const task = payment.task_id
       ? (typeof payment.task_id === 'object' ? payment.task_id : null)
       : null;
-    
+
     return {
       id: paymentId,
       cells: [
         paymentId.slice(-8),
         property ? (property.title || property.name || "N/A") : "N/A",
-        formatCurrency(payment.amount || 0, payment.currency || null),
+        formatWithConversion(payment.amount || 0, payment.currency || "USD"),
         getPaymentTypeLabel(payment.payment_type),
         payment.method || "N/A",
         payment.date ? new Date(payment.date).toLocaleDateString() : "N/A",
@@ -197,11 +198,10 @@ export default function PaymentsPage() {
           {/* View Mode Switcher - Hidden on mobile */}
           <div className="hidden md:flex rounded-full border border-slate-200 p-1">
             <button
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                viewMode === "cards"
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "cards"
+                ? "bg-slate-900 text-white"
+                : "text-slate-600 hover:bg-slate-50"
+                }`}
               onClick={() => setViewMode("cards")}
             >
               <svg
@@ -220,11 +220,10 @@ export default function PaymentsPage() {
               </svg>
             </button>
             <button
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                viewMode === "table"
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "table"
+                ? "bg-slate-900 text-white"
+                : "text-slate-600 hover:bg-slate-50"
+                }`}
               onClick={() => setViewMode("table")}
             >
               <svg
@@ -283,7 +282,7 @@ export default function PaymentsPage() {
             <div className="grid gap-3 md:grid-cols-2">
               {paymentsData.map((payment, index) => {
                 const paymentId = payment.id || payment._id || `payment-${index}`;
-                const property = payment.property_id 
+                const property = payment.property_id
                   ? (typeof payment.property_id === 'object' ? payment.property_id : propertiesData.find(p => (p.id || p._id) === payment.property_id))
                   : null;
                 const propertyName = property ? (property.title || property.name || "N/A") : "N/A";
@@ -291,7 +290,7 @@ export default function PaymentsPage() {
                 const method = payment.method || "N/A";
                 const date = payment.date || payment.createdAt || "N/A";
                 const paymentType = getPaymentTypeLabel(payment.payment_type);
-                
+
                 return (
                   <div
                     key={paymentId}
@@ -306,7 +305,7 @@ export default function PaymentsPage() {
                         </div>
                         <p className="text-sm text-slate-600 truncate">{payment.paid_to || "N/A"}</p>
                       </div>
-                      
+
                       {/* Actions Dropdown */}
                       <div className="relative dropdown-container">
                         <button
@@ -317,7 +316,7 @@ export default function PaymentsPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                           </svg>
                         </button>
-                        
+
                         {/* Dropdown Menu */}
                         {openDropdownId === paymentId && (
                           <div className="absolute right-0 top-10 z-20 w-40 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
@@ -343,7 +342,7 @@ export default function PaymentsPage() {
                     <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100">
                       <div>
                         <span className="text-xs text-slate-500 block mb-1">Amount</span>
-                        <span className="text-lg font-semibold text-slate-900">{formatCurrency(amount, payment.currency || null)}</span>
+                        <span className="text-lg font-semibold text-slate-900">{formatWithConversion(amount, payment.currency || "USD")}</span>
                       </div>
                       <div className="text-right">
                         <span className="text-xs text-slate-500 block mb-1">Method</span>
@@ -429,10 +428,10 @@ export default function PaymentsPage() {
               }))
             ]}
           />
-          <FormField 
-            name="amount" 
-            label="Amount" 
-            type="number" 
+          <FormField
+            name="amount"
+            label="Amount"
+            type="number"
             step="0.01"
             min="0"
             placeholder="0.00"
@@ -466,36 +465,36 @@ export default function PaymentsPage() {
               required
             />
           </div>
-          <FormField 
-            name="date" 
-            label="Date" 
+          <FormField
+            name="date"
+            label="Date"
             type="date"
             value={formData.date}
             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
           />
           <div className="grid grid-cols-2 gap-4">
-            <FormField 
-              name="paid_to" 
-              label="Paid To" 
+            <FormField
+              name="paid_to"
+              label="Paid To"
               type="text"
               placeholder="Person/entity name"
               value={formData.paid_to}
               onChange={(e) => setFormData({ ...formData, paid_to: e.target.value })}
             />
-            <FormField 
-              name="paid_by" 
-              label="Paid By" 
+            <FormField
+              name="paid_by"
+              label="Paid By"
               type="text"
               placeholder="Person/entity name"
               value={formData.paid_by}
               onChange={(e) => setFormData({ ...formData, paid_by: e.target.value })}
             />
           </div>
-          <FormField 
-            name="notes" 
-            label="Notes" 
-            as="textarea" 
-            rows={3} 
+          <FormField
+            name="notes"
+            label="Notes"
+            as="textarea"
+            rows={3}
             placeholder="Optional memo"
             value={formData.notes}
             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
@@ -521,11 +520,11 @@ export default function PaymentsPage() {
             <div>
               <label className="text-xs font-semibold text-slate-500 uppercase">Property</label>
               <p className="mt-1 text-sm text-slate-900">
-                {selectedPayment.property_id 
-                  ? (typeof selectedPayment.property_id === 'object' 
-                      ? (selectedPayment.property_id.title || selectedPayment.property_id.name || "N/A")
-                      : (propertiesData.find(p => (p.id || p._id) === selectedPayment.property_id)?.title || 
-                         propertiesData.find(p => (p.id || p._id) === selectedPayment.property_id)?.name || "N/A"))
+                {selectedPayment.property_id
+                  ? (typeof selectedPayment.property_id === 'object'
+                    ? (selectedPayment.property_id.title || selectedPayment.property_id.name || "N/A")
+                    : (propertiesData.find(p => (p.id || p._id) === selectedPayment.property_id)?.title ||
+                      propertiesData.find(p => (p.id || p._id) === selectedPayment.property_id)?.name || "N/A"))
                   : "N/A"}
               </p>
             </div>
@@ -533,7 +532,7 @@ export default function PaymentsPage() {
               <div>
                 <label className="text-xs font-semibold text-slate-500 uppercase">Amount</label>
                 <p className="mt-1 text-lg font-semibold text-slate-900">
-                  {formatCurrency(selectedPayment.amount || 0, selectedPayment.currency || null)}
+                  {formatWithConversion(selectedPayment.amount || 0, selectedPayment.currency || "USD")}
                 </p>
               </div>
               <div>

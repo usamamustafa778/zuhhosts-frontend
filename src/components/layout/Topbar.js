@@ -5,7 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserSubscriptions } from "@/hooks/useUserSubscriptions";
+import { useCurrency } from "@/hooks/useCurrency";
 import { getAllHosts, impersonateHost, stopImpersonation, search, getImageUrl, getMyTenant } from "@/lib/api";
+import { fetchExchangeRates } from "@/utils/currencyUtils";
 
 export default function Topbar({ onMenuToggle }) {
   const router = useRouter();
@@ -22,13 +24,16 @@ export default function Topbar({ onMenuToggle }) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [tenant, setTenant] = useState(null);
+  const [isCurrencyOpen, setIsCurrencyOpen] = useState(false);
+  const { currency, updateCurrency, isLoading: isCurrencyLoading } = useCurrency();
   const profileRef = useRef(null);
   const hostSwitcherRef = useRef(null);
   const searchRef = useRef(null);
+  const currencyRef = useRef(null);
 
   // Check if currently impersonating a host
   const isImpersonating = user?.impersonatedBy || user?.isImpersonating || (isSuperAdmin && selectedHostId);
-  
+
   // Show host switcher if original user is superadmin (even while impersonating)
   // OR if user is currently a superadmin
   const showHostSwitcher = isSuperAdmin || user?.originalRole === 'superadmin' || isImpersonating;
@@ -39,6 +44,13 @@ export default function Topbar({ onMenuToggle }) {
       loadActiveSubscription();
     }
   }, [isAuthenticated, isSuperAdmin, isHost]);
+
+  // Initialize exchange rates on mount
+  useEffect(() => {
+    fetchExchangeRates().catch((error) => {
+      console.error("Failed to initialize exchange rates:", error);
+    });
+  }, []);
 
   // Load tenant for owners (API: id, name, slug, publicUrl, businessType, country, status)
   useEffect(() => {
@@ -134,6 +146,23 @@ export default function Topbar({ onMenuToggle }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isSearchOpen]);
 
+  // Handle click outside currency dropdown
+  useEffect(() => {
+    if (!isCurrencyOpen) return;
+
+    const handleClickOutside = (event) => {
+      if (
+        currencyRef.current &&
+        !currencyRef.current.contains(event.target)
+      ) {
+        setIsCurrencyOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isCurrencyOpen]);
+
   // Debounced search
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -185,15 +214,15 @@ export default function Topbar({ onMenuToggle }) {
       console.log('🔵 Hosts API response:', response);
       const hostsData = response.hosts || response.data || response;
       console.log('🔵 Hosts data:', hostsData);
-      
+
       // Normalize hosts to ensure they have _id field
-      const normalizedHosts = Array.isArray(hostsData) 
+      const normalizedHosts = Array.isArray(hostsData)
         ? hostsData.map(host => ({
-            ...host,
-            _id: host._id || host.id // Use id if _id is not present
-          }))
+          ...host,
+          _id: host._id || host.id // Use id if _id is not present
+        }))
         : [];
-      
+
       console.log('🔵 Normalized hosts:', normalizedHosts);
       setHosts(normalizedHosts);
     } catch (error) {
@@ -216,20 +245,20 @@ export default function Topbar({ onMenuToggle }) {
     console.log('🔵 Current user:', user);
     console.log('🔵 Is currently impersonating:', isImpersonating);
     console.log('🔵 switchingHost state:', switchingHost);
-    
+
     if (!hostId || switchingHost) {
       console.log('❌ Returning early. hostId:', hostId, 'switchingHost:', switchingHost);
       return;
     }
-    
+
     setSwitchingHost(true);
     console.log('🔵 Starting impersonation for host:', hostId);
-    
+
     try {
       console.log('🔵 Calling impersonateHost API...');
       const data = await impersonateHost(hostId);
       console.log('✅ API Response:', data);
-      
+
       // Update auth with new token and user data
       if (data.token && data.user) {
         console.log('🔵 Updating auth with new token and user');
@@ -237,11 +266,11 @@ export default function Topbar({ onMenuToggle }) {
         login(data.token, data.user);
         setSelectedHostId(hostId);
         setIsHostSwitcherOpen(false);
-        
+
         // Show success message
         const action = isImpersonating ? 'Switched to' : 'Now viewing as';
         alert(`✅ ${action} ${data.user.name}`);
-        
+
         router.push("/dashboard");
       } else {
         console.error('❌ Response missing token or user:', data);
@@ -250,17 +279,17 @@ export default function Topbar({ onMenuToggle }) {
     } catch (error) {
       console.error("❌ Failed to switch host:", error);
       console.error("❌ Error details:", error.message);
-      
+
       // More helpful error message
       let errorMessage = error.message || "Failed to switch to host account.";
-      
+
       if (error.message?.includes('403') || error.message?.includes('Forbidden')) {
         errorMessage = "⚠️ Backend needs updating!\n\n" +
           "The impersonation endpoint needs to check 'originalRole' to allow " +
           "switching between hosts.\n\n" +
           "Please share 'BACKEND_FIX_HOST_SWITCHING.md' with your backend team.";
       }
-      
+
       alert(errorMessage);
     } finally {
       console.log('🔵 Setting switchingHost back to false');
@@ -272,12 +301,12 @@ export default function Topbar({ onMenuToggle }) {
     setSwitchingHost(true);
     try {
       const data = await stopImpersonation();
-      
+
       // Update auth with superadmin token and user data
       if (data.token && data.user) {
         login(data.token, data.user);
         setSelectedHostId(null);
-        
+
         // Navigate back to superadmin dashboard
         router.push("/superadmin/dashboard");
       }
@@ -302,7 +331,7 @@ export default function Topbar({ onMenuToggle }) {
     setIsSearchOpen(false);
     setSearchQuery("");
     setSearchResults(null);
-    
+
     switch (type) {
       case "property":
         router.push(`/properties`);
@@ -325,6 +354,29 @@ export default function Topbar({ onMenuToggle }) {
         break;
     }
   };
+
+  const handleCurrencyChange = async (newCurrency) => {
+    if (newCurrency === currency || isCurrencyLoading) return;
+
+    try {
+      // Update currency (pass isSuperAdmin flag to skip API call for superadmin)
+      await updateCurrency(newCurrency, isSuperAdmin);
+      setIsCurrencyOpen(false);
+
+      // Currency change event is already dispatched by updateCurrency
+      // All components using useCurrencyConversion will automatically re-render
+      // No page reload needed - real-time updates!
+    } catch (error) {
+      console.error("Failed to update currency:", error);
+      alert("Failed to update currency. Please try again.");
+    }
+  };
+
+  const currencyOptions = [
+    { code: "USD", name: "US Dollar", symbol: "$" },
+    { code: "EUR", name: "Euro", symbol: "€" },
+    { code: "PKR", name: "Pakistani Rupee", symbol: "₨" },
+  ];
 
   return (
     <header className="sticky top-0 z-20 bg-white shadow-sm">
@@ -351,7 +403,7 @@ export default function Topbar({ onMenuToggle }) {
           </div>
         </div>
       )}
-      
+
       {/* Mobile App Style Topbar */}
       <div className="lg:hidden">
         <div className="flex items-center justify-between px-4 py-4">
@@ -371,8 +423,59 @@ export default function Topbar({ onMenuToggle }) {
             <h1 className="text-lg font-bold text-slate-900">ZuhHosts</h1>
           </div>
 
-          {/* Right: Avatar + Business name */}
+          {/* Right: Currency + Avatar + Business name */}
           <div className="flex items-center gap-2">
+            {isAuthenticated && (
+              <div className="relative" ref={currencyRef}>
+                <button
+                  onClick={() => setIsCurrencyOpen((prev) => !prev)}
+                  disabled={isCurrencyLoading}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-sm font-medium text-slate-700 shadow-sm active:scale-95 transition-transform disabled:opacity-50"
+                  aria-label="Select currency"
+                >
+                  <span className="text-base">
+                    {currencyOptions.find(c => c.code === currency)?.symbol || "$"}
+                  </span>
+                </button>
+                {isCurrencyOpen && (
+                  <div className="absolute right-0 z-30 mt-3 w-48 rounded-2xl border border-slate-100 bg-white shadow-xl overflow-hidden">
+                    <div className="sticky top-0 bg-white border-b border-slate-100 px-4 py-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-slate-700">Currency</span>
+                        <button
+                          className="text-xs text-slate-400 hover:text-slate-600"
+                          onClick={() => setIsCurrencyOpen(false)}
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                    <div className="py-2">
+                      {currencyOptions.map((option) => (
+                        <button
+                          key={option.code}
+                          onClick={() => handleCurrencyChange(option.code)}
+                          disabled={isCurrencyLoading || option.code === currency}
+                          className={`w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors disabled:opacity-50 ${option.code === currency ? "bg-slate-100" : ""
+                            }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-lg">{option.symbol}</span>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-slate-900">{option.name}</p>
+                              <p className="text-xs text-slate-500">{option.code}</p>
+                            </div>
+                            {option.code === currency && (
+                              <span className="text-emerald-600">✓</span>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             {isAuthenticated && user && (
               <>
                 <div className="relative" ref={profileRef}>
@@ -397,30 +500,30 @@ export default function Topbar({ onMenuToggle }) {
                         <p className="font-semibold text-slate-900">{user.name || "User"}</p>
                         <p className="text-sm text-slate-500 truncate">{user.email}</p>
                       </div>
-                    <div className="py-2">
-                      <Link
-                        href="/profile"
-                        onClick={() => setIsProfileOpen(false)}
-                        className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                      >
-                        My Profile
-                      </Link>
-                      <Link
-                        href="/profile"
-                        onClick={() => setIsProfileOpen(false)}
-                        className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                      >
-                        Account Settings
-                      </Link>
-                      <button
-                        onClick={handleLogout}
-                        className="w-full text-left px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 transition-colors"
-                      >
-                        Logout
-                      </button>
+                      <div className="py-2">
+                        <Link
+                          href="/profile"
+                          onClick={() => setIsProfileOpen(false)}
+                          className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                        >
+                          My Profile
+                        </Link>
+                        <Link
+                          href="/profile"
+                          onClick={() => setIsProfileOpen(false)}
+                          className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                        >
+                          Account Settings
+                        </Link>
+                        <button
+                          onClick={handleLogout}
+                          className="w-full text-left px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 transition-colors"
+                        >
+                          Logout
+                        </button>
+                      </div>
                     </div>
-                </div>
-              )}
+                  )}
                 </div>
                 {tenant?.name && (
                   <div className="min-w-0 max-w-[120px]">
@@ -441,30 +544,29 @@ export default function Topbar({ onMenuToggle }) {
       {/* Desktop Topbar */}
       <div className="hidden lg:block border-b border-slate-200 px-8 py-3">
         {/* Subscription Status Banner - Show for active or rejected subscriptions */}
-        {isAuthenticated && !isSuperAdmin && hasActiveSubscription && activeSubscription && 
-         (activeSubscription.status === "approved" || activeSubscription.status === "rejected") && (
-          <div className={`mb-3 rounded-lg px-4 py-2 ${
-            activeSubscription.status === "approved" 
-              ? "bg-emerald-50 border border-emerald-200" 
+        {isAuthenticated && !isSuperAdmin && hasActiveSubscription && activeSubscription &&
+          (activeSubscription.status === "approved" || activeSubscription.status === "rejected") && (
+            <div className={`mb-3 rounded-lg px-4 py-2 ${activeSubscription.status === "approved"
+              ? "bg-emerald-50 border border-emerald-200"
               : "bg-rose-50 border border-rose-200"
-          }`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-slate-900">
-                  {activeSubscription.status === "approved" ? "✓ Active Subscription" : "✗ Subscription Rejected"}
-                </span>
-                <span className="text-xs text-slate-600 capitalize">
-                  {activeSubscription.package?.replace("_", " ")} Plan
-                </span>
-                {activeSubscription.status === "approved" && activeSubscription.maxProperties && (
-                  <span className="text-xs text-slate-500">
-                    • {activeSubscription.maxProperties === -1 ? "Unlimited" : activeSubscription.maxProperties} properties
+              }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-slate-900">
+                    {activeSubscription.status === "approved" ? "✓ Active Subscription" : "✗ Subscription Rejected"}
                   </span>
-                )}
+                  <span className="text-xs text-slate-600 capitalize">
+                    {activeSubscription.package?.replace("_", " ")} Plan
+                  </span>
+                  {activeSubscription.status === "approved" && activeSubscription.maxProperties && (
+                    <span className="text-xs text-slate-500">
+                      • {activeSubscription.maxProperties === -1 ? "Unlimited" : activeSubscription.maxProperties} properties
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
         <div className="flex items-center gap-3">
           <div className="relative flex-1" ref={searchRef}>
             <div className="relative flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm">
@@ -602,6 +704,61 @@ export default function Topbar({ onMenuToggle }) {
             )}
           </div>
 
+          {/* Currency Selector */}
+          {isAuthenticated && (
+            <div className="relative" ref={currencyRef}>
+              <button
+                onClick={() => setIsCurrencyOpen((prev) => !prev)}
+                disabled={isCurrencyLoading}
+                className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-200 disabled:opacity-50"
+                aria-label="Select currency"
+              >
+                <span className="text-base">
+                  {currencyOptions.find(c => c.code === currency)?.symbol || "$"}
+                </span>
+                <span className="hidden sm:inline">{currency}</span>
+                <span className="text-xs">▼</span>
+              </button>
+              {isCurrencyOpen && (
+                <div className="absolute right-0 z-30 mt-3 w-48 rounded-2xl border border-slate-100 bg-white shadow-xl overflow-hidden">
+                  <div className="sticky top-0 bg-white border-b border-slate-100 px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-slate-700">Select Currency</span>
+                      <button
+                        className="text-xs text-slate-400 hover:text-slate-600"
+                        onClick={() => setIsCurrencyOpen(false)}
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                  <div className="py-2">
+                    {currencyOptions.map((option) => (
+                      <button
+                        key={option.code}
+                        onClick={() => handleCurrencyChange(option.code)}
+                        disabled={isCurrencyLoading || option.code === currency}
+                        className={`w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors disabled:opacity-50 ${option.code === currency ? "bg-slate-100" : ""
+                          }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg">{option.symbol}</span>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-900">{option.name}</p>
+                            <p className="text-xs text-slate-500">{option.code}</p>
+                          </div>
+                          {option.code === currency && (
+                            <span className="text-emerald-600">✓</span>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Host Switcher for Superadmin (and during impersonation) */}
           {showHostSwitcher && (
             <div className="relative" ref={hostSwitcherRef}>
@@ -627,7 +784,7 @@ export default function Topbar({ onMenuToggle }) {
                       </button>
                     </div>
                   </div>
-                  
+
                   {isImpersonating && (
                     <div className="border-b border-slate-100 px-4 py-3">
                       <button
@@ -639,7 +796,7 @@ export default function Topbar({ onMenuToggle }) {
                       </button>
                     </div>
                   )}
-                  
+
                   <div className="py-2">
                     {loadingHosts ? (
                       <div className="px-4 py-8 text-center text-sm text-slate-400">
@@ -711,30 +868,30 @@ export default function Topbar({ onMenuToggle }) {
                       <p className="text-sm font-semibold text-slate-900">{user.name || "User"}</p>
                       <p className="text-xs text-slate-500 truncate">{user.email}</p>
                     </div>
-                  <div className="py-1">
-                    <Link
-                      href="/profile"
-                      onClick={() => setIsProfileOpen(false)}
-                      className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                    >
-                      My Profile
-                    </Link>
-                    <Link
-                      href="/profile"
-                      onClick={() => setIsProfileOpen(false)}
-                      className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                    >
-                      Account Settings
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 transition-colors"
-                    >
-                      Logout
-                    </button>
+                    <div className="py-1">
+                      <Link
+                        href="/profile"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                      >
+                        My Profile
+                      </Link>
+                      <Link
+                        href="/profile"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                      >
+                        Account Settings
+                      </Link>
+                      <button
+                        onClick={handleLogout}
+                        className="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 transition-colors"
+                      >
+                        Logout
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
               </div>
               {tenant?.name && (
                 <div className="max-w-[180px] shrink-0 min-w-0">

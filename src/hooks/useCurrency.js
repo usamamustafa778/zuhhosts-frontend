@@ -22,25 +22,59 @@ export const useCurrency = () => {
   // Listen for storage changes (when currency is updated in another tab/window)
   useEffect(() => {
     const handleStorageChange = (e) => {
-      if (e.key === "defaultCurrency") {
-        setCurrency(getDefaultCurrency());
+      if (e.key === "defaultCurrency" || e.key === null) {
+        const newCurrency = getDefaultCurrency();
+        if (newCurrency !== currency) {
+          setCurrency(newCurrency);
+        }
+      }
+    };
+
+    // Listen for custom currency-change events (same-tab changes)
+    const handleCurrencyChange = (e) => {
+      const newCurrency = e.detail?.currency || getDefaultCurrency();
+      if (newCurrency !== currency) {
+        setCurrency(newCurrency);
       }
     };
 
     window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("currency-change", handleCurrencyChange);
+
     return () => {
       window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("currency-change", handleCurrencyChange);
     };
-  }, []);
+  }, [currency]); // Include currency in dependencies to check for changes
 
   /**
    * Update user's default currency
    * @param {string} newCurrency - New currency code
+   * @param {boolean} isSuperAdmin - Whether the user is a superadmin
    * @returns {Promise<void>}
    */
-  const updateCurrency = async (newCurrency) => {
+  const updateCurrency = async (newCurrency, isSuperAdmin = false) => {
+    if (newCurrency === currency) return; // No change needed
+    
     setIsLoading(true);
     try {
+      // For superadmin, just update localStorage (no API call needed)
+      if (isSuperAdmin) {
+        setCurrency(newCurrency);
+        setDefaultCurrency(newCurrency);
+        
+        // Dispatch event to notify other components
+        const event = new CustomEvent("currency-change", {
+          detail: { currency: newCurrency },
+          bubbles: true,
+        });
+        window.dispatchEvent(event);
+        
+        setIsLoading(false);
+        return;
+      }
+
+      // For regular users, update via API
       const token = getAuthToken();
       if (!token) {
         throw new Error("No authentication token found");
@@ -49,12 +83,23 @@ export const useCurrency = () => {
       const response = await updateDefaultCurrency(newCurrency);
       const userData = response.user || response;
 
-      // Update state and local storage
+      // Update state FIRST (synchronous) to trigger immediate re-renders
       setCurrency(newCurrency);
       setDefaultCurrency(newCurrency);
 
-      // Dispatch event to notify other components
-      window.dispatchEvent(new Event("currency-change"));
+      // Dispatch event to notify other components (including those not using the hook)
+      // Use a custom event with detail to ensure it's caught
+      const event = new CustomEvent("currency-change", {
+        detail: { currency: newCurrency },
+        bubbles: true,
+      });
+      window.dispatchEvent(event);
+      
+      // Also trigger storage event for cross-tab sync
+      window.dispatchEvent(new StorageEvent("storage", {
+        key: "defaultCurrency",
+        newValue: newCurrency,
+      }));
     } catch (err) {
       console.error("Failed to update currency:", err);
       throw err;
