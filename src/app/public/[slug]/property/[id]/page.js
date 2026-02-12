@@ -110,11 +110,14 @@ export default function PublicPropertyPage() {
 
       if (bookingForm.roomId) params.roomId = bookingForm.roomId;
 
-      const availabilityData = await checkPublicAvailability(
+      const response = await checkPublicAvailability(
         slug,
         propertyId,
         params
       );
+      
+      // Extract availability from response.data if it exists, otherwise use response directly
+      const availabilityData = response?.data || response;
       setAvailability(availabilityData);
     } catch (error) {
       setAvailability({ available: false, message: error.message });
