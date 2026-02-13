@@ -2384,7 +2384,7 @@ export async function getDirectBookingsAnalytics(params = {}) {
 /**
  * Get tenant's public website configuration
  * Endpoint: GET /api/tenants/website/config
- * Response: { success, data: { tenantName, slug, publicUrl, enabled, canToggle, logo, description, primaryColor, contactEmail, contactPhone, heroImage, testimonials, amenities } }
+ * Response: { success, data: { tenantName, slug, publicUrl, enabled, canToggle, logo, description, primaryColor, contactEmail, contactPhone, heroImage, testimonials, amenities, customDomain?, customDomainStatus?, customDomainVerificationError? } }
  * - heroImage: string (path or URL)
  * - testimonials: Array<{ quote, author, role?, stars? }>
  * - amenities: Array<{ label, icon?, detail? }>
@@ -2454,6 +2454,51 @@ export async function togglePublicWebsite(isEnabled) {
     body: JSON.stringify({ enabled: Boolean(isEnabled) }),
   });
   return handleResponse(res, "Failed to toggle public website");
+}
+
+// ============================================
+// Custom Domain API (Vercel + DB)
+// Backend: add domain to Vercel via API, store in DB; verify via Vercel
+// ============================================
+
+/**
+ * Add custom domain for tenant's public website
+ * Backend: POST /api/tenants/website/custom-domain — adds domain to Vercel + DB (status: pending_verification)
+ * @param {string} domain - e.g. "marriott.com" or "www.marriott.com"
+ * @returns {Promise<Object>} { customDomain, status, verificationInstructions? }
+ */
+export async function addCustomDomain(domain) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/tenants/website/custom-domain`, {
+    method: "POST",
+    body: JSON.stringify({ domain: (domain || "").trim().toLowerCase() }),
+  });
+  const body = await handleResponse(res, "Failed to add custom domain");
+  return body?.data ?? body;
+}
+
+/**
+ * Remove custom domain
+ * Backend: DELETE /api/tenants/website/custom-domain
+ * @returns {Promise<Object>}
+ */
+export async function removeCustomDomain() {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/tenants/website/custom-domain`, {
+    method: "DELETE",
+  });
+  return handleResponse(res, "Failed to remove custom domain");
+}
+
+/**
+ * Verify custom domain (backend checks Vercel and updates DB status to active/failed)
+ * Backend: POST /api/tenants/website/custom-domain/verify
+ * @returns {Promise<Object>} { customDomain, status, verified?, verificationError? }
+ */
+export async function verifyCustomDomain() {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/tenants/website/custom-domain/verify`, {
+    method: "POST",
+  });
+  const body = await handleResponse(res, "Failed to verify custom domain");
+  return body?.data ?? body;
 }
 
 /**

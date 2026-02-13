@@ -8,6 +8,9 @@ import {
   updateWebsiteConfig,
   togglePublicWebsite,
   getImageUrl,
+  addCustomDomain,
+  removeCustomDomain,
+  verifyCustomDomain,
 } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
@@ -20,6 +23,7 @@ const DEFAULT_AMENITY = { label: "", icon: "✨", detail: "" };
 
 const SECTIONS = [
   { id: "header", label: "Header & logo", icon: "M4 6h16M4 12h16M4 18h7" },
+  { id: "customDomain", label: "Custom domain", icon: "M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9a9 9 0 009 9m-9 9a9 9 0 000 9m9-9h-3m-9 9a9 9 0 019-9" },
   { id: "hero", label: "Hero section", icon: "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" },
   { id: "contact", label: "Contact", icon: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
   { id: "testimonials", label: "Testimonials", icon: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
@@ -58,6 +62,13 @@ export default function WebsitePage() {
   const [logoPreview, setLogoPreview] = useState(null);
   const [heroFile, setHeroFile] = useState(null);
   const [heroPreview, setHeroPreview] = useState(null);
+  const [customDomain, setCustomDomainState] = useState("");
+  const [customDomainStatus, setCustomDomainStatus] = useState("");
+  const [customDomainVerificationError, setCustomDomainVerificationError] = useState("");
+  const [customDomainInput, setCustomDomainInput] = useState("");
+  const [isAddingDomain, setIsAddingDomain] = useState(false);
+  const [isVerifyingDomain, setIsVerifyingDomain] = useState(false);
+  const [isRemovingDomain, setIsRemovingDomain] = useState(false);
   const sectionRefs = useRef({});
 
   useEffect(() => {
@@ -118,6 +129,9 @@ export default function WebsitePage() {
           testimonials,
           amenities,
         });
+        setCustomDomainState((configData.customDomain ?? "").toString().trim());
+        setCustomDomainStatus((configData.customDomainStatus ?? "").toString().trim());
+        setCustomDomainVerificationError((configData.customDomainVerificationError ?? "").toString().trim());
         setLogoPreview(logo ? getImageUrl(logo) || logo : null);
         setHeroPreview(heroImage ? getImageUrl(heroImage) || heroImage : null);
       }
@@ -203,6 +217,76 @@ export default function WebsitePage() {
       ...prev,
       amenities: prev.amenities.filter((_, i) => i !== index),
     }));
+  };
+
+  const handleAddCustomDomain = async (e) => {
+    e.preventDefault();
+    const domain = (customDomainInput || "").trim().toLowerCase();
+    if (!domain) {
+      toast.error("Enter a domain (e.g. marriott.com)");
+      return;
+    }
+    if (!/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?(\.[a-z]{2,})+$/i.test(domain) || domain.length > 253) {
+      toast.error("Enter a valid domain (e.g. example.com or www.example.com)");
+      return;
+    }
+    setIsAddingDomain(true);
+    const toastId = toast.loading("Adding domain...");
+    try {
+      const result = await addCustomDomain(domain);
+      setCustomDomainState(result?.customDomain ?? domain);
+      setCustomDomainStatus(result?.status ?? "pending_verification");
+      setCustomDomainVerificationError("");
+      setCustomDomainInput("");
+      toast.success("Domain added. Update your DNS, then click Verify.", { id: toastId });
+      await loadData(true);
+    } catch (error) {
+      toast.dismiss(toastId);
+      handleApiError(error, router, toast);
+    } finally {
+      setIsAddingDomain(false);
+    }
+  };
+
+  const handleVerifyCustomDomain = async () => {
+    setIsVerifyingDomain(true);
+    const toastId = toast.loading("Verifying DNS...");
+    try {
+      const result = await verifyCustomDomain();
+      setCustomDomainStatus(result?.status ?? result?.verified ? "active" : "pending_verification");
+      setCustomDomainVerificationError((result?.verificationError ?? "").toString().trim());
+      if (result?.verified || result?.status === "active") {
+        toast.success("Domain verified and active!", { id: toastId });
+      } else {
+        toast.success("Verification checked. " + (result?.verificationError ? "Fix DNS and try again." : "DNS may still be propagating."), { id: toastId });
+      }
+      await loadData(true);
+    } catch (error) {
+      toast.dismiss(toastId);
+      handleApiError(error, router, toast);
+    } finally {
+      setIsVerifyingDomain(false);
+    }
+  };
+
+  const handleRemoveCustomDomain = async () => {
+    if (!customDomain) return;
+    if (!confirm(`Remove custom domain ${customDomain}? Your site will only be available at ${config.slug}.zuhahost.com until you add another.`)) return;
+    setIsRemovingDomain(true);
+    const toastId = toast.loading("Removing domain...");
+    try {
+      await removeCustomDomain();
+      setCustomDomainState("");
+      setCustomDomainStatus("");
+      setCustomDomainVerificationError("");
+      toast.success("Custom domain removed.", { id: toastId });
+      await loadData(true);
+    } catch (error) {
+      toast.dismiss(toastId);
+      handleApiError(error, router, toast);
+    } finally {
+      setIsRemovingDomain(false);
+    }
   };
 
   const handleToggleWebsite = async () => {
@@ -294,7 +378,9 @@ export default function WebsitePage() {
   }
 
   const publicUrl = config.publicUrl || (config.slug ? `${config.slug}.zuhahost.com` : "");
-  const fullUrl = publicUrl.startsWith("http") ? publicUrl : `https://${publicUrl}`;
+  const fullUrl = (customDomain && customDomainStatus === "active")
+    ? `https://${customDomain}`
+    : (publicUrl.startsWith("http") ? publicUrl : `https://${publicUrl}`);
   const primaryColor = config.primaryColor || "#0d9488";
 
   const scrollToSection = (id) => {
@@ -432,6 +518,101 @@ export default function WebsitePage() {
                     className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono w-28 focus:border-slate-300 focus:outline-none focus:ring-1 focus:ring-slate-300"
                   />
                 </div>
+              </div>
+            </section>
+
+            {/* Custom domain */}
+            <section
+              ref={(el) => (sectionRefs.current.customDomain = el)}
+              className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm"
+            >
+              <div className="border-b border-slate-100 bg-slate-50/50 px-4 py-3">
+                <h2 className="text-sm font-semibold text-slate-900">Custom domain</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Use your own domain (e.g. marriott.com) instead of {config.slug}.zuhahost.com</p>
+              </div>
+              <div className="p-4 sm:p-5 space-y-4">
+                {!customDomain ? (
+                  <>
+                    <form onSubmit={handleAddCustomDomain} className="flex flex-wrap items-end gap-3">
+                      <div className="flex-1 min-w-[200px]">
+                        <label className="block text-xs font-medium text-slate-500 mb-1.5">Domain</label>
+                        <input
+                          type="text"
+                          value={customDomainInput}
+                          onChange={(e) => setCustomDomainInput(e.target.value)}
+                          placeholder="example.com or www.example.com"
+                          className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm placeholder:text-slate-400 focus:border-slate-300 focus:outline-none focus:ring-1 focus:ring-slate-300"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={isAddingDomain}
+                        className="rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50 transition-colors"
+                      >
+                        {isAddingDomain ? "Adding…" : "Add domain"}
+                      </button>
+                    </form>
+                    <p className="text-xs text-slate-500">After adding, you’ll get DNS instructions. Once DNS is set and verified, your site will work on your custom domain with SSL.</p>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="font-medium text-slate-900">{customDomain}</span>
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          customDomainStatus === "active"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : customDomainStatus === "failed"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-amber-100 text-amber-800"
+                        }`}
+                      >
+                        {customDomainStatus === "active" ? "Active" : customDomainStatus === "failed" ? "Verification failed" : "Pending verification"}
+                      </span>
+                    </div>
+                    {customDomainStatus !== "active" && (
+                      <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+                        <p className="text-sm font-medium text-slate-700">Add one of these DNS records at your domain provider:</p>
+                        <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                          <div className="rounded-lg border border-slate-200 bg-white p-3 font-mono text-xs space-y-1">
+                            <p className="text-slate-500">CNAME (recommended)</p>
+                            <p><span className="text-slate-500">Name:</span> @ or www</p>
+                            <p><span className="text-slate-500">Value:</span> cname.vercel-dns.com</p>
+                          </div>
+                          <div className="rounded-lg border border-slate-200 bg-white p-3 font-mono text-xs space-y-1">
+                            <p className="text-slate-500">A record</p>
+                            <p><span className="text-slate-500">Name:</span> @</p>
+                            <p><span className="text-slate-500">Value:</span> 76.76.21.21</p>
+                          </div>
+                        </div>
+                        {customDomainVerificationError && (
+                          <p className="text-xs text-red-600">{customDomainVerificationError}</p>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleVerifyCustomDomain}
+                          disabled={isVerifyingDomain}
+                          className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                        >
+                          {isVerifyingDomain ? "Verifying…" : "Verify DNS"}
+                        </button>
+                      </div>
+                    )}
+                    {customDomainStatus === "active" && (
+                      <p className="text-sm text-slate-600">Your site is live at <a href={`https://${customDomain}`} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">https://{customDomain}</a></p>
+                    )}
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={handleRemoveCustomDomain}
+                        disabled={isRemovingDomain}
+                        className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                      >
+                        {isRemovingDomain ? "Removing…" : "Remove domain"}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </section>
 
