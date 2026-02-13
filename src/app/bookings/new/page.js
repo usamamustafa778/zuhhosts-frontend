@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
-import FileUpload from "@/components/common/FileUpload";
 import PageLoader from "@/components/common/PageLoader";
 import Combobox from "@/components/common/Combobox";
 import {
@@ -11,6 +10,7 @@ import {
   getAllProperties,
   getAllGuests,
   getRooms,
+  updateGuest,
 } from "@/lib/api";
 import { getDefaultCurrency } from "@/utils/currencyUtils";
 import { useRequireAuth } from "@/hooks/useAuth";
@@ -26,6 +26,8 @@ const getInitialFormState = () => ({
   currency: getDefaultCurrency(),
   payment_status: "unpaid",
   numberOfGuests: "1",
+  guest_name: "",
+  guest_phone: "",
 });
 
 const getBookingId = (item) => item.id || item._id;
@@ -67,8 +69,24 @@ export default function NewBookingPage() {
   const [error, setError] = useState(null);
   const [roomsData, setRoomsData] = useState([]);
   const [idCardFiles, setIdCardFiles] = useState([]);
+  const [idCardPreviews, setIdCardPreviews] = useState([]);
 
   const [createForm, setCreateForm] = useState(() => getInitialFormState());
+
+  // Helpers to work with properties (used to determine propertyType)
+  const getPropertyById = (id) => propertiesData.find((p) => (p._id || p.id) === id);
+  const isHotelProperty = (id) => {
+    if (!id) return false;
+    const prop = getPropertyById(id);
+    return prop?.propertyType === "hotel";
+  };
+
+  // Clear roomId when property changes to a non-hotel
+  useEffect(() => {
+    if (createForm.property_id && !isHotelProperty(createForm.property_id) && createForm.roomId) {
+      setCreateForm((prev) => ({ ...prev, roomId: "" }));
+    }
+  }, [createForm.property_id]);
 
   // Sync currency on mount and when it changes in local storage
   useEffect(() => {
@@ -144,6 +162,13 @@ export default function NewBookingPage() {
       .catch(() => setRoomsData([]));
   }, [createForm.property_id]);
 
+  // Cleanup previews when component unmounts
+  useEffect(() => {
+    return () => {
+      idCardPreviews.forEach((url) => url && URL.revokeObjectURL(url));
+    };
+  }, [idCardPreviews]);
+
 
   const handleCreateBooking = async (e) => {
     e.preventDefault();
@@ -157,7 +182,7 @@ export default function NewBookingPage() {
       return;
     }
 
-    if (!createForm.roomId) {
+    if (isHotelProperty(createForm.property_id) && !createForm.roomId) {
       toast.error("Please select a room");
       return;
     }
@@ -166,13 +191,40 @@ export default function NewBookingPage() {
       setIsSaving(true);
       setError(null);
 
+      // If the selected guest was modified (name/phone), update guest first
+      try {
+        const guestId = createForm.guest_id;
+        if (guestId) {
+          const selectedGuest = guestsData.find((g) => getBookingId(g) === guestId);
+          if (selectedGuest) {
+            const updateData = {};
+            if ((createForm.guest_name || "") !== (selectedGuest.name || "")) updateData.name = createForm.guest_name || "";
+            if ((createForm.guest_phone || "") !== (selectedGuest.phone || "")) updateData.phone = createForm.guest_phone || "";
+            if (Object.keys(updateData).length > 0) {
+              try {
+                const updated = await updateGuest(guestId, updateData);
+                setGuestsData((prev) => prev.map((g) => (getBookingId(g) === guestId ? { ...g, ...updated } : g)));
+              } catch (uErr) {
+                console.error("Failed to update guest before booking:", uErr);
+              }
+            }
+          }
+        }
+      } catch (uErr) {
+        console.error("Error checking guest updates:", uErr);
+      }
+
       // Prepare form data with files
       const formData = new FormData();
 
-      // Append all booking fields, ensuring currency is from local storage
+      // Append all booking fields, ensuring currency is from local storage.
+      // Skip roomId for non-hotel properties to avoid sending invalid/empty roomId.
+      const skipRoom = !isHotelProperty(createForm.property_id);
       Object.keys(createForm).forEach((key) => {
         if (key === "currency") {
           formData.append(key, getDefaultCurrency());
+        } else if (key === "roomId") {
+          if (!skipRoom && createForm[key]) formData.append(key, createForm[key]);
         } else if (key === "roomId" && !createForm[key]) {
           // Skip empty roomId
         } else {
@@ -261,19 +313,44 @@ export default function NewBookingPage() {
               </label>
               <Combobox
                 value={createForm.guest_id}
-                onChange={(value) =>
-                  setCreateForm({ ...createForm, guest_id: value })
-                }
+                onChange={(value) => {
+                  const sel = guestsData.find((g) => getBookingId(g) === value);
+                  if (sel) {
+                    setCreateForm({ ...createForm, guest_id: value, guest_name: sel.name || "", guest_phone: sel.phone || "" });
+                  } else {
+                    setCreateForm({ ...createForm, guest_id: value, guest_name: "", guest_phone: "" });
+                  }
+                }}
                 options={guestsData}
-                getOptionLabel={(guest) => guest.name}
-                getOptionValue={(guest) => getBookingId(guest)}
-                getOptionDescription={(guest) =>
-                  `${guest.phone}${guest.email ? ` • ${guest.email}` : ""}`
+                getOptionLabel={(guest) =>
+                  guest.idCardNumber || guest.id_card || guest.idCard || guest.idNumber || guest.name || ""
                 }
-                placeholder="Search guest by name, phone, or email..."
+                getOptionValue={(guest) => getBookingId(guest)}
+                placeholder="Search By Id card"
                 required
                 noOptionsMessage="No guests found"
               />
+              {/* Extra quick fields for name and phone below the search */}
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                <input
+                  type="text"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={createForm.guest_name}
+                  onChange={(e) => setCreateForm({ ...createForm, guest_name: e.target.value })}
+                  placeholder="Guest full name"
+                />
+              </div>
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Phone No</label>
+                <input
+                  type="text"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={createForm.guest_phone}
+                  onChange={(e) => setCreateForm({ ...createForm, guest_phone: e.target.value })}
+                  placeholder="123 456 7890"
+                />
+              </div>
             </div>
 
             <div>
@@ -423,17 +500,65 @@ export default function NewBookingPage() {
             </div>
           </div>
 
-          {/* ID Cards Upload */}
+          {/* ID Cards Upload - use same simple picker as Add Guest form */}
           <div>
-            <FileUpload
-              label="Guest ID Cards (Optional)"
-              files={idCardFiles}
-              onChange={setIdCardFiles}
-              maxFiles={10}
-              maxSizeMB={5}
-              helpText="Upload up to 10 ID cards. JPG, PNG, GIF, PDF accepted. Max 5MB each."
-              showPreview={false}
+            <label className="block text-sm font-medium text-slate-700 mb-1">Guest ID Cards (Optional)</label>
+            <input
+              type="file"
+              multiple
+              accept="image/*,.pdf"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                // Revoke old previews
+                idCardPreviews.forEach((u) => u && URL.revokeObjectURL(u));
+                const previews = files.map((f) => (f.type.startsWith("image/") ? URL.createObjectURL(f) : null));
+                setIdCardFiles(files);
+                setIdCardPreviews(previews);
+              }}
             />
+            <p className="mt-1 text-xs text-slate-500">Upload up to 10 ID cards. JPG, PNG, GIF, PDF accepted. Max 5MB each.</p>
+
+            {idCardFiles.length > 0 && (
+              <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {idCardFiles.map((file, idx) => (
+                  <div key={`${file.name}-${idx}`} className="group relative aspect-square rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                    {idCardPreviews[idx] ? (
+                      <img
+                        src={idCardPreviews[idx]}
+                        alt={file.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                        <svg className="h-8 w-8 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0-1.657 1.343-3 3-3s3 1.343 3 3M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        <span className="text-xs text-slate-500">{file.name}</span>
+                      </div>
+                    )}
+
+                    <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/50 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // remove this file
+                          const newFiles = idCardFiles.filter((_, i) => i !== idx);
+                          const newPreviews = idCardPreviews.filter((_, i) => i !== idx);
+                          // revoke the removed preview
+                          if (idCardPreviews[idx]) URL.revokeObjectURL(idCardPreviews[idx]);
+                          setIdCardFiles(newFiles);
+                          setIdCardPreviews(newPreviews);
+                        }}
+                        className="rounded-full bg-white p-2 text-slate-700 hover:bg-slate-100"
+                        title="Remove"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

@@ -1391,7 +1391,7 @@ export default function GuestsPage() {
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              Email <span className="text-rose-500">*</span>
+              Email
             </label>
             <input
               type="email"
@@ -1401,10 +1401,9 @@ export default function GuestsPage() {
                 setCreateForm({ ...createForm, email: e.target.value })
               }
               placeholder="guest@email.com"
-              required
             />
             <p className="mt-1 text-xs text-slate-500">
-              Must be unique per host
+              Must be unique per host (optional)
             </p>
           </div>
 
