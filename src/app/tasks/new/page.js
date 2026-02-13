@@ -35,12 +35,19 @@ export default function CreateTaskPage() {
     description: "",
     assigned_to: "",
     status: "pending",
+    // Room / inspection notes (maps to API `notes` object from curl)
+    maintenanceStatus: "",
+    inspectionStatus: "",
+    utilitiesCheck: "",
+    inventoryCheckStatus: "",
+    safetyCheck: "",
+    readyForOccupancyStatus: "",
     includePayment: false,
     payment: {
       amount: "",
       payment_type: "maintenance_work",
       method: "cash",
-      date: new Date().toISOString().split('T')[0],
+      date: new Date().toISOString().split("T")[0],
       paid_to: "",
       paid_by: "",
       notes: "",
@@ -75,10 +82,19 @@ export default function CreateTaskPage() {
     
     const taskData = {
       property_id: formData.property_id,
+      assigned_to: formData.assigned_to,
       title: formData.title,
       description: formData.description,
-      assigned_to: formData.assigned_to,
       status: formData.status,
+      // Map to nested `notes` object exactly like curl payload
+      notes: {
+        maintenanceStatus: formData.maintenanceStatus,
+        inspectionStatus: formData.inspectionStatus,
+        utilitiesCheck: formData.utilitiesCheck,
+        inventoryCheckStatus: formData.inventoryCheckStatus,
+        safetyCheck: formData.safetyCheck,
+        readyForOccupancyStatus: formData.readyForOccupancyStatus,
+      },
     };
 
     // Include payment if checkbox is checked and payment fields are filled
@@ -183,6 +199,82 @@ export default function CreateTaskPage() {
                 }
                 placeholder="Detailed task description (optional)..."
                 rows={4}
+              />
+            </div>
+
+            {/* Room / inspection notes (API `notes` object) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+              <InputField
+                label="Maintenance Status"
+                type="text"
+                value={formData.maintenanceStatus}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    maintenanceStatus: e.target.value,
+                  })
+                }
+                placeholder="e.g. OK, Needs repair"
+              />
+              <InputField
+                label="Inspection Status"
+                type="text"
+                value={formData.inspectionStatus}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    inspectionStatus: e.target.value,
+                  })
+                }
+                placeholder="e.g. Pending, Completed"
+              />
+              <InputField
+                label="Utilities Check"
+                type="text"
+                value={formData.utilitiesCheck}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    utilitiesCheck: e.target.value,
+                  })
+                }
+                placeholder="e.g. All utilities working"
+              />
+              <InputField
+                label="Inventory Check Status"
+                type="text"
+                value={formData.inventoryCheckStatus}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    inventoryCheckStatus: e.target.value,
+                  })
+                }
+                placeholder="e.g. Towels missing"
+              />
+              <InputField
+                label="Safety Check"
+                type="text"
+                value={formData.safetyCheck}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    safetyCheck: e.target.value,
+                  })
+                }
+                placeholder="e.g. Smoke detector checked"
+              />
+              <InputField
+                label="Ready For Occupancy"
+                type="text"
+                value={formData.readyForOccupancyStatus}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    readyForOccupancyStatus: e.target.value,
+                  })
+                }
+                placeholder="e.g. Yes / No"
               />
             </div>
 

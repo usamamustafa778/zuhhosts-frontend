@@ -199,13 +199,11 @@ export default function GuestsPage() {
         if (createForm.idCardNumber) formData.append("idCardNumber", createForm.idCardNumber);
         if (createForm.notes) formData.append("notes", createForm.notes);
         if (createForm.preferences) formData.append("preferences", createForm.preferences);
-        // Blacklist fields
-        formData.append("isBlacklisted", String(createForm.isBlacklisted));
-        if (createForm.blacklistNotes) formData.append("blacklistNotes", createForm.blacklistNotes);
+        // Blacklist fields (API: blacklist, blacklistNotes, internalFlags)
+        formData.append("blacklist", String(createForm.isBlacklisted));
+        formData.append("blacklistNotes", createForm.blacklistNotes || "");
         const flagsArr = parseFlags(createForm.flagsText);
-        if (flagsArr.length) {
-          flagsArr.forEach((flag) => formData.append("flags", flag));
-        }
+        flagsArr.forEach((flag) => formData.append("internalFlags", flag));
 
         if (createForm.idCard) {
           formData.append("idCard", createForm.idCard);
@@ -241,18 +239,16 @@ export default function GuestsPage() {
         console.log("✅ Guest created successfully:", newGuest);
       } else {
         // Use regular JSON API call (matches backend model: name, phone, email, idCardNumber, notes, preferences)
+        // API payload matches curl: name, phone, email, blacklist, blacklistNotes, internalFlags
         console.log("📤 Sending JSON to API...");
         const flagsArr = parseFlags(createForm.flagsText);
         newGuest = await createGuest({
           name: createForm.name,
-          email: createForm.email,
           phone: createForm.phone,
-          idCardNumber: createForm.idCardNumber || undefined,
-          notes: createForm.notes || undefined,
-          preferences: createForm.preferences || undefined,
-          isBlacklisted: createForm.isBlacklisted,
-          blacklistNotes: createForm.blacklistNotes || undefined,
-          flags: flagsArr.length ? flagsArr : undefined,
+          email: createForm.email,
+          blacklist: createForm.isBlacklisted,
+          blacklistNotes: createForm.blacklistNotes || "",
+          internalFlags: flagsArr,
         });
         console.log("✅ Guest created successfully:", newGuest);
       }
@@ -303,12 +299,10 @@ export default function GuestsPage() {
         if (editForm.idCardNumber !== undefined) formData.append("idCardNumber", editForm.idCardNumber);
         if (editForm.notes !== undefined) formData.append("notes", editForm.notes);
         if (editForm.preferences !== undefined) formData.append("preferences", editForm.preferences);
-        formData.append("isBlacklisted", String(editForm.isBlacklisted));
-        if (editForm.blacklistNotes !== undefined) formData.append("blacklistNotes", editForm.blacklistNotes);
+        formData.append("blacklist", String(editForm.isBlacklisted));
+        formData.append("blacklistNotes", editForm.blacklistNotes ?? "");
         const flagsArr = parseFlags(editForm.flagsText);
-        if (flagsArr.length) {
-          flagsArr.forEach((flag) => formData.append("flags", flag));
-        }
+        flagsArr.forEach((flag) => formData.append("internalFlags", flag));
         if (editForm.idCard) formData.append("idCard", editForm.idCard);
         if (editForm.profilePicture)
           formData.append("profilePicture", editForm.profilePicture);
@@ -344,16 +338,10 @@ export default function GuestsPage() {
         if (editForm.idCardNumber !== undefined) updateData.idCardNumber = editForm.idCardNumber;
         if (editForm.notes !== undefined) updateData.notes = editForm.notes;
         if (editForm.preferences !== undefined) updateData.preferences = editForm.preferences;
-        updateData.isBlacklisted = editForm.isBlacklisted;
-        if (editForm.blacklistNotes !== undefined) updateData.blacklistNotes = editForm.blacklistNotes;
-        {
-          const flagsArr = parseFlags(editForm.flagsText);
-          if (flagsArr.length) {
-            updateData.flags = flagsArr;
-          } else {
-            updateData.flags = [];
-          }
-        }
+        updateData.blacklist = editForm.isBlacklisted;
+        updateData.blacklistNotes = editForm.blacklistNotes ?? "";
+        const flagsArr = parseFlags(editForm.flagsText);
+        updateData.internalFlags = flagsArr;
 
         updatedGuest = await updateGuest(guestId, updateData);
       }
@@ -408,6 +396,9 @@ export default function GuestsPage() {
 
   const openEditModal = (guest) => {
     setSelectedGuest(guest);
+    // API returns blacklist / internalFlags; support legacy isBlacklisted / flags
+    const blacklist = guest.blacklist ?? guest.isBlacklisted;
+    const flagsArr = Array.isArray(guest.internalFlags) ? guest.internalFlags : (Array.isArray(guest.flags) ? guest.flags : []);
     setEditForm({
       name: guest.name || "",
       email: guest.email || "",
@@ -415,9 +406,9 @@ export default function GuestsPage() {
       idCardNumber: guest.idCardNumber || "",
       notes: guest.notes || "",
       preferences: guest.preferences || "",
-      isBlacklisted: Boolean(guest.isBlacklisted),
+      isBlacklisted: Boolean(blacklist),
       blacklistNotes: guest.blacklistNotes || "",
-      flagsText: Array.isArray(guest.flags) ? guest.flags.join(", ") : "",
+      flagsText: flagsArr.join(", "),
       idCard: null,
       profilePicture: null,
     });

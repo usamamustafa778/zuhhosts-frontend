@@ -64,6 +64,13 @@ export default function TasksPage() {
     description: "",
     assigned_to: "",
     status: "pending",
+    // Room / inspection notes (API `notes` object from curl)
+    maintenanceStatus: "",
+    inspectionStatus: "",
+    utilitiesCheck: "",
+    inventoryCheckStatus: "",
+    safetyCheck: "",
+    readyForOccupancyStatus: "",
     includePayment: false,
     payment: {
       amount: "",
@@ -213,6 +220,15 @@ export default function TasksPage() {
         description: formData.description || undefined,
         assigned_to: formData.assigned_to,
         status: formData.status,
+        // Map to nested `notes` object (same as /tasks/new)
+        notes: {
+          maintenanceStatus: formData.maintenanceStatus,
+          inspectionStatus: formData.inspectionStatus,
+          utilitiesCheck: formData.utilitiesCheck,
+          inventoryCheckStatus: formData.inventoryCheckStatus,
+          safetyCheck: formData.safetyCheck,
+          readyForOccupancyStatus: formData.readyForOccupancyStatus,
+        },
       };
 
       // Include payment if checkbox is checked and required fields are filled
@@ -245,6 +261,12 @@ export default function TasksPage() {
         description: "",
         assigned_to: "",
         status: "pending",
+        maintenanceStatus: "",
+        inspectionStatus: "",
+        utilitiesCheck: "",
+        inventoryCheckStatus: "",
+        safetyCheck: "",
+        readyForOccupancyStatus: "",
         includePayment: false,
         payment: {
           amount: "",
@@ -304,6 +326,15 @@ export default function TasksPage() {
       if (formData.description) taskData.description = formData.description;
       if (formData.assigned_to) taskData.assigned_to = formData.assigned_to;
       if (formData.status) taskData.status = formData.status;
+      // Always send notes object to match new task model
+      taskData.notes = {
+        maintenanceStatus: formData.maintenanceStatus,
+        inspectionStatus: formData.inspectionStatus,
+        utilitiesCheck: formData.utilitiesCheck,
+        inventoryCheckStatus: formData.inventoryCheckStatus,
+        safetyCheck: formData.safetyCheck,
+        readyForOccupancyStatus: formData.readyForOccupancyStatus,
+      };
 
       // Include payment if checkbox is checked and required fields are filled
       if (
@@ -357,8 +388,10 @@ export default function TasksPage() {
   };
 
   // Transform API task data to Kanban format
-  const kanbanTasks = tasks.map((task) => {
-    const taskId = task.id || task._id;
+  const kanbanTasks = tasks
+    .filter((task) => task && (task.id || task._id)) // guard against null/invalid tasks
+    .map((task) => {
+      const taskId = task.id || task._id;
 
     // Map API status to Kanban column names (explicitly handle all cases)
     let column = "Pending";
@@ -937,46 +970,59 @@ export default function TasksPage() {
               onComplete={handleComplete}
               onStatusChange={handleStatusChange}
               onEdit={(kanbanTask) => {
+                if (!kanbanTask || !kanbanTask.id) return;
+
                 // Find the original task from the tasks array
                 const originalTask = tasks.find((t) => {
                   const taskId = t.id || t._id;
                   return taskId === kanbanTask.id;
                 });
 
-                if (originalTask) {
-                  setEditingTask(originalTask);
-                  const taskPayment = originalTask.payment || {};
-                  const paymentDate = taskPayment.date
-                    ? new Date(taskPayment.date).toISOString().split("T")[0]
-                    : new Date().toISOString().split("T")[0];
+                if (!originalTask) return;
 
-                  setFormData({
-                    property_id:
-                      typeof originalTask.property_id === "object"
-                        ? originalTask.property_id.id ||
-                          originalTask.property_id._id
-                        : originalTask.property_id || "",
-                    title: originalTask.title || "",
-                    description: originalTask.description || "",
-                    assigned_to:
-                      typeof originalTask.assigned_to === "object"
-                        ? originalTask.assigned_to.id ||
-                          originalTask.assigned_to._id
-                        : originalTask.assigned_to || "",
-                    status: originalTask.status || "pending",
-                    includePayment: Boolean(taskPayment && taskPayment.amount !== undefined),
-                    payment: {
-                      amount: taskPayment.amount?.toString() || "",
-                      payment_type:
-                        taskPayment.payment_type || "maintenance_work",
-                      method: taskPayment.method || "cash",
-                      date: paymentDate,
-                      paid_to: taskPayment.paid_to || "",
-                      paid_by: taskPayment.paid_by || "",
-                      notes: taskPayment.notes || "",
-                    },
-                  });
-                }
+                setEditingTask(originalTask);
+                const taskPayment = originalTask.payment || {};
+                const paymentDate = taskPayment.date
+                  ? new Date(taskPayment.date).toISOString().split("T")[0]
+                  : new Date().toISOString().split("T")[0];
+
+                const notes = originalTask.notes || {};
+
+                setFormData({
+                  property_id:
+                    typeof originalTask.property_id === "object"
+                      ? originalTask.property_id.id ||
+                        originalTask.property_id._id
+                      : originalTask.property_id || "",
+                  title: originalTask.title || "",
+                  description: originalTask.description || "",
+                  assigned_to:
+                    typeof originalTask.assigned_to === "object"
+                      ? originalTask.assigned_to.id ||
+                        originalTask.assigned_to._id
+                      : originalTask.assigned_to || "",
+                  status: originalTask.status || "pending",
+                  maintenanceStatus: notes.maintenanceStatus || "",
+                  inspectionStatus: notes.inspectionStatus || "",
+                  utilitiesCheck: notes.utilitiesCheck || "",
+                  inventoryCheckStatus: notes.inventoryCheckStatus || "",
+                  safetyCheck: notes.safetyCheck || "",
+                  readyForOccupancyStatus:
+                    notes.readyForOccupancyStatus || "",
+                  includePayment: Boolean(
+                    taskPayment && taskPayment.amount !== undefined
+                  ),
+                  payment: {
+                    amount: taskPayment.amount?.toString() || "",
+                    payment_type:
+                      taskPayment.payment_type || "maintenance_work",
+                    method: taskPayment.method || "cash",
+                    date: paymentDate,
+                    paid_to: taskPayment.paid_to || "",
+                    paid_by: taskPayment.paid_by || "",
+                    notes: taskPayment.notes || "",
+                  },
+                });
               }}
               onDelete={handleDeleteTask}
               processingTasks={Array.from(processingTasks)}
@@ -998,6 +1044,12 @@ export default function TasksPage() {
             description: "",
             assigned_to: "",
             status: "pending",
+            maintenanceStatus: "",
+            inspectionStatus: "",
+            utilitiesCheck: "",
+            inventoryCheckStatus: "",
+            safetyCheck: "",
+            readyForOccupancyStatus: "",
             includePayment: false,
             payment: {
               amount: "",
@@ -1045,6 +1097,82 @@ export default function TasksPage() {
               }
               placeholder="Detailed task description (optional)..."
               rows={4}
+            />
+          </div>
+
+          {/* Room / inspection notes (API `notes` object) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+            <InputField
+              label="Maintenance Status"
+              type="text"
+              value={formData.maintenanceStatus}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  maintenanceStatus: e.target.value,
+                })
+              }
+              placeholder="e.g. OK, Needs repair"
+            />
+            <InputField
+              label="Inspection Status"
+              type="text"
+              value={formData.inspectionStatus}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  inspectionStatus: e.target.value,
+                })
+              }
+              placeholder="e.g. Pending, Completed"
+            />
+            <InputField
+              label="Utilities Check"
+              type="text"
+              value={formData.utilitiesCheck}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  utilitiesCheck: e.target.value,
+                })
+              }
+              placeholder="e.g. All utilities working"
+            />
+            <InputField
+              label="Inventory Check Status"
+              type="text"
+              value={formData.inventoryCheckStatus}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  inventoryCheckStatus: e.target.value,
+                })
+              }
+              placeholder="e.g. Towels missing"
+            />
+            <InputField
+              label="Safety Check"
+              type="text"
+              value={formData.safetyCheck}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  safetyCheck: e.target.value,
+                })
+              }
+              placeholder="e.g. Smoke detector checked"
+            />
+            <InputField
+              label="Ready For Occupancy"
+              type="text"
+              value={formData.readyForOccupancyStatus}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  readyForOccupancyStatus: e.target.value,
+                })
+              }
+              placeholder="e.g. Yes / No"
             />
           </div>
 
@@ -1311,6 +1439,12 @@ export default function TasksPage() {
             description: "",
             assigned_to: "",
             status: "pending",
+            maintenanceStatus: "",
+            inspectionStatus: "",
+            utilitiesCheck: "",
+            inventoryCheckStatus: "",
+            safetyCheck: "",
+            readyForOccupancyStatus: "",
             includePayment: false,
             payment: {
               amount: "",
@@ -1359,6 +1493,82 @@ export default function TasksPage() {
               }
               placeholder="Detailed task description (optional)..."
               rows={4}
+            />
+          </div>
+
+          {/* Room / inspection notes (API `notes` object) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+            <InputField
+              label="Maintenance Status"
+              type="text"
+              value={formData.maintenanceStatus}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  maintenanceStatus: e.target.value,
+                })
+              }
+              placeholder="e.g. OK, Needs repair"
+            />
+            <InputField
+              label="Inspection Status"
+              type="text"
+              value={formData.inspectionStatus}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  inspectionStatus: e.target.value,
+                })
+              }
+              placeholder="e.g. Pending, Completed"
+            />
+            <InputField
+              label="Utilities Check"
+              type="text"
+              value={formData.utilitiesCheck}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  utilitiesCheck: e.target.value,
+                })
+              }
+              placeholder="e.g. All utilities working"
+            />
+            <InputField
+              label="Inventory Check Status"
+              type="text"
+              value={formData.inventoryCheckStatus}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  inventoryCheckStatus: e.target.value,
+                })
+              }
+              placeholder="e.g. Towels missing"
+            />
+            <InputField
+              label="Safety Check"
+              type="text"
+              value={formData.safetyCheck}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  safetyCheck: e.target.value,
+                })
+              }
+              placeholder="e.g. Smoke detector checked"
+            />
+            <InputField
+              label="Ready For Occupancy"
+              type="text"
+              value={formData.readyForOccupancyStatus}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  readyForOccupancyStatus: e.target.value,
+                })
+              }
+              placeholder="e.g. Yes / No"
             />
           </div>
 

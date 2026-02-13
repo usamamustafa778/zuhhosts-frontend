@@ -279,7 +279,8 @@ function DroppableColumn({
   openDropdownId,
   setOpenDropdownId,
 }) {
-  const taskIds = tasks.map((task) => task.id);
+  const safeTasks = (tasks || []).filter((task) => task && task.id);
+  const taskIds = safeTasks.map((task) => task.id);
   const { setNodeRef, isOver } = useDroppable({
     id: column,
   });
@@ -297,7 +298,7 @@ function DroppableColumn({
       </div>
       <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
         <div className="mt-3 space-y-3">
-          {tasks.map((task) => (
+          {safeTasks.map((task) => (
             <SortableTask
               key={task.id}
               task={task}
@@ -359,11 +360,13 @@ export default function KanbanBoard({
 
     if (!over) return;
 
-    const activeId = active.id;
-    const overId = over.id;
+    const activeId = active?.id;
+    const overId = over?.id;
+
+    if (!activeId || !overId) return;
 
     // Find the task being dragged
-    const draggedTask = tasks.find((task) => task.id === activeId);
+    const draggedTask = tasks.find((task) => task && task.id === activeId);
     if (!draggedTask) return;
 
     // Normalize current status
@@ -391,7 +394,7 @@ export default function KanbanBoard({
     }
 
     // Check if dropped on another task - find which column it belongs to
-    const targetTask = tasks.find((task) => task.id === overId);
+    const targetTask = tasks.find((task) => task && task.id === overId);
     if (targetTask) {
       const targetColumn = targetTask.column;
       const newStatus = columnToStatus[targetColumn];
