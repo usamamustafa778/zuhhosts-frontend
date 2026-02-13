@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import toast from "react-hot-toast";
+import toast, { Toaster } from "react-hot-toast";
 import KanbanBoard from "@/components/modules/KanbanBoard";
 import Modal from "@/components/common/Modal";
 import PageLoader from "@/components/common/PageLoader";
@@ -37,11 +37,10 @@ export default function TasksPage() {
   const [users, setUsers] = useState([]);
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [filterStatus, setFilterStatus] = useState(() => {
-    // Default to all on desktop, pending on mobile
+    // Default to all on desktop, dirty on mobile
     if (typeof window !== "undefined") {
-      return window.innerWidth >= 768 ? "all" : "pending";
+      return window.innerWidth >= 768 ? "all" : "dirty";
     }
     return "all";
   });
@@ -63,7 +62,7 @@ export default function TasksPage() {
     title: "",
     description: "",
     assigned_to: "",
-    status: "pending",
+    status: "dirty",
     // Room / inspection notes (API `notes` object from curl)
     maintenanceStatus: "",
     inspectionStatus: "",
@@ -110,7 +109,6 @@ export default function TasksPage() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      setError(null);
 
       // Build query params for filtering
       const params = filterStatus && filterStatus !== "all" ? `?status=${filterStatus}` : "";
@@ -125,8 +123,8 @@ export default function TasksPage() {
       setProperties(Array.isArray(propertiesData) ? propertiesData : []);
       setUsers(Array.isArray(usersData) ? usersData : []);
     } catch (err) {
-      setError(err.message || "Failed to load data");
       console.error("Error loading data:", err);
+      toast.error(err.message || "Failed to load data");
     } finally {
       setIsLoading(false);
     }
@@ -163,7 +161,6 @@ export default function TasksPage() {
     const toastId = toast.loading("Updating task status...");
 
     try {
-      setError(null);
       const updatedTask = await updateTask(taskId, { status: newStatus });
 
       // Update with server response
@@ -186,10 +183,8 @@ export default function TasksPage() {
           return t;
         })
       );
-      setError(err.message || "Failed to update task");
-      toast.error(err.message || "Failed to update task status", {
-        id: toastId,
-      });
+      const errorMessage = err.message || "Failed to update task status";
+      toast.error(errorMessage, { id: toastId });
     } finally {
       // Remove from processing
       setProcessingTasks((prev) => {
@@ -211,7 +206,33 @@ export default function TasksPage() {
     const toastId = toast.loading("Creating task...");
 
     try {
-      setError(null);
+      // Validate required fields
+      if (!formData.title || formData.title.trim().length < 3) {
+        toast.error("Title is required and must be at least 3 characters");
+        return;
+      }
+      if (!formData.property_id) {
+        toast.error("Please select a property");
+        return;
+      }
+      if (!formData.assigned_to) {
+        toast.error("Please assign the task to a team member");
+        return;
+      }
+      if (formData.includePayment) {
+        if (!formData.payment.amount || parseFloat(formData.payment.amount) <= 0) {
+          toast.error("Payment amount is required and must be greater than 0");
+          return;
+        }
+        if (!formData.payment.payment_type) {
+          toast.error("Please select a payment type");
+          return;
+        }
+        if (!formData.payment.method) {
+          toast.error("Please select a payment method");
+          return;
+        }
+      }
 
       // Prepare task data
       const taskData = {
@@ -260,7 +281,7 @@ export default function TasksPage() {
         title: "",
         description: "",
         assigned_to: "",
-        status: "pending",
+        status: "dirty",
         maintenanceStatus: "",
         inspectionStatus: "",
         utilitiesCheck: "",
@@ -283,8 +304,8 @@ export default function TasksPage() {
       toast.success("Task created successfully", { id: toastId });
     } catch (err) {
       console.error("❌ Error creating task:", err);
-      setError(err.message || "Failed to create task");
-      toast.error(err.message || "Failed to create task", { id: toastId });
+      const errorMessage = err.message || "Failed to create task";
+      toast.error(errorMessage, { id: toastId });
     }
   };
 
@@ -294,7 +315,6 @@ export default function TasksPage() {
     const toastId = toast.loading("Deleting task...");
 
     try {
-      setError(null);
       await deleteTask(taskId);
       setTasks((prev) =>
         prev.filter((t) => {
@@ -304,8 +324,8 @@ export default function TasksPage() {
       );
       toast.success("Task deleted successfully", { id: toastId });
     } catch (err) {
-      setError(err.message || "Failed to delete task");
-      toast.error(err.message || "Failed to delete task", { id: toastId });
+      const errorMessage = err.message || "Failed to delete task";
+      toast.error(errorMessage, { id: toastId });
     }
   };
 
@@ -316,8 +336,35 @@ export default function TasksPage() {
     const toastId = toast.loading("Updating task...");
 
     try {
-      setError(null);
       const taskId = editingTask.id || editingTask._id;
+
+      // Validate required fields
+      if (!formData.title || formData.title.trim().length < 3) {
+        toast.error("Title is required and must be at least 3 characters");
+        return;
+      }
+      if (!formData.property_id) {
+        toast.error("Please select a property");
+        return;
+      }
+      if (!formData.assigned_to) {
+        toast.error("Please assign the task to a team member");
+        return;
+      }
+      if (formData.includePayment) {
+        if (!formData.payment.amount || parseFloat(formData.payment.amount) <= 0) {
+          toast.error("Payment amount is required and must be greater than 0");
+          return;
+        }
+        if (!formData.payment.payment_type) {
+          toast.error("Please select a payment type");
+          return;
+        }
+        if (!formData.payment.method) {
+          toast.error("Please select a payment method");
+          return;
+        }
+      }
 
       // Prepare task data
       const taskData = {};
@@ -367,7 +414,7 @@ export default function TasksPage() {
         title: "",
         description: "",
         assigned_to: "",
-        status: "pending",
+        status: "dirty",
         includePayment: false,
         payment: {
           amount: "",
@@ -382,8 +429,8 @@ export default function TasksPage() {
       });
       toast.success("Task updated successfully", { id: toastId });
     } catch (err) {
-      setError(err.message || "Failed to update task");
-      toast.error(err.message || "Failed to update task", { id: toastId });
+      const errorMessage = err.message || "Failed to update task";
+      toast.error(errorMessage, { id: toastId });
     }
   };
 
@@ -393,43 +440,48 @@ export default function TasksPage() {
     .map((task) => {
       const taskId = task.id || task._id;
 
-    // Map API status to Kanban column names (explicitly handle all cases)
-    let column = "Pending";
-    const status = (task.status || "").toLowerCase().trim();
-    if (status === "in_progress" || status === "in-progress") {
-      column = "In Progress";
-    } else if (status === "completed" || status === "complete") {
-      column = "Completed";
-    } else if (status === "cancelled" || status === "canceled") {
-      column = "Cancelled";
-    } else {
-      // Default to Pending for "pending" or any other status
-      column = "Pending";
-    }
+      // Map API status to Kanban column names (explicitly handle all cases)
+      // Backend statuses: dirty, in_progress, clean, completed, cancelled
+      let column = "Pending";
+      const status = (task.status || "").toLowerCase().trim();
+      if (status === "dirty") {
+        column = "Pending";
+      } else if (status === "in_progress" || status === "in-progress") {
+        column = "In Progress";
+      } else if (status === "clean") {
+        column = "Clean";
+      } else if (status === "completed" || status === "complete") {
+        column = "Completed";
+      } else if (status === "cancelled" || status === "canceled") {
+        column = "Cancelled";
+      } else {
+        // Default to Pending for "dirty" or any other status
+        column = "Pending";
+      }
 
-    // Handle nested objects from API response
-    const assignedTo =
-      typeof task.assigned_to === "object" && task.assigned_to !== null
-        ? task.assigned_to
-        : users.find((u) => (u.id || u._id) === task.assigned_to) || {};
+      // Handle nested objects from API response
+      const assignedTo =
+        typeof task.assigned_to === "object" && task.assigned_to !== null
+          ? task.assigned_to
+          : users.find((u) => (u.id || u._id) === task.assigned_to) || {};
 
-    const property =
-      typeof task.property_id === "object" && task.property_id !== null
-        ? task.property_id
-        : properties.find((p) => (p.id || p._id) === task.property_id) || {};
+      const property =
+        typeof task.property_id === "object" && task.property_id !== null
+          ? task.property_id
+          : properties.find((p) => (p.id || p._id) === task.property_id) || {};
 
-    return {
-      id: taskId,
-      title: task.title || "Untitled Task",
-      assignee: assignedTo.name || "Unassigned",
-      property: property.title || property.name || "No property",
-      description: task.description || "",
-      status: task.status,
-      column: column,
-      createdAt: task.createdAt,
-      payment: task.payment || null, // Include payment info for display
-    };
-  });
+      return {
+        id: taskId,
+        title: task.title || "Untitled Task",
+        assignee: assignedTo.name || "Unassigned",
+        property: property.title || property.name || "No property",
+        description: task.description || "",
+        status: task.status,
+        column: column,
+        createdAt: task.createdAt,
+        payment: task.payment || null, // Include payment info for display
+      };
+    });
 
   if (authLoading || !isAuthenticated) {
     return <PageLoader message="Checking your access..." />;
@@ -441,11 +493,7 @@ export default function TasksPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
-      {error && (
-        <div className="rounded-2xl border border-rose-100 bg-rose-50/80 p-4 text-sm text-rose-600">
-          {error}
-        </div>
-      )}
+      <Toaster position="top-right" />
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -476,11 +524,10 @@ export default function TasksPage() {
           {/* View Mode Switcher - Hidden on mobile */}
           <div className="hidden md:flex rounded-full border border-slate-200 p-1">
             <button
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                viewMode === "cards"
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "cards"
+                ? "bg-slate-900 text-white"
+                : "text-slate-600 hover:bg-slate-50"
+                }`}
               onClick={() => setViewMode("cards")}
               title="Card View"
             >
@@ -500,11 +547,10 @@ export default function TasksPage() {
               </svg>
             </button>
             <button
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                viewMode === "kanban"
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "kanban"
+                ? "bg-slate-900 text-white"
+                : "text-slate-600 hover:bg-slate-50"
+                }`}
               onClick={() => setViewMode("kanban")}
               title="Kanban Board"
             >
@@ -532,8 +578,9 @@ export default function TasksPage() {
             onChange={(e) => setFilterStatus(e.target.value)}
           >
             <option value="all">All Tasks</option>
-            <option value="pending">Pending</option>
+            <option value="dirty">Pending</option>
             <option value="in_progress">In Progress</option>
+            <option value="clean">Clean</option>
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
           </select>
@@ -551,51 +598,46 @@ export default function TasksPage() {
       {/* Filter Tabs - Mobile only */}
       <div className="md:hidden flex gap-1 overflow-x-auto pb-1 -mx-1 px-1">
         <button
-          className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-            filterStatus === "all"
-              ? "bg-slate-900 text-white"
-              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-          }`}
+          className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${filterStatus === "all"
+            ? "bg-slate-900 text-white"
+            : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+            }`}
           onClick={() => setFilterStatus("all")}
         >
           All
         </button>
         <button
-          className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-            filterStatus === "pending"
-              ? "bg-slate-900 text-white"
-              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-          }`}
-          onClick={() => setFilterStatus("pending")}
+          className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${filterStatus === "dirty"
+            ? "bg-slate-900 text-white"
+            : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+            }`}
+          onClick={() => setFilterStatus("dirty")}
         >
           Pending
         </button>
         <button
-          className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-            filterStatus === "in_progress"
-              ? "bg-slate-900 text-white"
-              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-          }`}
+          className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${filterStatus === "in_progress"
+            ? "bg-slate-900 text-white"
+            : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+            }`}
           onClick={() => setFilterStatus("in_progress")}
         >
           Progress
         </button>
         <button
-          className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-            filterStatus === "completed"
-              ? "bg-slate-900 text-white"
-              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-          }`}
+          className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${filterStatus === "completed"
+            ? "bg-slate-900 text-white"
+            : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+            }`}
           onClick={() => setFilterStatus("completed")}
         >
           Completed
         </button>
         <button
-          className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-            filterStatus === "cancelled"
-              ? "bg-slate-900 text-white"
-              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-          }`}
+          className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${filterStatus === "cancelled"
+            ? "bg-slate-900 text-white"
+            : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+            }`}
           onClick={() => setFilterStatus("cancelled")}
         >
           Cancelled
@@ -643,18 +685,18 @@ export default function TasksPage() {
                 // Handle nested objects from API response
                 const property =
                   typeof task.property_id === "object" &&
-                  task.property_id !== null
+                    task.property_id !== null
                     ? task.property_id
                     : properties.find(
-                        (p) => (p.id || p._id) === task.property_id
-                      ) || {};
+                      (p) => (p.id || p._id) === task.property_id
+                    ) || {};
 
                 const assignee =
                   typeof task.assigned_to === "object" &&
-                  task.assigned_to !== null
+                    task.assigned_to !== null
                     ? task.assigned_to
                     : users.find((u) => (u.id || u._id) === task.assigned_to) ||
-                      {};
+                    {};
 
                 const propertyName =
                   property.title || property.name || "No property";
@@ -700,24 +742,24 @@ export default function TasksPage() {
                               const taskPayment = task.payment || {};
                               const paymentDate = taskPayment.date
                                 ? new Date(taskPayment.date)
-                                    .toISOString()
-                                    .split("T")[0]
+                                  .toISOString()
+                                  .split("T")[0]
                                 : new Date().toISOString().split("T")[0];
 
                               setFormData({
                                 property_id:
                                   typeof task.property_id === "object"
                                     ? task.property_id.id ||
-                                      task.property_id._id
+                                    task.property_id._id
                                     : task.property_id || "",
                                 title: task.title || "",
                                 description: task.description || "",
                                 assigned_to:
                                   typeof task.assigned_to === "object"
                                     ? task.assigned_to.id ||
-                                      task.assigned_to._id
+                                    task.assigned_to._id
                                     : task.assigned_to || "",
-                                status: task.status || "pending",
+                                status: task.status || "dirty",
                                 includePayment: Boolean(
                                   taskPayment && taskPayment.amount !== undefined
                                 ),
@@ -823,29 +865,32 @@ export default function TasksPage() {
                               openStatusDropdownId === taskId ? null : taskId
                             )
                           }
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
-                            task.status === "completed" ||
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${task.status === "completed" ||
                             task.status === "complete"
-                              ? "bg-green-100 text-green-700 hover:bg-green-200"
+                            ? "bg-green-100 text-green-700 hover:bg-green-200"
+                            : task.status === "clean"
+                              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
                               : task.status === "in_progress" ||
                                 task.status === "in-progress"
-                              ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                              : task.status === "cancelled" ||
-                                task.status === "canceled"
-                              ? "bg-rose-100 text-rose-700 hover:bg-rose-200"
-                              : "bg-red-100 text-red-600 hover:bg-red-200"
-                          }`}
+                                ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                                : task.status === "cancelled" ||
+                                  task.status === "canceled"
+                                  ? "bg-rose-100 text-rose-700 hover:bg-rose-200"
+                                  : "bg-red-100 text-red-600 hover:bg-red-200"
+                            }`}
                         >
                           {task.status === "completed" ||
-                          task.status === "complete"
+                            task.status === "complete"
                             ? "Done"
-                            : task.status === "in_progress" ||
-                              task.status === "in-progress"
-                            ? "Active"
-                            : task.status === "cancelled" ||
-                              task.status === "canceled"
-                            ? "Cancelled"
-                            : "Pending"}
+                            : task.status === "clean"
+                              ? "Clean"
+                              : task.status === "in_progress" ||
+                                task.status === "in-progress"
+                                ? "Active"
+                                : task.status === "cancelled" ||
+                                  task.status === "canceled"
+                                  ? "Cancelled"
+                                  : "Pending"}
                           <svg
                             className="ml-1 h-3 w-3"
                             fill="none"
@@ -865,25 +910,23 @@ export default function TasksPage() {
                         {openStatusDropdownId === taskId && (
                           <div className="absolute right-0 top-8 z-20 w-36 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
                             <button
-                              className={`w-full px-3 py-2 text-left text-xs font-medium transition-colors ${
-                                task.status === "pending"
-                                  ? "bg-slate-50 text-slate-900"
-                                  : "text-slate-700 hover:bg-slate-50"
-                              }`}
+                              className={`w-full px-3 py-2 text-left text-xs font-medium transition-colors ${task.status === "dirty"
+                                ? "bg-slate-50 text-slate-900"
+                                : "text-slate-700 hover:bg-slate-50"
+                                }`}
                               onClick={() => {
-                                handleStatusChange(taskId, "pending");
+                                handleStatusChange(taskId, "dirty");
                                 setOpenStatusDropdownId(null);
                               }}
                             >
                               Pending
                             </button>
                             <button
-                              className={`w-full px-3 py-2 text-left text-xs font-medium transition-colors border-t border-slate-100 ${
-                                task.status === "in_progress" ||
+                              className={`w-full px-3 py-2 text-left text-xs font-medium transition-colors border-t border-slate-100 ${task.status === "in_progress" ||
                                 task.status === "in-progress"
-                                  ? "bg-blue-50 text-blue-900"
-                                  : "text-slate-700 hover:bg-slate-50"
-                              }`}
+                                ? "bg-blue-50 text-blue-900"
+                                : "text-slate-700 hover:bg-slate-50"
+                                }`}
                               onClick={() => {
                                 handleStatusChange(taskId, "in_progress");
                                 setOpenStatusDropdownId(null);
@@ -892,12 +935,23 @@ export default function TasksPage() {
                               In Progress
                             </button>
                             <button
-                              className={`w-full px-3 py-2 text-left text-xs font-medium transition-colors border-t border-slate-100 ${
-                                task.status === "completed" ||
+                              className={`w-full px-3 py-2 text-left text-xs font-medium transition-colors border-t border-slate-100 ${task.status === "clean"
+                                ? "bg-emerald-50 text-emerald-900"
+                                : "text-slate-700 hover:bg-slate-50"
+                                }`}
+                              onClick={() => {
+                                handleStatusChange(taskId, "clean");
+                                setOpenStatusDropdownId(null);
+                              }}
+                            >
+                              Clean
+                            </button>
+                            <button
+                              className={`w-full px-3 py-2 text-left text-xs font-medium transition-colors border-t border-slate-100 ${task.status === "completed" ||
                                 task.status === "complete"
-                                  ? "bg-green-50 text-green-900"
-                                  : "text-slate-700 hover:bg-slate-50"
-                              }`}
+                                ? "bg-green-50 text-green-900"
+                                : "text-slate-700 hover:bg-slate-50"
+                                }`}
                               onClick={() => {
                                 handleStatusChange(taskId, "completed");
                                 setOpenStatusDropdownId(null);
@@ -906,12 +960,11 @@ export default function TasksPage() {
                               Completed
                             </button>
                             <button
-                              className={`w-full px-3 py-2 text-left text-xs font-medium transition-colors border-t border-slate-100 ${
-                                task.status === "cancelled" ||
+                              className={`w-full px-3 py-2 text-left text-xs font-medium transition-colors border-t border-slate-100 ${task.status === "cancelled" ||
                                 task.status === "canceled"
-                                  ? "bg-rose-50 text-rose-900"
-                                  : "text-slate-700 hover:bg-slate-50"
-                              }`}
+                                ? "bg-rose-50 text-rose-900"
+                                : "text-slate-700 hover:bg-slate-50"
+                                }`}
                               onClick={() => {
                                 handleStatusChange(taskId, "cancelled");
                                 setOpenStatusDropdownId(null);
@@ -992,16 +1045,16 @@ export default function TasksPage() {
                   property_id:
                     typeof originalTask.property_id === "object"
                       ? originalTask.property_id.id ||
-                        originalTask.property_id._id
+                      originalTask.property_id._id
                       : originalTask.property_id || "",
                   title: originalTask.title || "",
                   description: originalTask.description || "",
                   assigned_to:
                     typeof originalTask.assigned_to === "object"
                       ? originalTask.assigned_to.id ||
-                        originalTask.assigned_to._id
+                      originalTask.assigned_to._id
                       : originalTask.assigned_to || "",
-                  status: originalTask.status || "pending",
+                  status: originalTask.status || "dirty",
                   maintenanceStatus: notes.maintenanceStatus || "",
                   inspectionStatus: notes.inspectionStatus || "",
                   utilitiesCheck: notes.utilitiesCheck || "",
@@ -1043,7 +1096,7 @@ export default function TasksPage() {
             title: "",
             description: "",
             assigned_to: "",
-            status: "pending",
+            status: "dirty",
             maintenanceStatus: "",
             inspectionStatus: "",
             utilitiesCheck: "",
@@ -1226,8 +1279,9 @@ export default function TasksPage() {
                   setFormData({ ...formData, status: e.target.value })
                 }
               >
-                <option value="pending">Pending</option>
+                <option value="dirty">Pending</option>
                 <option value="in_progress">In Progress</option>
+                <option value="clean">Clean</option>
                 <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
               </select>
@@ -1438,7 +1492,7 @@ export default function TasksPage() {
             title: "",
             description: "",
             assigned_to: "",
-            status: "pending",
+            status: "dirty",
             maintenanceStatus: "",
             inspectionStatus: "",
             utilitiesCheck: "",
@@ -1622,8 +1676,9 @@ export default function TasksPage() {
                   setFormData({ ...formData, status: e.target.value })
                 }
               >
-                <option value="pending">Pending</option>
+                <option value="dirty">Pending</option>
                 <option value="in_progress">In Progress</option>
+                <option value="clean">Clean</option>
                 <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
               </select>

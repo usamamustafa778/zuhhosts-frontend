@@ -34,7 +34,7 @@ export default function CreateTaskPage() {
     title: "",
     description: "",
     assigned_to: "",
-    status: "pending",
+    status: "dirty",
     // Room / inspection notes (maps to API `notes` object from curl)
     maintenanceStatus: "",
     inspectionStatus: "",
@@ -328,8 +328,9 @@ export default function CreateTaskPage() {
                     setFormData({ ...formData, status: e.target.value })
                   }
                 >
-                  <option value="pending">Pending</option>
+                  <option value="dirty">Pending</option>
                   <option value="in_progress">In Progress</option>
+                  <option value="clean">Clean</option>
                   <option value="completed">Completed</option>
                   <option value="cancelled">Cancelled</option>
                 </select>

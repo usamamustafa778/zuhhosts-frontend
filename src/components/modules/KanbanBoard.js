@@ -19,12 +19,13 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useState, useEffect } from "react";
 
-const columns = ["Pending", "In Progress", "Completed", "Cancelled"];
+const columns = ["Pending", "In Progress", "Clean", "Completed", "Cancelled"];
 
-// Map column names to status values
+// Map column names to status values (backend: dirty, in_progress, clean, completed, cancelled)
 const columnToStatus = {
-  Pending: "pending",
+  Pending: "dirty",
   "In Progress": "in_progress",
+  Clean: "clean",
   Completed: "completed",
   Cancelled: "cancelled",
 };
@@ -369,10 +370,11 @@ export default function KanbanBoard({
     const draggedTask = tasks.find((task) => task && task.id === activeId);
     if (!draggedTask) return;
 
-    // Normalize current status
+    // Normalize current status (backend: dirty, in_progress, clean, completed, cancelled)
     const normalizeStatus = (status) => {
-      if (!status) return "pending";
+      if (!status) return "dirty";
       const normalized = status.toLowerCase().trim();
+      if (normalized === "pending") return "dirty"; // Map old "pending" to "dirty"
       if (normalized === "in-progress") return "in_progress";
       if (normalized === "complete") return "completed";
       if (normalized === "canceled") return "cancelled";
