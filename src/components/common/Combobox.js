@@ -15,13 +15,21 @@ export default function Combobox({
   className = "",
   disabled = false,
   noOptionsMessage = "No options found",
+  /** When value is empty, show this in the input (e.g. free-typed ID card number) */
+  freeTextValue = "",
+  /** Called when user types in the input (for single-field search + free text) */
+  onInputChange,
+  /** If true, dropdown opens only when typed text matches an option (not on focus). Default false = open on focus. */
+  showDropdownOnlyOnMatch = false,
+  /** If true, hide the chevron-down icon (e.g. for guest search field). */
+  hideChevron = false,
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedOption, setSelectedOption] = useState(null);
   const containerRef = useRef(null);
 
-  // Find selected option when value changes
+  // Find selected option when value changes; when no selection, show freeTextValue
   useEffect(() => {
     if (value) {
       const option = options.find(
@@ -33,21 +41,28 @@ export default function Combobox({
       }
     } else {
       setSelectedOption(null);
-      setSearchQuery("");
+      setSearchQuery(typeof freeTextValue === "string" ? freeTextValue : "");
     }
-  }, [value, options]);
+  }, [value, options, freeTextValue]);
 
-  // Filter options based on search query
-  const filteredOptions = searchQuery
+  // When dropdown is open and input shows the selected option's label, show all options
+  // so the user can pick a different option. Otherwise filter by search query.
+  const isShowingSelectedLabel =
+    showDropdown &&
+    selectedOption &&
+    searchQuery.trim() === getOptionLabel(selectedOption).trim();
+  const filterQuery = isShowingSelectedLabel ? "" : searchQuery;
+
+  const filteredOptions = filterQuery
     ? options.filter((option) => {
-        const searchLower = searchQuery.toLowerCase();
+        const searchLower = filterQuery.toLowerCase();
         const label = getOptionLabel(option).toLowerCase();
         const description = getOptionDescription
           ? getOptionDescription(option)?.toLowerCase() || ""
           : "";
         return label.includes(searchLower) || description.includes(searchLower);
       })
-    : options; // Show all options when no search query
+    : options;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -71,19 +86,30 @@ export default function Combobox({
   const handleInputChange = (e) => {
     const newValue = e.target.value;
     setSearchQuery(newValue);
-    setShowDropdown(true);
-    
+    if (onInputChange) onInputChange(newValue);
     if (!newValue) {
       setSelectedOption(null);
       onChange("");
+      setShowDropdown(false);
+      return;
+    }
+    if (showDropdownOnlyOnMatch) {
+      // Only show dropdown when search text matches at least one option
+      const searchLower = newValue.toLowerCase().trim();
+      const hasMatch = options.some((opt) => {
+        const label = (getOptionLabel(opt) || "").toLowerCase();
+        const desc = getOptionDescription ? (getOptionDescription(opt) || "").toLowerCase() : "";
+        return label.includes(searchLower) || desc.includes(searchLower);
+      });
+      setShowDropdown(hasMatch);
+    } else {
+      setShowDropdown(true);
     }
   };
 
   const handleFocus = () => {
-    setShowDropdown(true);
-    // If there's a selected option, clear the search to show all options
-    if (selectedOption && !searchQuery) {
-      // Keep the search empty to show all options
+    if (!showDropdownOnlyOnMatch) {
+      setShowDropdown(true);
     }
   };
 
@@ -91,7 +117,7 @@ export default function Combobox({
     <div ref={containerRef} className={`relative ${className}`}>
       <input
         type="text"
-        className="w-full rounded-lg border border-slate-200 px-3 py-2 pr-10 text-sm disabled:bg-slate-100 disabled:cursor-not-allowed"
+        className={`w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-100 disabled:cursor-not-allowed ${hideChevron ? "" : "pr-10"}`}
         value={searchQuery}
         onChange={handleInputChange}
         onFocus={handleFocus}
@@ -99,24 +125,24 @@ export default function Combobox({
         disabled={disabled}
         required={required && !value}
       />
-      
-      {/* Chevron Down Icon */}
-      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-        <svg
-          className="h-4 w-4 text-slate-400"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
-      </div>
-      
+      {!hideChevron && (
+        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+          <svg
+            className="h-4 w-4 text-slate-400"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        </div>
+      )}
+
       <input type="hidden" value={value} required={required} />
 
       {/* Dropdown */}
