@@ -41,7 +41,7 @@ export default function StepLayout({
         {children}
 
         {/* Navigation */}
-        <div className="flex items-center justify-between mt-8">
+        <div className={`flex items-center ${onNext ? 'justify-between' : 'justify-start'} mt-8`}>
           <button
             type="button"
             onClick={onBack}
@@ -52,18 +52,20 @@ export default function StepLayout({
             </svg>
             Back
           </button>
-          <button
-            type={isSubmit ? "submit" : "button"}
-            onClick={isSubmit ? undefined : onNext}
-            disabled={nextDisabled || isBusy}
-            className={`px-8 py-3 rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-              isSubmit
-                ? "bg-rose-600 text-white hover:bg-rose-700"
-                : "bg-slate-900 text-white hover:bg-slate-800"
-            }`}
-          >
-            {nextButtonLabel}
-          </button>
+          {onNext && (
+            <button
+              type={isSubmit ? "submit" : "button"}
+              onClick={isSubmit ? undefined : onNext}
+              disabled={nextDisabled || isBusy}
+              className={`px-8 py-3 rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                isSubmit
+                  ? "bg-rose-600 text-white hover:bg-rose-700"
+                  : "bg-slate-900 text-white hover:bg-slate-800"
+              }`}
+            >
+              {nextButtonLabel}
+            </button>
+          )}
         </div>
       </main>
     </div>

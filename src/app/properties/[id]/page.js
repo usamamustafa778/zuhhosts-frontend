@@ -131,6 +131,24 @@ export default function PropertyDetailsPage() {
   const handleSaveProperty = async () => {
     if (!propertyId || !property) return;
     const p = editForm;
+    
+    // Validate required fields
+    if (!p.title || p.title.trim().length < 3) {
+      toast.error("Property title must be at least 3 characters");
+      return;
+    }
+    if (!p.location || p.location.trim().length === 0) {
+      toast.error("Please enter property location");
+      return;
+    }
+    
+    // Validate image limit: backend allows maximum 5 images total
+    const currentImages = (property.images || []).filter((img) => !editImagesToRemove.includes(img));
+    const totalImageCount = currentImages.length + editImages.length;
+    if (totalImageCount > 5) {
+      toast.error("Property can have a maximum of 5 images total. Please remove some images.");
+      return;
+    }
     const highlightsRaw = Array.isArray(p.highlights) ? p.highlights : [];
     const highlights = highlightsRaw.map((h) => (typeof h === "string" ? h.trim() : "")).filter(Boolean).slice(0, 2);
     const payload = {
@@ -616,7 +634,23 @@ export default function PropertyDetailsPage() {
                 </div>
               </div>
             )}
-            <FileUpload label="Add more photos" files={editImages} onChange={setEditImages} maxFiles={15} maxSizeMB={5} />
+            <FileUpload 
+              label="Add more photos" 
+              files={editImages} 
+              onChange={(newImages) => {
+                // Calculate total images after adding new ones
+                const currentImages = (property.images || []).filter((p) => !editImagesToRemove.includes(p));
+                const totalAfterAdd = currentImages.length + newImages.length;
+                if (totalAfterAdd > 5) {
+                  toast.error("Property can have a maximum of 5 images total. Please remove some existing images first.");
+                  return;
+                }
+                setEditImages(newImages);
+              }} 
+              maxFiles={5} 
+              maxSizeMB={5}
+              helpText="Maximum 5 images total"
+            />
           </div>
 
           <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-200">

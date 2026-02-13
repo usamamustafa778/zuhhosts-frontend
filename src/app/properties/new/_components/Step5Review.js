@@ -7,7 +7,7 @@ export default function Step5Review({ formData, existingImages = [], images = []
   const photoCount = (existingImages?.length || 0) + (images?.length || 0);
 
   return (
-    <StepLayout stepLabel="Review & Publish" totalSteps={5} currentStep={5} onBack={onBack} onNext={() => {}} nextLabel="Publish" isSubmit>
+    <StepLayout stepLabel="Review & Publish" totalSteps={5} currentStep={5} onBack={onBack} onNext={undefined} nextDisabled={true}>
       <form onSubmit={onSubmit}>
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Main Review */}

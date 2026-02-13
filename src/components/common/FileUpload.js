@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Upload, X, FileText, Image as ImageIcon } from "lucide-react";
+import toast from "react-hot-toast";
 
 function fileKey(file) {
   return `${file.name}-${file.size}-${file.lastModified}`;
@@ -55,25 +56,35 @@ export default function FileUpload({
 
   const handleFiles = (newFiles) => {
     if (disabled) return;
-    
+
     const fileArray = Array.from(newFiles);
 
     // Validate file count
     if (fileArray.length > maxFiles) {
-      alert(`Maximum ${maxFiles} files allowed`);
+      toast.error(`Maximum ${maxFiles} files allowed`);
+      return;
+    }
+
+    // Check if adding these files would exceed maxFiles limit
+    const currentCount = files.length;
+    const totalAfterAdd = currentCount + fileArray.length;
+    if (totalAfterAdd > maxFiles) {
+      const allowed = maxFiles - currentCount;
+      toast.error(`You can only add ${allowed} more file${allowed !== 1 ? 's' : ''}. Maximum ${maxFiles} files allowed.`);
       return;
     }
 
     // Validate file sizes
     const maxSizeBytes = maxSizeMB * 1024 * 1024;
     const oversizedFiles = fileArray.filter(file => file.size > maxSizeBytes);
-    
+
     if (oversizedFiles.length > 0) {
-      alert(`Some files exceed ${maxSizeMB}MB limit:\n${oversizedFiles.map(f => f.name).join('\n')}`);
+      const fileNames = oversizedFiles.map(f => f.name).join(', ');
+      toast.error(`Some files exceed ${maxSizeMB}MB limit: ${fileNames}`);
       return;
     }
 
-    onChange(fileArray);
+    onChange([...files, ...fileArray]);
   };
 
   const handleDrag = (e) => {
@@ -134,13 +145,12 @@ export default function FileUpload({
 
       {/* Upload Area */}
       <div
-        className={`relative rounded-lg border-2 border-dashed transition-colors ${
-          disabled
+        className={`relative rounded-lg border-2 border-dashed transition-colors ${disabled
             ? "border-slate-200 bg-slate-100 opacity-50 cursor-not-allowed"
             : dragActive
-            ? "border-blue-500 bg-blue-50"
-            : "border-slate-200 bg-slate-50"
-        }`}
+              ? "border-blue-500 bg-blue-50"
+              : "border-slate-200 bg-slate-50"
+          }`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
@@ -157,9 +167,8 @@ export default function FileUpload({
         />
         <label
           htmlFor="file-upload"
-          className={`flex flex-col items-center justify-center px-6 py-8 ${
-            disabled ? "cursor-not-allowed" : "cursor-pointer"
-          }`}
+          className={`flex flex-col items-center justify-center px-6 py-8 ${disabled ? "cursor-not-allowed" : "cursor-pointer"
+            }`}
         >
           <Upload className="h-10 w-10 text-slate-400 mb-3" />
           <p className="text-sm font-medium text-slate-600">

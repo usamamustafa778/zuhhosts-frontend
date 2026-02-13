@@ -5,6 +5,7 @@ import AmenityPills from "./AmenityPills";
 import FormField from "@/components/common/FormField";
 import FileUpload from "@/components/common/FileUpload";
 import { getImageUrl } from "@/lib/api";
+import toast from "react-hot-toast";
 import { AIRBNB_AMENITIES, HOTEL_AMENITIES, AIRBNB_AMENITY_LABELS, HOTEL_AMENITY_LABELS } from "../_constants/amenities";
 
 export default function Step3AmenitiesMedia({
@@ -89,10 +90,18 @@ export default function Step3AmenitiesMedia({
           <FileUpload
             label={visibleExisting.length > 0 ? "Add more photos" : ""}
             files={images}
-            onChange={setImages}
-            maxFiles={15}
+            onChange={(newImages) => {
+              // Calculate total images after adding new ones
+              const totalAfterAdd = visibleExisting.length + newImages.length;
+              if (totalAfterAdd > 5) {
+                toast.error("Property can have a maximum of 5 images total. Please remove some existing images first.");
+                return;
+              }
+              setImages(newImages);
+            }}
+            maxFiles={5}
             maxSizeMB={5}
-            helpText={isHotelFlow ? "Upload photos of lobby, exterior, facilities, etc." : "Upload at least 5 high-quality photos"}
+            helpText={isHotelFlow ? "Upload photos of lobby, exterior, facilities, etc. Maximum 5 images total." : "Upload at least 1 high-quality photo. Maximum 5 images total."}
           />
         </div>
 

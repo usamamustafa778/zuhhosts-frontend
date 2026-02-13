@@ -25,18 +25,18 @@ import Step5Review from "./_components/Step5Review";
 
 // ─── Initial state factories ────────────────────────────────────
 const INITIAL_FORM_DATA = {
-    title: "",
-    description: "",
-    location: "",
-    address: "",
-    starRating: "",
-    bedrooms: "",
+  title: "",
+  description: "",
+  location: "",
+  address: "",
+  starRating: "",
+  bedrooms: "",
   bathrooms: "1",
-    area: "",
-    price: "",
+  area: "",
+  price: "",
   weekendPremiumPercent: 0,
-    currency: "USD",
-    amenities: [],
+  currency: "USD",
+  amenities: [],
   highlights: [],
   // Airbnb-specific
   placeType: "",
@@ -59,7 +59,7 @@ const INITIAL_ROOM_TYPE_FORM = {
   bedCount: 1,
   maxOccupancy: "2",
   size: "",
-    price: "",
+  price: "",
   inventory: "1",
   amenities: [],
 };
@@ -161,9 +161,9 @@ export default function NewPropertyPage() {
         if (!cancelled) setIsLoading(false);
       } catch {
         if (!cancelled) {
-      toast.error("Failed to load tenant information");
-      router.push("/onboarding");
-    }
+          toast.error("Failed to load tenant information");
+          router.push("/onboarding");
+        }
       }
     })();
     return () => { cancelled = true; };
@@ -215,7 +215,7 @@ export default function NewPropertyPage() {
       }
       return;
     }
-    
+
     if (step === 2) {
       if (!formData.title || formData.title.trim().length < 3) { toast.error("Property name must be at least 3 characters"); return; }
       if (!formData.location) { toast.error("Please enter property location"); return; }
@@ -225,15 +225,16 @@ export default function NewPropertyPage() {
       const toastId = toast.loading("Saving details...");
       try {
         const payload = {
-        title: formData.title.trim(),
+          title: formData.title.trim(),
           description: formData.description?.trim() || "",
-        location: formData.location.trim(),
-        address: formData.address?.trim() || formData.location.trim(),
+          location: formData.location.trim(),
+          address: formData.address?.trim() || formData.location.trim(),
+          modelType: propertyModel, // Ensure modelType is always set
           propertyType: isHotelFlow ? "hotel" : (formData.placeType || "apartment"),
           bedrooms: formData.bedrooms ? Number(formData.bedrooms) : undefined,
-        bathrooms: formData.bathrooms ? Number(formData.bathrooms) : undefined,
-        area: formData.area ? Number(formData.area) : undefined,
-        starRating: formData.starRating ? Number(formData.starRating) : undefined,
+          bathrooms: formData.bathrooms ? Number(formData.bathrooms) : undefined,
+          area: formData.area ? Number(formData.area) : undefined,
+          starRating: formData.starRating ? Number(formData.starRating) : undefined,
           placeType: formData.placeType || undefined,
           guestPlaceType: formData.guestPlaceType || undefined,
           maxGuests: isAirbnbFlow ? Number(formData.maxGuests) : undefined,
@@ -262,6 +263,7 @@ export default function NewPropertyPage() {
       const toastId = toast.loading("Saving photos & amenities...");
       try {
         const payload = {
+          modelType: propertyModel, // Ensure modelType is preserved
           description: formData.description?.trim() || "",
           amenities: formData.amenities,
           highlights: formData.highlights,
@@ -307,6 +309,7 @@ export default function NewPropertyPage() {
           setRoomTypes((prev) => prev.map((r) => ({ ...r, saved: true })));
         } else {
           await updateProperty(draftPropertyId, {
+            modelType: propertyModel, // Ensure modelType is preserved
             price: Number(formData.price),
             weekendPremiumPercent: formData.weekendPremiumPercent ?? 0,
             currency: formData.currency,
@@ -375,7 +378,7 @@ export default function NewPropertyPage() {
       return <Step2Details formData={formData} handleChange={handleChange} isHotelFlow={isHotelFlow} isAirbnbFlow={isAirbnbFlow} onBack={handleBack} onNext={handleNext} isSaving={isSaving} />;
 
     case 3:
-    return (
+      return (
         <Step3AmenitiesMedia
           formData={formData}
           handleChange={handleChange}
