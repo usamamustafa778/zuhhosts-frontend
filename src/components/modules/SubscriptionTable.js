@@ -64,13 +64,16 @@ export default function SubscriptionTable({
       ]}
       rows={paginated.map((subscription, index) => {
         const subscriptionId = subscription.id || subscription._id || `sub-${index}`;
-        const userId = subscription.userId;
-        const userName = userId?.name || "N/A";
-        const userEmail = userId?.email || "N/A";
+        // Handle both userId and tenantId (API returns tenantId)
+        const userData = subscription.userId || subscription.tenantId;
+        const userName = userData?.name || "N/A";
+        const userEmail = userData?.email || "N/A";
         const createdDate = subscription.createdAt
           ? new Date(subscription.createdAt).toLocaleDateString()
           : "N/A";
         const serialNumber = page * pageSize + index + 1;
+        // Handle both paymentStatus and paymentstatus (API may return lowercase)
+        const paymentStatus = subscription.paymentStatus || subscription.paymentstatus || "unpaid";
 
         return {
           id: subscriptionId,
@@ -83,13 +86,15 @@ export default function SubscriptionTable({
               <div className="text-xs text-slate-400">{userEmail}</div>
             </div>,
             <span key={`package-${subscriptionId}`} className="text-sm text-slate-600 capitalize">
-              {subscription.package?.replace("_", " ") || "N/A"}
+              {subscription.package?.replace(/_/g, " ") || "N/A"}
             </span>,
             <span key={`price-${subscriptionId}`} className="text-sm font-semibold text-slate-900">
-              {subscription.price ? formatCurrency(subscription.price, subscription.currency || "USD") : "N/A"}
+              {subscription.price !== undefined && subscription.price !== null
+                ? formatCurrency(subscription.price, subscription.currency || "USD")
+                : "N/A"}
             </span>,
             <SubscriptionStatusPill key={`status-${subscriptionId}`} status={subscription.status} />,
-            <PaymentStatusPill key={`payment-${subscriptionId}`} status={subscription.paymentStatus} />,
+            <PaymentStatusPill key={`payment-${subscriptionId}`} status={paymentStatus} />,
             <span key={`created-${subscriptionId}`} className="text-xs text-slate-500">
               {createdDate}
             </span>,

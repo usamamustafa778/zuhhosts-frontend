@@ -56,22 +56,34 @@ export function ViewSubscriptionModal({ subscription, isOpen, onClose }) {
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">User</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Tenant / User</label>
             <div className="text-sm text-slate-900">
-              <div className="font-semibold">{subscription.userId?.name || "N/A"}</div>
-              <div className="text-slate-500">{subscription.userId?.email || "N/A"}</div>
+              {/* Handle both userId and tenantId (API returns tenantId) */}
+              {(subscription.userId || subscription.tenantId) ? (
+                <>
+                  <div className="font-semibold">{(subscription.userId || subscription.tenantId)?.name || "N/A"}</div>
+                  {(subscription.userId || subscription.tenantId)?.email && (
+                    <div className="text-slate-500">{(subscription.userId || subscription.tenantId)?.email}</div>
+                  )}
+                  {(subscription.userId || subscription.tenantId)?.slug && (
+                    <div className="text-xs text-slate-400">Slug: {(subscription.userId || subscription.tenantId)?.slug}</div>
+                  )}
+                </>
+              ) : (
+                "N/A"
+              )}
             </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Package</label>
             <div className="text-sm text-slate-900 capitalize">
-              {subscription.package?.replace("_", " ") || "N/A"}
+              {subscription.package?.replace(/_/g, " ") || "N/A"}
             </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Price</label>
             <div className="text-sm text-slate-900">
-              {subscription.price
+              {subscription.price !== undefined && subscription.price !== null
                 ? formatCurrency(subscription.price, subscription.currency || "USD")
                 : "N/A"}
             </div>
@@ -88,7 +100,7 @@ export function ViewSubscriptionModal({ subscription, isOpen, onClose }) {
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Payment Status</label>
-            <PaymentStatusPill status={subscription.paymentStatus} />
+            <PaymentStatusPill status={subscription.paymentStatus || subscription.paymentstatus || "unpaid"} />
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Start Date</label>
@@ -106,6 +118,32 @@ export function ViewSubscriptionModal({ subscription, isOpen, onClose }) {
                 : "N/A"}
             </div>
           </div>
+          {subscription.trialEndsAt && (
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Trial Ends At</label>
+              <div className="text-sm text-slate-900">
+                {new Date(subscription.trialEndsAt).toLocaleDateString()}
+              </div>
+            </div>
+          )}
+          {subscription.approvedBy && (
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Approved By</label>
+              <div className="text-sm text-slate-900">
+                {typeof subscription.approvedBy === "object" 
+                  ? subscription.approvedBy.name || subscription.approvedBy.email || "N/A"
+                  : subscription.approvedBy}
+              </div>
+            </div>
+          )}
+          {subscription.approvedAt && (
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Approved At</label>
+              <div className="text-sm text-slate-900">
+                {new Date(subscription.approvedAt).toLocaleString()}
+              </div>
+            </div>
+          )}
         </div>
         {subscription.notes && (
           <div>
