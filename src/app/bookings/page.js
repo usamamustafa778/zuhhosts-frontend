@@ -7,7 +7,6 @@ import toast from "react-hot-toast";
 import DataTable from "@/components/common/DataTable";
 import Modal from "@/components/common/Modal";
 import BookingCalendar from "@/components/modules/BookingCalendar";
-import FileUpload from "@/components/common/FileUpload";
 import IdCardGallery from "@/components/common/IdCardGallery";
 import PageLoader from "@/components/common/PageLoader";
 import Combobox from "@/components/common/Combobox";
@@ -43,6 +42,9 @@ const getInitialFormState = () => ({
   numberOfGuests: "1",
   bookingSource: "walkin",
   otaReference: "",
+  guest_name: "",
+  guest_phone: "",
+  guest_id_card: "",
 });
 
 const getBookingId = (booking) => booking.id || booking._id;
@@ -234,9 +236,34 @@ export default function BookingsPage() {
   const [editRooms, setEditRooms] = useState([]);
   const [createIdCardFiles, setCreateIdCardFiles] = useState([]);
   const [editIdCardFiles, setEditIdCardFiles] = useState([]);
+  const [createIdCardPreviews, setCreateIdCardPreviews] = useState([]);
+  const [editIdCardPreviews, setEditIdCardPreviews] = useState([]);
   const [viewBooking, setViewBooking] = useState(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [currencies, setCurrencies] = useState([]);
+
+  // Helpers to work with properties
+  const getPropertyById = (id) =>
+    propertiesData.find((p) => (p._id || p.id) === id);
+
+  const isHotelProperty = (id) => {
+    if (!id) return false;
+    const property = getPropertyById(id);
+    return property?.propertyType === "hotel";
+  };
+
+  // Clear roomId when property changes to a non-hotel (avoid stale room selection)
+  useEffect(() => {
+    if (createForm.property_id && !isHotelProperty(createForm.property_id) && createForm.roomId) {
+      setCreateForm((prev) => ({ ...prev, roomId: "" }));
+    }
+  }, [createForm.property_id]);
+
+  useEffect(() => {
+    if (editForm.property_id && !isHotelProperty(editForm.property_id) && editForm.roomId) {
+      setEditForm((prev) => ({ ...prev, roomId: "" }));
+    }
+  }, [editForm.property_id]);
 
   // Sync currency on mount and when it changes in local storage
   useEffect(() => {
@@ -268,6 +295,14 @@ export default function BookingsPage() {
     };
   }, []);
 
+  // Cleanup object URLs when previews change or component unmounts
+  useEffect(() => {
+    return () => {
+      (createIdCardPreviews || []).forEach((u) => u && URL.revokeObjectURL(u));
+      (editIdCardPreviews || []).forEach((u) => u && URL.revokeObjectURL(u));
+    };
+  }, [createIdCardPreviews, editIdCardPreviews]);
+
   useEffect(() => {
     if (!isAuthenticated) return;
     loadData();
@@ -297,7 +332,7 @@ export default function BookingsPage() {
 
   // Auto-calculate amount for create form
   useEffect(() => {
-    if (!createForm.property_id || !createForm.start_date || !createForm.end_date) return;
+    if (!createForm.property_id) return;
 
     // Use selected room's price if available, otherwise property base price
     let pricePerNight = 0;
@@ -305,20 +340,23 @@ export default function BookingsPage() {
       const selectedRoom = createRooms.find(
         (r) => (r._id || r.id) === createForm.roomId
       );
-      pricePerNight = selectedRoom?.price || 0;
+      pricePerNight = selectedRoom?.basePrice ?? selectedRoom?.price ?? 0;
     }
     if (!pricePerNight) {
       const property = propertiesData.find(
         (p) => (p._id || p.id) === createForm.property_id
       );
-      pricePerNight = property?.price || 0;
+      pricePerNight = property?.price ?? property?.basePrice ?? 0;
     }
     if (pricePerNight) {
-      const nights = calculateNights(createForm.start_date, createForm.end_date);
+      const nights =
+        createForm.start_date && createForm.end_date
+          ? calculateNights(createForm.start_date, createForm.end_date)
+          : 1;
       const baseAmount = pricePerNight * nights;
       const discountPercent = Number(createForm.discount) || 0;
       const discountAmount = (baseAmount * discountPercent) / 100;
-      const finalAmount = baseAmount - discountAmount;
+      const finalAmount = Math.max(0, baseAmount - discountAmount);
       setCreateForm((prev) => ({ ...prev, amount: finalAmount }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -326,27 +364,30 @@ export default function BookingsPage() {
 
   // Auto-calculate amount for edit form
   useEffect(() => {
-    if (!editForm.property_id || !editForm.start_date || !editForm.end_date) return;
+    if (!editForm.property_id) return;
 
     let pricePerNight = 0;
     if (editForm.roomId && editRooms.length > 0) {
       const selectedRoom = editRooms.find(
         (r) => (r._id || r.id) === editForm.roomId
       );
-      pricePerNight = selectedRoom?.price || 0;
+      pricePerNight = selectedRoom?.basePrice ?? selectedRoom?.price ?? 0;
     }
     if (!pricePerNight) {
       const property = propertiesData.find(
         (p) => (p._id || p.id) === editForm.property_id
       );
-      pricePerNight = property?.price || 0;
+      pricePerNight = property?.price ?? property?.basePrice ?? 0;
     }
     if (pricePerNight) {
-      const nights = calculateNights(editForm.start_date, editForm.end_date);
+      const nights =
+        editForm.start_date && editForm.end_date
+          ? calculateNights(editForm.start_date, editForm.end_date)
+          : 1;
       const baseAmount = pricePerNight * nights;
       const discountPercent = Number(editForm.discount) || 0;
       const discountAmount = (baseAmount * discountPercent) / 100;
-      const finalAmount = baseAmount - discountAmount;
+      const finalAmount = Math.max(0, baseAmount - discountAmount);
       setEditForm((prev) => ({ ...prev, amount: finalAmount }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -402,17 +443,37 @@ export default function BookingsPage() {
 
     try {
       setError(null);
-      const guestId = createForm.guest_id;
+      let guestId = createForm.guest_id || "";
 
-      if (!guestId) {
-        const errorMsg = "Please select a guest";
-        setError(errorMsg);
-        toast.error(errorMsg, { id: toastId });
-        return;
+      // If no guest selected but user entered name and phone, create a new guest and use it for the booking
+      if (!guestId && (createForm.guest_name?.trim() || createForm.guest_phone?.trim())) {
+        const name = (createForm.guest_name || "").trim();
+        const phone = (createForm.guest_phone || "").trim();
+        if (!name || !phone) {
+          const errorMsg = "When adding a new guest, both Name and Phone are required";
+          setError(errorMsg);
+          toast.error(errorMsg, { id: toastId });
+          return;
+        }
+        try {
+          const newGuest = await createGuest({
+            name,
+            phone,
+            idCardNumber: (createForm.guest_id_card || "").trim() || undefined,
+          });
+          const newGuestId = newGuest.id ?? newGuest._id;
+          guestId = newGuestId;
+          setGuestsData((prev) => [...prev, newGuest]);
+        } catch (guestErr) {
+          const errorMsg = formatErrorMessage(guestErr);
+          setError(errorMsg);
+          toast.error(errorMsg, { id: toastId });
+          return;
+        }
       }
 
-      // Validate room selection
-      if (!createForm.roomId) {
+      // Validate room selection only for hotel properties
+      if (isHotelProperty(createForm.property_id) && !createForm.roomId) {
         const errorMsg = "Please select a room";
         setError(errorMsg);
         toast.error(errorMsg, { id: toastId });
@@ -428,12 +489,40 @@ export default function BookingsPage() {
         return;
       }
 
+      // If a guest is selected and their name/phone were changed in the quick inputs,
+      // update the guest record before creating the booking.
+      try {
+        const selectedGuest = guestId ? guestsData.find((g) => getBookingId(g) === guestId) : null;
+        if (selectedGuest) {
+          const updateData = {};
+          if ((createForm.guest_name || "") !== (selectedGuest.name || "")) {
+            updateData.name = createForm.guest_name || "";
+          }
+          if ((createForm.guest_phone || "") !== (selectedGuest.phone || "")) {
+            updateData.phone = createForm.guest_phone || "";
+          }
+          if (Object.keys(updateData).length > 0) {
+            try {
+              const updated = await updateGuest(guestId, updateData);
+              setGuestsData((prev) => prev.map((g) => (getBookingId(g) === guestId ? { ...g, ...updated } : g)));
+            } catch (uErr) {
+              console.error("Failed to update guest before booking:", uErr);
+              // Do not block booking creation on guest update failure
+            }
+          }
+        }
+      } catch (errCheck) {
+        console.error("Error while preparing guest update:", errCheck);
+      }
+
       // If files are present, use FormData, otherwise use JSON
       if (createIdCardFiles.length > 0) {
         const formData = new FormData();
         formData.append("property_id", createForm.property_id);
-        formData.append("guest_id", guestId);
-        formData.append("roomId", createForm.roomId);
+        if (guestId) formData.append("guest_id", guestId);
+        if (isHotelProperty(createForm.property_id) && createForm.roomId) {
+          formData.append("roomId", createForm.roomId);
+        }
         formData.append("start_date", createForm.start_date);
         formData.append("end_date", createForm.end_date);
         formData.append("amount", createForm.amount);
@@ -486,10 +575,18 @@ export default function BookingsPage() {
       } else {
         const payload = {
           ...createForm,
-          guest_id: guestId,
           numberOfGuests,
           currency: getDefaultCurrency(),
         };
+        if (guestId) payload.guest_id = guestId;
+        // Omit roomId for non-hotel properties to avoid sending invalid/empty roomId
+        if (!isHotelProperty(createForm.property_id)) {
+          delete payload.roomId;
+        }
+        // Remove guest form-only fields from booking payload
+        delete payload.guest_name;
+        delete payload.guest_phone;
+        delete payload.guest_id_card;
         const newBooking = await createBooking(payload);
         setBookingsData((prev) => [...prev, newBooking]);
       }
@@ -533,7 +630,9 @@ export default function BookingsPage() {
         const formData = new FormData();
         formData.append("property_id", editForm.property_id);
         formData.append("guest_id", editForm.guest_id);
-        if (editForm.roomId) formData.append("roomId", editForm.roomId);
+        if (isHotelProperty(editForm.property_id) && editForm.roomId) {
+          formData.append("roomId", editForm.roomId);
+        }
         formData.append("start_date", editForm.start_date);
         formData.append("end_date", editForm.end_date);
         formData.append("amount", editForm.amount);
@@ -589,8 +688,21 @@ export default function BookingsPage() {
         const payload = {
           ...editForm,
           numberOfGuests,
-          currency: editForm.currency || getDefaultCurrency(),
+          currency: getDefaultCurrency(),
+          discount: "0",
         };
+        // Omit roomId for non-hotel properties
+        if (!isHotelProperty(editForm.property_id)) {
+          delete payload.roomId;
+        }
+        // Normalize empty guest_id so backend can clear guest
+        if (payload.guest_id === "") {
+          payload.guest_id = null;
+        }
+        // Remove guest form-only fields from booking payload
+        delete payload.guest_name;
+        delete payload.guest_phone;
+        delete payload.guest_id_card;
         const updatedBooking = await updateBooking(bookingId, payload);
         setBookingsData((prev) =>
           prev.map((booking) =>
@@ -680,38 +792,23 @@ export default function BookingsPage() {
 
   const openEditModal = async (booking) => {
     setSelectedBooking(booking);
+    const guest = booking.guest_id;
     setEditForm({
       property_id: booking.property_id?.id || booking.property_id?._id || "",
-      guest_id: booking.guest_id?.id || booking.guest_id?._id || "",
+      guest_id: guest?.id || guest?._id || "",
       roomId: booking.roomId?.id || booking.roomId?._id || booking.roomId || "",
       start_date: formatDateForInput(booking.start_date),
       end_date: formatDateForInput(booking.end_date),
       amount: booking.amount || "",
-      currency: booking.currency || getDefaultCurrency(),
-      discount: booking.discount || "0",
+      currency: getDefaultCurrency(),
+      discount: "0",
       payment_status: booking.payment_status || "unpaid",
       numberOfGuests: booking.numberOfGuests || "1",
+      guest_name: guest?.name || "",
+      guest_phone: guest?.phone || "",
+      guest_id_card: guest?.idCardNumber || guest?.id_card || guest?.idCard || guest?.idNumber || "",
     });
     setEditIdCardFiles([]);
-
-    // Load currencies from local storage first (for immediate display)
-    const currencyMap = getCurrencyMap();
-    const localCurrencies = Object.entries(currencyMap).map(([code, name]) => ({ code, name }));
-    if (localCurrencies.length > 0) {
-      setCurrencies(localCurrencies);
-    }
-
-    // Fetch currencies from API when opening edit modal (to get latest list)
-    try {
-      const response = await getCurrencies();
-      const currenciesList = response.currencies || response || [];
-      if (Array.isArray(currenciesList) && currenciesList.length > 0) {
-        setCurrencies(currenciesList);
-      }
-    } catch (err) {
-      console.error("Error fetching currencies:", err);
-      // Keep local storage currencies if API fails
-    }
   };
 
   const closeEditModal = () => {
@@ -1212,24 +1309,62 @@ export default function BookingsPage() {
           <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
-                Guest
+                Guest ID card no
               </label>
               <Combobox
                 value={editForm.guest_id}
-                onChange={(value) =>
-                  setEditForm({ ...editForm, guest_id: value })
-                }
+                onChange={(value) => {
+                  const sel = guestsData.find((g) => getBookingId(g) === value);
+                  if (sel) {
+                    setEditForm({
+                      ...editForm,
+                      guest_id: value,
+                      guest_name: sel.name || "",
+                      guest_phone: sel.phone || "",
+                      guest_id_card: sel.idCardNumber || sel.id_card || sel.idCard || sel.idNumber || "",
+                    });
+                  } else {
+                    setEditForm({ ...editForm, guest_id: value, guest_name: "", guest_phone: "", guest_id_card: "" });
+                  }
+                }}
+                freeTextValue={editForm.guest_id_card}
+                onInputChange={(text) => setEditForm((prev) => ({ ...prev, guest_id_card: text }))}
                 options={guestsData}
-                getOptionLabel={(guest) => guest.name}
-                getOptionValue={(guest) => getBookingId(guest)}
-                getOptionDescription={(guest) =>
-                  `${guest.phone}${guest.email ? ` • ${guest.email}` : ""}`
+                getOptionLabel={(guest) =>
+                  guest.idCardNumber || guest.id_card || guest.idCard || guest.idNumber || guest.name || ""
                 }
-                placeholder="Search guest by name, phone, or email..."
-                required
+                getOptionValue={(guest) => getBookingId(guest)}
+                placeholder="Search by ID card or enter full ID card number"
                 noOptionsMessage="No guests found"
+                showDropdownOnlyOnMatch
+                hideChevron
                 disabled={isUpdating}
               />
+              <p className="mt-1 text-xs text-slate-500">Select a guest to auto-fill below</p>
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                  <input
+                    type="text"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    value={editForm.guest_name}
+                    onChange={(e) => setEditForm({ ...editForm, guest_name: e.target.value })}
+                    placeholder="Guest full name"
+                    disabled={isUpdating}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Phone No</label>
+                  <input
+                    type="text"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    value={editForm.guest_phone}
+                    onChange={(e) => setEditForm({ ...editForm, guest_phone: e.target.value })}
+                    placeholder="123 456 7890"
+                    disabled={isUpdating}
+                  />
+                </div>
+              </div>
             </div>
 
             <div>
@@ -1274,8 +1409,8 @@ export default function BookingsPage() {
             />
           </div>
 
-          {/* Room Selection */}
-          {editForm.property_id && (
+          {/* Room Selection (only for hotel properties) */}
+          {isHotelProperty(editForm.property_id) && (
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
                 Room *
@@ -1294,7 +1429,7 @@ export default function BookingsPage() {
                   const rId = room._id || room.id;
                   return (
                     <option key={rId} value={rId}>
-                      Room {room.roomNumber} — {room.roomType} — ${room.price}/night
+                      Room {room.roomNumber} — {room.roomType} — ${room.basePrice ?? room.price ?? 0}/night
                     </option>
                   );
                 })}
@@ -1335,33 +1470,7 @@ export default function BookingsPage() {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Currency *
-              </label>
-              <select
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                value={editForm.currency || getDefaultCurrency()}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, currency: e.target.value })
-                }
-                required
-                disabled={isUpdating}
-              >
-                {currencies.length > 0 ? (
-                  currencies.map((currency) => (
-                    <option key={currency.code} value={currency.code}>
-                      {currency.name} ({currency.code})
-                    </option>
-                  ))
-                ) : (
-                  <option value={editForm.currency || getDefaultCurrency()}>
-                    {editForm.currency || getDefaultCurrency()}
-                  </option>
-                )}
-              </select>
-            </div>
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
                 Amount *
@@ -1377,24 +1486,6 @@ export default function BookingsPage() {
                 }
                 placeholder="0.00"
                 required
-                disabled={isUpdating}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Discount (%)
-              </label>
-              <input
-                type="number"
-                step="1"
-                min="0"
-                max="100"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                value={editForm.discount}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, discount: e.target.value })
-                }
-                placeholder="0"
                 disabled={isUpdating}
               />
             </div>
@@ -1429,19 +1520,43 @@ export default function BookingsPage() {
           )}
 
           <div>
-            <FileUpload
-              label="Update Guest ID Cards (Optional)"
-              files={editIdCardFiles}
-              onChange={setEditIdCardFiles}
-              maxFiles={10}
-              maxSizeMB={5}
-              helpText="Upload new ID cards to replace existing ones. JPG, PNG, GIF, PDF accepted."
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Update Guest ID card
+            </label>
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              onChange={(e) => {
+                const file = e.target.files?.[0] || null;
+                // revoke previous preview
+                editIdCardPreviews.forEach((u) => u && URL.revokeObjectURL(u));
+                if (file) {
+                  setEditIdCardFiles([file]);
+                  setEditIdCardPreviews([file.type.startsWith("image/") ? URL.createObjectURL(file) : null]);
+                } else {
+                  setEditIdCardFiles([]);
+                  setEditIdCardPreviews([]);
+                }
+              }}
               disabled={isUpdating}
             />
+            <p className="mt-1 text-xs text-slate-500">JPEG, PNG, GIF, PDF (max 5MB)</p>
+            {editIdCardPreviews[0] && (
+              <div className="mt-2">
+                <img
+                  src={editIdCardPreviews[0]}
+                  alt="ID Card Preview"
+                  className="w-full h-32 object-contain border border-slate-200 rounded-lg bg-slate-50"
+                />
+                <p className="mt-1 text-xs text-green-600">✓ New ID card selected</p>
+              </div>
+            )}
+            {editIdCardFiles.length > 0 && !editIdCardPreviews[0] && (
+              <p className="mt-2 text-xs text-green-600">✓ PDF file selected: {editIdCardFiles[0].name}</p>
+            )}
             {editIdCardFiles.length > 0 && (
-              <p className="mt-2 text-xs text-amber-600 font-medium">
-                ⚠️ Uploading new ID cards will replace all existing ones
-              </p>
+              <p className="mt-2 text-xs text-amber-600 font-medium">⚠️ Uploading a new ID card will replace existing ones</p>
             )}
           </div>
         </form>
@@ -1458,23 +1573,61 @@ export default function BookingsPage() {
           <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
-                Guest
+                Guest ID Card
               </label>
               <Combobox
                 value={createForm.guest_id}
-                onChange={(value) =>
-                  setCreateForm({ ...createForm, guest_id: value })
-                }
+                onChange={(value) => {
+                  const sel = guestsData.find((g) => getBookingId(g) === value);
+                  if (sel) {
+                    setCreateForm({
+                      ...createForm,
+                      guest_id: value,
+                      guest_name: sel.name || "",
+                      guest_phone: sel.phone || "",
+                      guest_id_card: sel.idCardNumber || sel.id_card || sel.idCard || sel.idNumber || "",
+                    });
+                  } else {
+                    setCreateForm({ ...createForm, guest_id: value, guest_name: "", guest_phone: "", guest_id_card: "" });
+                  }
+                }}
+                freeTextValue={createForm.guest_id_card}
+                onInputChange={(text) => setCreateForm((prev) => ({ ...prev, guest_id_card: text }))}
                 options={guestsData}
-                getOptionLabel={(guest) => guest.name}
-                getOptionValue={(guest) => getBookingId(guest)}
-                getOptionDescription={(guest) =>
-                  `${guest.phone}${guest.email ? ` • ${guest.email}` : ""}`
+                getOptionLabel={(guest) =>
+                  guest.idCardNumber || guest.id_card || guest.idCard || guest.idNumber || guest.name || ""
                 }
-                placeholder="Search guest by name, phone, or email..."
-                required
+                getOptionValue={(guest) => getBookingId(guest)}
+                placeholder="Search by ID card or enter full ID card number"
                 noOptionsMessage="No guests found"
+                showDropdownOnlyOnMatch
+                hideChevron
               />
+              <p className="mt-1 text-xs text-slate-500">Select a guest to auto-fill below, or enter name and phone to create a new guest</p>
+              <div className="grid gap-4 sm:grid-cols-2">
+
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                <input
+                  type="text"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={createForm.guest_name}
+                  onChange={(e) => setCreateForm({ ...createForm, guest_name: e.target.value })}
+                  placeholder="Guest full name"
+                />
+              </div>
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Phone No</label>
+                <input
+                  type="text"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={createForm.guest_phone}
+                  onChange={(e) => setCreateForm({ ...createForm, guest_phone: e.target.value })}
+                  placeholder="123 456 7890"
+                />
+              </div>
+              </div>
+
             </div>
 
             <div>
@@ -1520,8 +1673,8 @@ export default function BookingsPage() {
             />
           </div>
 
-          {/* Room Selection */}
-          {createForm.property_id && (
+          {/* Room Selection (only for hotel properties) */}
+          {isHotelProperty(createForm.property_id) && (
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
                 Room *
@@ -1539,7 +1692,7 @@ export default function BookingsPage() {
                   const rId = room._id || room.id;
                   return (
                     <option key={rId} value={rId}>
-                      Room {room.roomNumber} — {room.roomType} — ${room.price}/night
+                      Room {room.roomNumber} — {room.roomType} — ${room.basePrice ?? room.price ?? 0}/night
                     </option>
                   );
                 })}
@@ -1669,14 +1822,38 @@ export default function BookingsPage() {
           </div>
 
           <div>
-            <FileUpload
-              label="Guest ID Cards (Optional)"
-              files={createIdCardFiles}
-              onChange={setCreateIdCardFiles}
-              maxFiles={10}
-              maxSizeMB={5}
-              helpText="Upload up to 10 ID cards. JPG, PNG, GIF, PDF accepted. Max 5MB each."
+            <label className="block text-sm font-medium text-slate-700 mb-1">Guest ID card</label>
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              onChange={(e) => {
+                const file = e.target.files?.[0] || null;
+                // revoke previous previews
+                createIdCardPreviews.forEach((u) => u && URL.revokeObjectURL(u));
+                if (file) {
+                  setCreateIdCardFiles([file]);
+                  setCreateIdCardPreviews([file.type.startsWith("image/") ? URL.createObjectURL(file) : null]);
+                } else {
+                  setCreateIdCardFiles([]);
+                  setCreateIdCardPreviews([]);
+                }
+              }}
             />
+            <p className="mt-1 text-xs text-slate-500">Upload an ID card. JPG, PNG, GIF, PDF accepted. Max 5MB.</p>
+            {createIdCardPreviews[0] && (
+              <div className="mt-2">
+                <img
+                  src={createIdCardPreviews[0]}
+                  alt="ID Card Preview"
+                  className="w-full h-32 object-contain border border-slate-200 rounded-lg bg-slate-50"
+                />
+                <p className="mt-1 text-xs text-green-600">✓ ID card ready to upload</p>
+              </div>
+            )}
+            {createIdCardFiles.length > 0 && !createIdCardPreviews[0] && (
+              <p className="mt-2 text-xs text-green-600">✓ PDF file selected: {createIdCardFiles[0].name}</p>
+            )}
           </div>
         </form>
       </Modal>
