@@ -34,7 +34,8 @@ export default function PaymentsPage() {
   // SEO
   useSEO({
     title: "Payments | Zuha Host",
-    description: "Track payment settlements, manage transactions, and capture manual payments.",
+    description:
+      "Track payment settlements, manage transactions, and capture manual payments.",
     keywords: "payments, transactions, settlements, finance management",
   });
 
@@ -48,7 +49,7 @@ export default function PaymentsPage() {
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [viewMode, setViewMode] = useState(() => {
     // Default to table on desktop, cards on mobile
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       return window.innerWidth >= 768 ? "table" : "cards";
     }
     return "table";
@@ -58,7 +59,7 @@ export default function PaymentsPage() {
     amount: "",
     payment_type: "maintenance_work",
     method: "cash",
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toISOString().split("T")[0],
     task_id: "",
     booking_id: "",
     paid_to: "",
@@ -69,13 +70,13 @@ export default function PaymentsPage() {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (openDropdownId && !event.target.closest('.dropdown-container')) {
+      if (openDropdownId && !event.target.closest(".dropdown-container")) {
         setOpenDropdownId(null);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openDropdownId]);
 
   useEffect(() => {
@@ -87,7 +88,7 @@ export default function PaymentsPage() {
         const [payments, guests, properties] = await Promise.all([
           getAllPayments(),
           getAllGuests(),
-          getAllProperties()
+          getAllProperties(),
         ]);
         setPaymentsData(Array.isArray(payments) ? payments : []);
         setGuestsData(Array.isArray(guests) ? guests : []);
@@ -126,7 +127,7 @@ export default function PaymentsPage() {
         amount: "",
         payment_type: "maintenance_work",
         method: "cash",
-        date: new Date().toISOString().split('T')[0],
+        date: new Date().toISOString().split("T")[0],
         task_id: "",
         booking_id: "",
         paid_to: "",
@@ -157,17 +158,21 @@ export default function PaymentsPage() {
   const rows = paymentsData.map((payment, index) => {
     const paymentId = payment.id || payment._id || `payment-${index}`;
     const property = payment.property_id
-      ? (typeof payment.property_id === 'object' ? payment.property_id : propertiesData.find(p => (p.id || p._id) === payment.property_id))
+      ? typeof payment.property_id === "object"
+        ? payment.property_id
+        : propertiesData.find((p) => (p.id || p._id) === payment.property_id)
       : null;
     const task = payment.task_id
-      ? (typeof payment.task_id === 'object' ? payment.task_id : null)
+      ? typeof payment.task_id === "object"
+        ? payment.task_id
+        : null
       : null;
 
     return {
       id: paymentId,
       cells: [
         paymentId.slice(-8),
-        property ? (property.title || property.name || "N/A") : "N/A",
+        property ? property.title || property.name || "N/A" : "N/A",
         formatWithConversion(payment.amount || 0, payment.currency || "USD"),
         getPaymentTypeLabel(payment.payment_type),
         payment.method || "N/A",
@@ -185,12 +190,24 @@ export default function PaymentsPage() {
             onClick={() => router.back()}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0 lg:hidden mt-2"
           >
-            <svg className="w-6 h-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <svg
+              className="w-6 h-6 text-slate-900"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
           <div>
-            <h1 className="mt-2 text-2xl lg:text-3xl font-semibold text-slate-900">Payments</h1>
+            <h1 className="mt-2 text-2xl lg:text-3xl font-semibold text-slate-900">
+              Payments
+            </h1>
           </div>
         </div>
 
@@ -198,10 +215,11 @@ export default function PaymentsPage() {
           {/* View Mode Switcher - Hidden on mobile */}
           <div className="hidden md:flex rounded-full border border-slate-200 p-1">
             <button
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "cards"
-                ? "bg-slate-900 text-white"
-                : "text-slate-600 hover:bg-slate-50"
-                }`}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                viewMode === "cards"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
               onClick={() => setViewMode("cards")}
             >
               <svg
@@ -220,10 +238,11 @@ export default function PaymentsPage() {
               </svg>
             </button>
             <button
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "table"
-                ? "bg-slate-900 text-white"
-                : "text-slate-600 hover:bg-slate-50"
-                }`}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                viewMode === "table"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
               onClick={() => setViewMode("table")}
             >
               <svg
@@ -265,12 +284,26 @@ export default function PaymentsPage() {
           {paymentsData.length === 0 ? (
             <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
-                <svg className="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                <svg
+                  className="h-8 w-8 text-slate-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                  />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">No payments yet</h3>
-              <p className="text-sm text-slate-600 mb-6">Get started by recording your first payment</p>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                No payments yet
+              </h3>
+              <p className="text-sm text-slate-600 mb-6">
+                Get started by recording your first payment
+              </p>
               <button
                 className="rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white hover:bg-slate-800"
                 onClick={() => setCreateOpen(true)}
@@ -281,11 +314,18 @@ export default function PaymentsPage() {
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
               {paymentsData.map((payment, index) => {
-                const paymentId = payment.id || payment._id || `payment-${index}`;
+                const paymentId =
+                  payment.id || payment._id || `payment-${index}`;
                 const property = payment.property_id
-                  ? (typeof payment.property_id === 'object' ? payment.property_id : propertiesData.find(p => (p.id || p._id) === payment.property_id))
+                  ? typeof payment.property_id === "object"
+                    ? payment.property_id
+                    : propertiesData.find(
+                        (p) => (p.id || p._id) === payment.property_id,
+                      )
                   : null;
-                const propertyName = property ? (property.title || property.name || "N/A") : "N/A";
+                const propertyName = property
+                  ? property.title || property.name || "N/A"
+                  : "N/A";
                 const amount = payment.amount || 0;
                 const method = payment.method || "N/A";
                 const date = payment.date || payment.createdAt || "N/A";
@@ -300,20 +340,38 @@ export default function PaymentsPage() {
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-slate-900 truncate">{propertyName}</h3>
+                          <h3 className="font-semibold text-slate-900 truncate">
+                            {propertyName}
+                          </h3>
                           <StatusPill label={paymentType} />
                         </div>
-                        <p className="text-sm text-slate-600 truncate">{payment.paid_to || "N/A"}</p>
+                        <p className="text-sm text-slate-600 truncate">
+                          {payment.paid_to || "N/A"}
+                        </p>
                       </div>
 
                       {/* Actions Dropdown */}
                       <div className="relative dropdown-container">
                         <button
-                          onClick={() => setOpenDropdownId(openDropdownId === paymentId ? null : paymentId)}
+                          onClick={() =>
+                            setOpenDropdownId(
+                              openDropdownId === paymentId ? null : paymentId,
+                            )
+                          }
                           className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100 active:bg-slate-200 transition-colors"
                         >
-                          <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                          <svg
+                            className="w-5 h-5 text-slate-600"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+                            />
                           </svg>
                         </button>
 
@@ -327,9 +385,24 @@ export default function PaymentsPage() {
                                 setOpenDropdownId(null);
                               }}
                             >
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                />
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                />
                               </svg>
                               View Details
                             </button>
@@ -341,18 +414,31 @@ export default function PaymentsPage() {
                     {/* Payment Details Grid */}
                     <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100">
                       <div>
-                        <span className="text-xs text-slate-500 block mb-1">Amount</span>
-                        <span className="text-lg font-semibold text-slate-900">{formatWithConversion(amount, payment.currency || "USD")}</span>
+                        <span className="text-xs text-slate-500 block mb-1">
+                          Amount
+                        </span>
+                        <span className="text-lg font-semibold text-slate-900">
+                          {formatWithConversion(
+                            amount,
+                            payment.currency || "USD",
+                          )}
+                        </span>
                       </div>
                       <div className="text-right">
-                        <span className="text-xs text-slate-500 block mb-1">Method</span>
+                        <span className="text-xs text-slate-500 block mb-1">
+                          Method
+                        </span>
                         <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
                           {method}
                         </span>
                       </div>
                       <div className="col-span-2">
-                        <span className="text-xs text-slate-500 block mb-1">Date</span>
-                        <span className="text-sm text-slate-900">{new Date(date).toLocaleDateString()}</span>
+                        <span className="text-xs text-slate-500 block mb-1">
+                          Date
+                        </span>
+                        <span className="text-sm text-slate-900">
+                          {new Date(date).toLocaleDateString()}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -369,12 +455,26 @@ export default function PaymentsPage() {
           {paymentsData.length === 0 ? (
             <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
-                <svg className="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                <svg
+                  className="h-8 w-8 text-slate-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                  />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">No payments yet</h3>
-              <p className="text-sm text-slate-600 mb-6">Get started by recording your first payment</p>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                No payments yet
+              </h3>
+              <p className="text-sm text-slate-600 mb-6">
+                Get started by recording your first payment
+              </p>
               <button
                 className="rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white hover:bg-slate-800"
                 onClick={() => setCreateOpen(true)}
@@ -384,7 +484,15 @@ export default function PaymentsPage() {
             </div>
           ) : (
             <DataTable
-              headers={["ID", "Property", "Amount", "Type", "Method", "Date", "Paid To"]}
+              headers={[
+                "ID",
+                "Property",
+                "Amount",
+                "Type",
+                "Method",
+                "Date",
+                "Paid To",
+              ]}
               rows={rows}
             />
           )}
@@ -402,7 +510,7 @@ export default function PaymentsPage() {
             amount: "",
             payment_type: "maintenance_work",
             method: "cash",
-            date: new Date().toISOString().split('T')[0],
+            date: new Date().toISOString().split("T")[0],
             task_id: "",
             booking_id: "",
             paid_to: "",
@@ -419,13 +527,15 @@ export default function PaymentsPage() {
             label="Property"
             as="select"
             value={formData.property_id}
-            onChange={(e) => setFormData({ ...formData, property_id: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, property_id: e.target.value })
+            }
             options={[
               { value: "", label: "Select a property (optional)" },
               ...propertiesData.map((property) => ({
                 value: property.id || property._id,
-                label: property.title || property.name || "N/A"
-              }))
+                label: property.title || property.name || "N/A",
+              })),
             ]}
           />
           <FormField
@@ -436,7 +546,9 @@ export default function PaymentsPage() {
             min="0"
             placeholder="0.00"
             value={formData.amount}
-            onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, amount: e.target.value })
+            }
             required
           />
           <div className="grid grid-cols-2 gap-4">
@@ -445,7 +557,9 @@ export default function PaymentsPage() {
               label="Type"
               as="select"
               value={formData.payment_type}
-              onChange={(e) => setFormData({ ...formData, payment_type: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, payment_type: e.target.value })
+              }
               options={[
                 { value: "maintenance_work", label: "Maintenance work" },
                 { value: "staff_payment", label: "Staff payment" },
@@ -460,7 +574,9 @@ export default function PaymentsPage() {
               label="Method"
               as="select"
               value={formData.method}
-              onChange={(e) => setFormData({ ...formData, method: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, method: e.target.value })
+              }
               options={["cash", "bank", "online"]}
               required
             />
@@ -479,7 +595,9 @@ export default function PaymentsPage() {
               type="text"
               placeholder="Person/entity name"
               value={formData.paid_to}
-              onChange={(e) => setFormData({ ...formData, paid_to: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, paid_to: e.target.value })
+              }
             />
             <FormField
               name="paid_by"
@@ -487,7 +605,9 @@ export default function PaymentsPage() {
               type="text"
               placeholder="Person/entity name"
               value={formData.paid_by}
-              onChange={(e) => setFormData({ ...formData, paid_by: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, paid_by: e.target.value })
+              }
             />
           </div>
           <FormField
@@ -497,7 +617,9 @@ export default function PaymentsPage() {
             rows={3}
             placeholder="Optional memo"
             value={formData.notes}
-            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, notes: e.target.value })
+            }
           />
         </div>
       </Modal>
@@ -514,52 +636,86 @@ export default function PaymentsPage() {
         {selectedPayment && (
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-semibold text-slate-500 uppercase">Payment ID</label>
-              <p className="mt-1 text-sm text-slate-900">{selectedPayment.id || selectedPayment._id || "N/A"}</p>
+              <label className="text-xs font-semibold text-slate-500 uppercase">
+                Payment ID
+              </label>
+              <p className="mt-1 text-sm text-slate-900">
+                {selectedPayment.id || selectedPayment._id || "N/A"}
+              </p>
             </div>
             <div>
-              <label className="text-xs font-semibold text-slate-500 uppercase">Property</label>
+              <label className="text-xs font-semibold text-slate-500 uppercase">
+                Property
+              </label>
               <p className="mt-1 text-sm text-slate-900">
                 {selectedPayment.property_id
-                  ? (typeof selectedPayment.property_id === 'object'
-                    ? (selectedPayment.property_id.title || selectedPayment.property_id.name || "N/A")
-                    : (propertiesData.find(p => (p.id || p._id) === selectedPayment.property_id)?.title ||
-                      propertiesData.find(p => (p.id || p._id) === selectedPayment.property_id)?.name || "N/A"))
+                  ? typeof selectedPayment.property_id === "object"
+                    ? selectedPayment.property_id.title ||
+                      selectedPayment.property_id.name ||
+                      "N/A"
+                    : propertiesData.find(
+                        (p) => (p.id || p._id) === selectedPayment.property_id,
+                      )?.title ||
+                      propertiesData.find(
+                        (p) => (p.id || p._id) === selectedPayment.property_id,
+                      )?.name ||
+                      "N/A"
                   : "N/A"}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase">Amount</label>
+                <label className="text-xs font-semibold text-slate-500 uppercase">
+                  Amount
+                </label>
                 <p className="mt-1 text-lg font-semibold text-slate-900">
-                  {formatWithConversion(selectedPayment.amount || 0, selectedPayment.currency || "USD")}
+                  {formatWithConversion(
+                    selectedPayment.amount || 0,
+                    selectedPayment.currency || "USD",
+                  )}
                 </p>
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase">Type</label>
+                <label className="text-xs font-semibold text-slate-500 uppercase">
+                  Type
+                </label>
                 <div className="mt-1">
-                  <StatusPill label={getPaymentTypeLabel(selectedPayment.payment_type)} />
+                  <StatusPill
+                    label={getPaymentTypeLabel(selectedPayment.payment_type)}
+                  />
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase">Method</label>
+                <label className="text-xs font-semibold text-slate-500 uppercase">
+                  Method
+                </label>
                 <p className="mt-1 text-sm text-slate-900">
                   {selectedPayment.method || "N/A"}
                 </p>
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase">Date</label>
+                <label className="text-xs font-semibold text-slate-500 uppercase">
+                  Date
+                </label>
                 <p className="mt-1 text-sm text-slate-900">
-                  {new Date(selectedPayment.date || selectedPayment.paymentDate || selectedPayment.createdAt).toLocaleDateString()}
+                  {new Date(
+                    selectedPayment.date ||
+                      selectedPayment.paymentDate ||
+                      selectedPayment.createdAt,
+                  ).toLocaleDateString()}
                 </p>
               </div>
             </div>
             {selectedPayment.notes && (
               <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase">Notes</label>
-                <p className="mt-1 text-sm text-slate-900">{selectedPayment.notes}</p>
+                <label className="text-xs font-semibold text-slate-500 uppercase">
+                  Notes
+                </label>
+                <p className="mt-1 text-sm text-slate-900">
+                  {selectedPayment.notes}
+                </p>
               </div>
             )}
           </div>
