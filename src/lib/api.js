@@ -4,7 +4,7 @@ const DEFAULT_API_BASE = "https://zuhahosts-backend.onrender.com";
 
 /**
  * Effective API base URL for the current environment.
- * On the client, when NEXT_PUBLIC_API_BASE_URL is missing (e.g. not set in Vercel build),
+ * On the client, when NEXT_PUBLIC_APzI_BASE_URL is missing (e.g. not set in Vercel build),
  * use default so images still load on live tenant subdomains.
  */
 function getEffectiveApiBase() {
@@ -68,8 +68,12 @@ function createHeaders(requireAuth = true) {
   return headers;
 }
 
+// Flag to prevent multiple simultaneous refresh attempts
+let isRefreshing = false;
+let refreshPromise = null;
+
 /**
- * Centralized fetch wrapper with automatic auth token injection
+ * Centralized fetch wrapper with automatic auth token injection and refresh
  * @param {string} url - API endpoint URL
  * @param {Object} options - Fetch options
  * @param {boolean} requireAuth - Whether to require authentication (default: true)
@@ -83,10 +87,87 @@ async function fetchWithAuth(url, options = {}, requireAuth = true) {
     Object.assign(headers, options.headers);
   }
 
-  return fetch(url, {
+  let response = await fetch(url, {
     ...options,
     headers,
   });
+
+  // If we get a 401 and have a refresh token, try to refresh
+  if (response.status === 401 && requireAuth && typeof window !== "undefined") {
+    const refreshToken = localStorage.getItem("luxeboard.refreshToken");
+
+    if (refreshToken) {
+      // Create a single refresh promise that all requests can wait for
+      if (!refreshPromise) {
+        refreshPromise = (async () => {
+          try {
+            isRefreshing = true;
+            const { refreshAccessToken } = await import("./api");
+            const result = await refreshAccessToken(refreshToken);
+
+            // Update tokens
+            if (result.token) {
+              localStorage.setItem("luxeboard.authToken", result.token);
+            }
+            if (result.refreshToken) {
+              localStorage.setItem("luxeboard.refreshToken", result.refreshToken);
+            }
+            if (result.user) {
+              localStorage.setItem("luxeboard.authUser", JSON.stringify(result.user));
+            }
+
+            return result.token;
+          } catch (error) {
+            console.error("Token refresh failed:", error);
+            // Refresh failed - clear auth and redirect to login
+            localStorage.removeItem("luxeboard.authToken");
+            localStorage.removeItem("luxeboard.refreshToken");
+            localStorage.removeItem("luxeboard.authUser");
+
+            // Redirect to login if not already there
+            if (window.location.pathname !== "/login") {
+              window.location.href = "/login";
+            }
+
+            throw error;
+          } finally {
+            isRefreshing = false;
+            refreshPromise = null;
+          }
+        })();
+      }
+
+      // Wait for refresh to complete (even if another request initiated it)
+      try {
+        await refreshPromise;
+
+        // Retry the original request with new token
+        const newHeaders = createHeaders(requireAuth);
+        if (options.headers) {
+          Object.assign(newHeaders, options.headers);
+        }
+
+        response = await fetch(url, {
+          ...options,
+          headers: newHeaders,
+        });
+      } catch (error) {
+        // If refresh failed, return the original 401 response
+        return response;
+      }
+    } else {
+      // No refresh token - clear auth and redirect to login
+      localStorage.removeItem("luxeboard.authToken");
+      localStorage.removeItem("luxeboard.refreshToken");
+      localStorage.removeItem("luxeboard.authUser");
+      
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
+    }
+  }
+
+  return response;
 }
 
 async function handleResponse(response, fallbackMessage) {
@@ -299,6 +380,48 @@ export async function registerUser(data) {
     body: JSON.stringify(data),
   }, false); // No auth required for registration
   return handleResponse(res, "Failed to register user");
+}
+
+/**
+ * Refresh access token using refresh token
+ * POST /api/auth/refresh
+ * Body: { refreshToken }
+ * Returns: { success, token, refreshToken, user }
+ */
+export async function refreshAccessToken(refreshToken) {
+  const baseUrl = getEffectiveApiBase();
+  const url = `${baseUrl}/api/auth/refresh`;
+  
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ refreshToken }),
+  });
+  
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({ error: "Failed to refresh token" }));
+    throw new Error(errorData.error || errorData.message || "Failed to refresh token");
+  }
+  
+  return handleResponse(res, "Failed to refresh token");
+}
+
+/**
+ * Revoke refresh token (logout)
+ * POST /api/auth/revoke
+ * Body: { refreshToken }
+ */
+export async function revokeRefreshToken(refreshToken) {
+  const res = await fetch(`${API_BASE_URL}/auth/revoke`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ refreshToken }),
+  });
+  return handleResponse(res, "Failed to revoke token");
 }
 
 /**
@@ -1829,7 +1952,8 @@ export async function getMyTenant() {
 
 /**
  * Create a new tenant (during onboarding)
- * Endpoint: POST /api/tenants
+ * @deprecated Use setupTenant instead. This function now calls /api/tenants/setup endpoint.
+ * Endpoint: POST /api/tenants/setup (backend only has this route, not /api/tenants)
  * @param {Object} data - Tenant data
  * @param {string} data.name - Tenant name (required)
  * @param {string} data.country - Country (required)
@@ -1837,7 +1961,8 @@ export async function getMyTenant() {
  * @returns {Promise<Object>} Created tenant object
  */
 export async function createTenant(data) {
-  const res = await fetchWithAuth(`${API_BASE_URL}/api/tenants`, {
+  // Backend only has /api/tenants/setup route, not /api/tenants
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/tenants/setup`, {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -2092,7 +2217,7 @@ export async function getHousekeepingTasks(filters = {}) {
   const queryParams = new URLSearchParams();
   if (filters.status) queryParams.append("status", filters.status);
   if (filters.propertyId) queryParams.append("propertyId", filters.propertyId);
-  
+
   const url = `${API_BASE_URL}/api/housekeeping/tasks${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
   const res = await fetchWithAuth(url);
   return handleResponse(res, "Failed to fetch housekeeping tasks");
@@ -2174,7 +2299,7 @@ export async function getOccupancyAnalytics(params = {}) {
   if (params.propertyId) queryParams.append("propertyId", params.propertyId);
   if (params.startDate) queryParams.append("startDate", params.startDate);
   if (params.endDate) queryParams.append("endDate", params.endDate);
-  
+
   const url = `${API_BASE_URL}/api/analytics/occupancy${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
   const res = await fetchWithAuth(url);
   return handleResponse(res, "Failed to fetch occupancy analytics");
@@ -2192,7 +2317,7 @@ export async function getRevenueAnalytics(params = {}) {
   const queryParams = new URLSearchParams();
   if (params.startDate) queryParams.append("startDate", params.startDate);
   if (params.endDate) queryParams.append("endDate", params.endDate);
-  
+
   const url = `${API_BASE_URL}/api/analytics/revenue${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
   const res = await fetchWithAuth(url);
   return handleResponse(res, "Failed to fetch revenue analytics");
@@ -2210,7 +2335,7 @@ export async function getBookingSourcesAnalytics(params = {}) {
   const queryParams = new URLSearchParams();
   if (params.startDate) queryParams.append("startDate", params.startDate);
   if (params.endDate) queryParams.append("endDate", params.endDate);
-  
+
   const url = `${API_BASE_URL}/api/analytics/booking-sources${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
   const res = await fetchWithAuth(url);
   return handleResponse(res, "Failed to fetch booking sources analytics");
@@ -2228,7 +2353,7 @@ export async function getGuestTrendsAnalytics(params = {}) {
   const queryParams = new URLSearchParams();
   if (params.startDate) queryParams.append("startDate", params.startDate);
   if (params.endDate) queryParams.append("endDate", params.endDate);
-  
+
   const url = `${API_BASE_URL}/api/analytics/guest-trends${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
   const res = await fetchWithAuth(url);
   return handleResponse(res, "Failed to fetch guest trends analytics");
@@ -2246,7 +2371,7 @@ export async function getDirectBookingsAnalytics(params = {}) {
   const queryParams = new URLSearchParams();
   if (params.startDate) queryParams.append("startDate", params.startDate);
   if (params.endDate) queryParams.append("endDate", params.endDate);
-  
+
   const url = `${API_BASE_URL}/api/analytics/direct-bookings${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
   const res = await fetchWithAuth(url);
   return handleResponse(res, "Failed to fetch direct bookings analytics");
@@ -2294,7 +2419,7 @@ export async function getWebsiteConfig() {
  */
 export async function updateWebsiteConfig(data) {
   const isFormData = data instanceof FormData;
-  
+
   const token = getToken();
   if (!token) {
     throw new Error("No authentication token found");
@@ -2398,7 +2523,7 @@ export async function checkPublicAvailability(tenantSlug, propertyId, params) {
   if (params.startDate) queryParams.append("startDate", params.startDate);
   if (params.endDate) queryParams.append("endDate", params.endDate);
   if (params.roomId) queryParams.append("roomId", params.roomId);
-  
+
   const url = `${API_BASE_URL}/public/${tenantSlug}/properties/${propertyId}/availability?${queryParams.toString()}`;
   const res = await fetch(url);
   return handleResponse(res, "Failed to check availability");

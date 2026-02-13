@@ -2,17 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { UserPlus, X } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import FileUpload from "@/components/common/FileUpload";
 import PageLoader from "@/components/common/PageLoader";
 import Combobox from "@/components/common/Combobox";
-import PhoneInput from "@/components/common/PhoneInput";
 import {
   createBooking,
   getAllProperties,
   getAllGuests,
-  createGuest,
   getRooms,
 } from "@/lib/api";
 import { getDefaultCurrency } from "@/utils/currencyUtils";
@@ -68,12 +65,10 @@ export default function NewBookingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
-  const [isCreatingNewGuest, setIsCreatingNewGuest] = useState(false);
   const [roomsData, setRoomsData] = useState([]);
   const [idCardFiles, setIdCardFiles] = useState([]);
 
   const [createForm, setCreateForm] = useState(() => getInitialFormState());
-  const [newGuestForm, setNewGuestForm] = useState({ name: "", phone: "" });
 
   // Sync currency on mount and when it changes in local storage
   useEffect(() => {
@@ -120,7 +115,7 @@ export default function NewBookingPage() {
 
         setPropertiesData(Array.isArray(properties) ? properties : []);
         setGuestsData(Array.isArray(guests) ? guests : []);
-        
+
         // Set default currency from local storage (ensure it's current)
         const defaultCurrency = getDefaultCurrency();
         setCreateForm((prev) => ({
@@ -149,48 +144,6 @@ export default function NewBookingPage() {
       .catch(() => setRoomsData([]));
   }, [createForm.property_id]);
 
-  // Auto-calculate amount: room basePrice × number of nights
-  useEffect(() => {
-    if (!createForm.property_id || !createForm.start_date || !createForm.end_date) return;
-
-    let pricePerNight = 0;
-    if (createForm.roomId && roomsData.length > 0) {
-      const selectedRoom = roomsData.find(
-        (r) => (r._id || r.id) === createForm.roomId
-      );
-      pricePerNight = selectedRoom?.basePrice || selectedRoom?.price || 0;
-    }
-    if (!pricePerNight) {
-      const property = propertiesData.find(
-        (p) => (p._id || p.id) === createForm.property_id
-      );
-      pricePerNight = property?.basePrice || property?.price || 0;
-    }
-    const start = new Date(createForm.start_date);
-    const end = new Date(createForm.end_date);
-    const nights = Math.max(Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24)), 0);
-    const amount = pricePerNight * nights;
-    setCreateForm((prev) => ({ ...prev, amount: amount || "" }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [createForm.property_id, createForm.roomId, createForm.start_date, createForm.end_date, propertiesData, roomsData]);
-
-  const handleCreateGuest = async () => {
-    try {
-      if (!newGuestForm.name.trim() || !newGuestForm.phone.trim()) {
-        toast.error("Please fill in guest name and phone");
-        return;
-      }
-
-      const newGuest = await createGuest(newGuestForm);
-      setGuestsData((prev) => [newGuest, ...prev]);
-      setCreateForm({ ...createForm, guest_id: getBookingId(newGuest) });
-      setIsCreatingNewGuest(false);
-      setNewGuestForm({ name: "", phone: "" });
-      toast.success("Guest created successfully!");
-    } catch (err) {
-      toast.error(formatErrorMessage(err));
-    }
-  };
 
   const handleCreateBooking = async (e) => {
     e.preventDefault();
@@ -301,129 +254,48 @@ export default function NewBookingPage() {
       <form onSubmit={handleCreateBooking} className="space-y-6">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-6">
           {/* Guest Selection */}
-          <div>
-            {!isCreatingNewGuest ? (
-              <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
-                <div>
-                  <div className="flex items-center justify-between mb-0.5">
-                    <label className="block text-sm font-medium text-slate-700">
-                      Guest *
-                    </label>
-                    {!isCreatingNewGuest && (
-                      <button
-                        type="button"
-                        onClick={() => setIsCreatingNewGuest(true)}
-                        className="flex items-center gap-1 text-xs cursor-pointer text-blue-600 hover:text-blue-700 font-medium"
-                      >
-                        <UserPlus className="h-3 w-3" />
-                        New Guest
-                      </button>
-                    )}
-                  </div>
-                  <Combobox
-                    value={createForm.guest_id}
-                    onChange={(value) =>
-                      setCreateForm({ ...createForm, guest_id: value })
-                    }
-                    options={guestsData}
-                    getOptionLabel={(guest) => guest.name}
-                    getOptionValue={(guest) => getBookingId(guest)}
-                    getOptionDescription={(guest) =>
-                      `${guest.phone}${guest.email ? ` • ${guest.email}` : ""}`
-                    }
-                    placeholder="Search guest by name, phone, or email..."
-                    required
-                    noOptionsMessage="No guests found"
-                  />
-                </div>
+          <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Guest *
+              </label>
+              <Combobox
+                value={createForm.guest_id}
+                onChange={(value) =>
+                  setCreateForm({ ...createForm, guest_id: value })
+                }
+                options={guestsData}
+                getOptionLabel={(guest) => guest.name}
+                getOptionValue={(guest) => getBookingId(guest)}
+                getOptionDescription={(guest) =>
+                  `${guest.phone}${guest.email ? ` • ${guest.email}` : ""}`
+                }
+                placeholder="Search guest by name, phone, or email..."
+                required
+                noOptionsMessage="No guests found"
+              />
+            </div>
 
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">
-                    Total Guests
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    value={createForm.numberOfGuests}
-                    onChange={(e) =>
-                      setCreateForm({
-                        ...createForm,
-                        numberOfGuests: e.target.value,
-                      })
-                    }
-                    placeholder="1"
-                    required
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4 rounded-lg border border-blue-200 bg-blue-50/50 p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-700">
-                    New Guest
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsCreatingNewGuest(false);
-                      setNewGuestForm({ name: "", phone: "" });
-                    }}
-                    className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
-                  >
-                    <X className="h-3 w-3" />
-                    Cancel
-                  </button>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-600">
-                      Guest Name *
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
-                      value={newGuestForm.name}
-                      onChange={(e) =>
-                        setNewGuestForm({
-                          ...newGuestForm,
-                          name: e.target.value,
-                        })
-                      }
-                      placeholder="John Doe"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-600">
-                      Phone Number *
-                    </label>
-                    <PhoneInput
-                      value={newGuestForm.phone}
-                      onChange={(e) =>
-                        setNewGuestForm({
-                          ...newGuestForm,
-                          phone: e.target.value,
-                        })
-                      }
-                      placeholder="123 456 7890"
-                      className="bg-white"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleCreateGuest}
-                  className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
-                >
-                  Create Guest
-                </button>
-              </div>
-            )}
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                Total Guests
+              </label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={createForm.numberOfGuests}
+                onChange={(e) =>
+                  setCreateForm({
+                    ...createForm,
+                    numberOfGuests: e.target.value,
+                  })
+                }
+                placeholder="1"
+                required
+              />
+            </div>
           </div>
 
           {/* Property Selection */}
@@ -489,7 +361,7 @@ export default function NewBookingPage() {
                 onChange={(e) =>
                   setCreateForm({ ...createForm, start_date: e.target.value, end_date: "" })
                 }
-                required
+              
               />
             </div>
             <div>
@@ -504,13 +376,12 @@ export default function NewBookingPage() {
                 onChange={(e) =>
                   setCreateForm({ ...createForm, end_date: e.target.value })
                 }
-                required
               />
             </div>
           </div>
 
           {/* Pricing */}
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Amount

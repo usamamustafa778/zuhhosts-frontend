@@ -4,10 +4,12 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getAllBookings, getAllProperties, search } from "@/lib/api";
 import { getAuthToken } from "@/lib/auth";
+import { useCurrencyConversion } from "@/hooks/useCurrencyConversion";
 
 /** Owner dashboard – for users with roleType: 'owner' (business/tenant owner; what signups get). */
 export default function OwnerDashboard({ user }) {
   const router = useRouter();
+  const { formatWithConversion } = useCurrencyConversion();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [todaysBookings, setTodaysBookings] = useState([]);
@@ -168,7 +170,7 @@ export default function OwnerDashboard({ user }) {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl bg-linear-to-br from-slate-900 to-slate-800 p-4 text-white shadow-lg">
           <p className="text-xs font-medium text-slate-300">Total Revenue</p>
-          <p className="mt-1 text-2xl font-bold">${(stats?.totalRevenue || 0).toLocaleString()}</p>
+          <p className="mt-1 text-2xl font-bold">{formatWithConversion(stats?.totalRevenue || 0, "USD")}</p>
           <div className="mt-2 flex items-center gap-1.5 text-xs">
             <span className={revenueChange >= 0 ? "text-emerald-300" : "text-red-300"}>
               {revenueChange >= 0 ? "↑" : "↓"} {Math.abs(revenueChange)}%
@@ -206,7 +208,7 @@ export default function OwnerDashboard({ user }) {
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
           <p className="text-xs font-medium text-slate-500">This month</p>
-          <p className="text-lg font-semibold text-slate-900">${monthlyRevenue.toLocaleString()}</p>
+          <p className="text-lg font-semibold text-slate-900">{formatWithConversion(monthlyRevenue, "USD")}</p>
         </div>
         <button
           onClick={() => router.push("/guests")}

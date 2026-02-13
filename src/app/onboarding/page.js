@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { createTenant, getMyTenant } from "@/lib/api";
+import { setupTenant, getMyTenant } from "@/lib/api";
 import FormField from "@/components/common/FormField";
 import Select from "@/components/common/Select";
 import PageLoader from "@/components/common/PageLoader";
@@ -66,7 +66,7 @@ export default function OnboardingPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.businessType) {
       toast.error("Please select your business type");
       return;
@@ -76,16 +76,27 @@ export default function OnboardingPage() {
     const toastId = toast.loading("Creating your workspace...");
 
     try {
-      const tenant = await createTenant({
+      const result = await setupTenant({
         name: formData.name.trim(),
         country: formData.country,
         businessType: formData.businessType,
       });
 
       toast.success("Workspace created successfully!", { id: toastId });
-      
+
+      // Update user in local storage if returned
+      if (result.data && result.data.user) {
+        // Update auth context if needed
+        const { setAuthUser } = require("@/lib/auth");
+        if (typeof window !== "undefined" && setAuthUser) {
+          setAuthUser(result.data.user);
+        }
+      }
+
       // Redirect to dashboard or subscription selection
-      router.push("/dashboard");
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 500);
     } catch (error) {
       const errorMessage = error.message || "Failed to create workspace";
       toast.error(errorMessage, { id: toastId });
@@ -106,19 +117,17 @@ export default function OnboardingPage() {
             {[1, 2, 3].map((s) => (
               <div key={s} className="flex items-center">
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
-                    step >= s
+                  className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${step >= s
                       ? "bg-slate-900 text-white"
                       : "bg-white text-slate-400 border-2 border-slate-200"
-                  }`}
+                    }`}
                 >
                   {s}
                 </div>
                 {s < 3 && (
                   <div
-                    className={`w-16 h-1 mx-2 rounded transition-colors ${
-                      step > s ? "bg-slate-900" : "bg-slate-200"
-                    }`}
+                    className={`w-16 h-1 mx-2 rounded transition-colors ${step > s ? "bg-slate-900" : "bg-slate-200"
+                      }`}
                   />
                 )}
               </div>
@@ -289,11 +298,10 @@ export default function OnboardingPage() {
                     <div
                       key={option.value}
                       onClick={() => handleChange("businessType", option.value)}
-                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                        formData.businessType === option.value
+                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${formData.businessType === option.value
                           ? "border-slate-900 bg-slate-50"
                           : "border-slate-200 hover:border-slate-300"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-start gap-3">
                         <span className="text-3xl">{option.icon}</span>
@@ -304,11 +312,10 @@ export default function OnboardingPage() {
                           <p className="text-sm text-slate-600">{option.description}</p>
                         </div>
                         <div
-                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                            formData.businessType === option.value
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${formData.businessType === option.value
                               ? "border-slate-900 bg-slate-900"
                               : "border-slate-300"
-                          }`}
+                            }`}
                         >
                           {formData.businessType === option.value && (
                             <svg
@@ -345,7 +352,7 @@ export default function OnboardingPage() {
                   Back
                 </button>
               )}
-              
+
               {step < 3 ? (
                 <button
                   type="button"

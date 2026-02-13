@@ -1,6 +1,7 @@
 "use client";
 
 const TOKEN_KEY = "luxeboard.authToken";
+const REFRESH_TOKEN_KEY = "luxeboard.refreshToken";
 const USER_KEY = "luxeboard.authUser";
 
 export const getAuthToken = () => {
@@ -59,6 +60,25 @@ export const clearAuthUser = () => {
   localStorage.removeItem("defaultCurrency_name");
   // Dispatch custom event to notify auth state change
   window.dispatchEvent(new Event("auth-change"));
+};
+
+export const getRefreshToken = () => {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
+};
+
+export const setRefreshToken = (refreshToken) => {
+  if (typeof window === "undefined") return;
+  if (refreshToken) {
+    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+  } else {
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+  }
+};
+
+export const clearRefreshToken = () => {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
 };
 
 /**

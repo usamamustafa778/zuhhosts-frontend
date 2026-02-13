@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { Eye, MapPin, DollarSign, Home, Bed, Bath, Users, Square, Calendar, Clock, Ban, Dog, FileText, Star, Globe, Lock, Edit3, CheckCircle } from "lucide-react";
 import PhotoCarousel from "@/components/modules/PhotoCarousel";
 import DataTable from "@/components/common/DataTable";
 import Modal from "@/components/common/Modal";
@@ -15,6 +16,9 @@ import {
   getAllProperties,
   createProperty,
   deleteProperty,
+  updateProperty,
+  getRoomTypes,
+  getRooms,
 } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
@@ -34,6 +38,10 @@ export default function PropertiesPage() {
       "properties, listings, vacation rentals, property management, rental properties",
   });
   const [isCreateOpen, setCreateOpen] = useState(false);
+  const [viewProperty, setViewProperty] = useState(null);
+  const [viewPropertyRoomTypes, setViewPropertyRoomTypes] = useState([]);
+  const [viewPropertyRooms, setViewPropertyRooms] = useState([]);
+  const [isLoadingRoomData, setIsLoadingRoomData] = useState(false);
   const [propertiesData, setPropertiesData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
@@ -76,7 +84,7 @@ export default function PropertiesPage() {
         setPropertiesData(Array.isArray(data) ? data : []);
       } catch (err) {
         let errorMessage = err.message || "Failed to load properties";
-        
+
         // Provide more helpful error messages for common backend issues
         if (errorMessage.includes("is not a function")) {
           errorMessage = "Backend API error: Please contact support or check backend logs";
@@ -84,7 +92,7 @@ export default function PropertiesPage() {
         } else if (errorMessage.includes("fetch")) {
           errorMessage = "Unable to connect to server. Please check your connection.";
         }
-        
+
         console.error("🔴 PropertiesPage: API call failed:", err);
         setError(errorMessage);
         toast.error(errorMessage);
@@ -123,6 +131,21 @@ export default function PropertiesPage() {
       status: "available",
     });
     setNewImages([]);
+  };
+
+  const handleToggleVisibility = async (propertyId, currentVisibility) => {
+    const toastId = toast.loading("Updating visibility...");
+    try {
+      await updateProperty(propertyId, {
+        isPubliclyVisible: !currentVisibility,
+      });
+      toast.success("Visibility updated!", { id: toastId });
+      // Reload properties to reflect the change
+      const data = await getAllProperties();
+      setPropertiesData(Array.isArray(data) ? data : []);
+    } catch (error) {
+      toast.error(error.message || "Failed to update visibility", { id: toastId });
+    }
   };
 
   const handleFormChange = (field, value) => {
@@ -814,6 +837,7 @@ export default function PropertiesPage() {
           <DataTable
             headers={[
               "S.No",
+              "Image",
               "Title",
               "Host Name",
               "Location",
@@ -822,33 +846,126 @@ export default function PropertiesPage() {
               "Area",
               "Price",
               "Status",
+              "Public Available",
+              "Drafted",
               "Actions",
             ]}
             rows={filteredProperties.map((property, index) => {
               const propertyId = property.id || property._id;
               const hostName = property.hostId?.name || "N/A";
+
+              // Get property image
+              const images = property.images && property.images.length > 0
+                ? property.images.map((img) => getImageUrl(img)).filter(Boolean)
+                : (property.photos || (property.photo ? [property.photo] : [])).map((p) => (typeof p === "string" ? getImageUrl(p) : p)).filter(Boolean);
+              const firstImage = images.length > 0 ? images[0] : null;
+
               return {
                 id: propertyId,
                 cells: [
                   index + 1,
+                  <div key="image" className="flex items-center justify-center">
+                    {firstImage ? (
+                      <img
+                        src={firstImage}
+                        alt={property.title || "Property"}
+                        className="w-16 h-16 object-cover rounded-lg border border-slate-200"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          if (e.target.nextSibling) {
+                            e.target.nextSibling.style.display = 'flex';
+                          }
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className={`w-16 h-16 rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center ${firstImage ? 'hidden' : ''}`}
+                    >
+                      <svg
+                        className="w-8 h-8 text-slate-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                    </div>
+                  </div>,
                   property.title || property.name || property.propertyName,
                   hostName,
                   property.location || property.address,
                   (property.propertyType
                     ? property.propertyType.charAt(0).toUpperCase() + property.propertyType.slice(1)
                     : "House") +
-                    (property.starRating != null && property.starRating > 0
-                      ? ` ★${Number(property.starRating).toFixed(1)}`
-                      : ""),
+                  (property.starRating != null && property.starRating > 0
+                    ? ` ★${Number(property.starRating).toFixed(1)}`
+                    : ""),
                   `${property.bedrooms || 0} / ${property.bathrooms || 0}` +
-                    (property.maxGuests > 0 ? ` · ${property.maxGuests} guests` : ""),
+                  (property.maxGuests > 0 ? ` · ${property.maxGuests} guests` : ""),
                   `${property.area || 0} sq ft`,
                   formatCurrency(property.price || 0, property.currency || null),
                   <StatusPill
                     key="status"
                     label={property.status || "available"}
                   />,
-                  <div key="actions" className="flex gap-2">
+                  <div key="public-available" className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleToggleVisibility(propertyId, property.isPubliclyVisible)}
+                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${property.isPubliclyVisible
+                        ? "bg-green-100 text-green-700 hover:bg-green-200"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
+                      title={property.isPubliclyVisible ? "Click to make private" : "Click to make public"}
+                    >
+                      {property.isPubliclyVisible ? "🌐 Public" : "🔒 Private"}
+                    </button>
+                  </div>,
+                  <div key="drafted" className="flex items-center">
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${!property.isPubliclyVisible
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-slate-100 text-slate-500"
+                      }`}>
+                      {!property.isPubliclyVisible ? "📝 Draft" : "✅ Published"}
+                    </span>
+                  </div>,
+                  <div key="actions" className="flex gap-2 items-center">
+                    <button
+                      className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition-colors"
+                      onClick={async () => {
+                        setViewProperty(property);
+                        // If it's a hotel property, fetch room types and rooms
+                        const modelType = property.modelType || (property.propertyType?.toLowerCase() === "hotel" ? "hotel" : "airbnb");
+                        if (modelType === "hotel") {
+                          setIsLoadingRoomData(true);
+                          try {
+                            const propertyId = property.id || property._id;
+                            const [roomTypesData, roomsData] = await Promise.all([
+                              getRoomTypes(propertyId).catch(() => []),
+                              getRooms(propertyId).catch(() => []),
+                            ]);
+                            setViewPropertyRoomTypes(Array.isArray(roomTypesData) ? roomTypesData : []);
+                            setViewPropertyRooms(Array.isArray(roomsData) ? roomsData : []);
+                          } catch (error) {
+                            console.error("Failed to load room data:", error);
+                            setViewPropertyRoomTypes([]);
+                            setViewPropertyRooms([]);
+                          } finally {
+                            setIsLoadingRoomData(false);
+                          }
+                        } else {
+                          setViewPropertyRoomTypes([]);
+                          setViewPropertyRooms([]);
+                        }
+                      }}
+                      title="View details"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
                     <button
                       className="text-slate-900 underline-offset-2 hover:underline text-sm"
                       onClick={() => router.push(`/properties/${property.id || property._id}`)}
@@ -1048,6 +1165,393 @@ export default function PropertiesPage() {
           ]}
         />
       </Modal>
+
+      {/* View Property Details Modal */}
+      {viewProperty && (
+        <Modal
+          title=""
+          isOpen={!!viewProperty}
+          onClose={() => {
+            setViewProperty(null);
+            setViewPropertyRoomTypes([]);
+            setViewPropertyRooms([]);
+          }}
+          hidePrimaryAction={true}
+          size="large"
+        >
+          <div className="space-y-6">
+            {/* Hero Section with Image and Title */}
+            {(() => {
+              const images = viewProperty.images && viewProperty.images.length > 0
+                ? viewProperty.images.map((img) => getImageUrl(img)).filter(Boolean)
+                : (viewProperty.photos || (viewProperty.photo ? [viewProperty.photo] : [])).map((p) => (typeof p === "string" ? getImageUrl(p) : p)).filter(Boolean);
+
+              return (
+                <div className="relative -mx-6 -mt-6 mb-6">
+                  {images.length > 0 ? (
+                    <div className="relative h-72 md:h-96 w-full overflow-hidden rounded-t-3xl">
+                      <PhotoCarousel photos={images} />
+                    </div>
+                  ) : (
+                    <div className="h-72 md:h-96 w-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center rounded-t-3xl">
+                      <Home className="w-16 h-16 text-slate-400" />
+                    </div>
+                  )}
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
+                          {viewProperty.title || viewProperty.name || "Untitled Property"}
+                        </h2>
+                        <div className="flex items-center gap-3 flex-wrap">
+                          {viewProperty.location && (
+                            <div className="flex items-center gap-1.5 text-white/90">
+                              <MapPin className="w-4 h-4" />
+                              <span className="text-sm">{viewProperty.location}</span>
+                            </div>
+                          )}
+                          {viewProperty.starRating != null && viewProperty.starRating > 0 && (
+                            <div className="flex items-center gap-1 text-white/90">
+                              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                              <span className="text-sm font-semibold">{Number(viewProperty.starRating).toFixed(1)}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <StatusPill label={viewProperty.status || "available"} />
+                        {viewProperty.isPubliclyVisible ? (
+                          <span className="px-3 py-1 bg-green-500/90 text-white rounded-full text-xs font-semibold flex items-center gap-1.5">
+                            <Globe className="w-3.5 h-3.5" />
+                            Public
+                          </span>
+                        ) : (
+                          <span className="px-3 py-1 bg-slate-600/90 text-white rounded-full text-xs font-semibold flex items-center gap-1.5">
+                            <Lock className="w-3.5 h-3.5" />
+                            Private
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Quick Stats Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
+                <div className="flex items-center gap-2 mb-1">
+                  <DollarSign className="w-4 h-4 text-blue-600" />
+                  <p className="text-xs font-medium text-blue-600">Price</p>
+                </div>
+                <p className="text-lg font-bold text-blue-900">
+                  {formatCurrency(viewProperty.price || 0, viewProperty.currency || null)}
+                </p>
+                <p className="text-xs text-blue-600 mt-0.5">per night</p>
+              </div>
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
+                <div className="flex items-center gap-2 mb-1">
+                  <Bed className="w-4 h-4 text-purple-600" />
+                  <p className="text-xs font-medium text-purple-600">Bedrooms</p>
+                </div>
+                <p className="text-lg font-bold text-purple-900">{viewProperty.bedrooms || 0}</p>
+              </div>
+              <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-xl p-4 border border-pink-200">
+                <div className="flex items-center gap-2 mb-1">
+                  <Bath className="w-4 h-4 text-pink-600" />
+                  <p className="text-xs font-medium text-pink-600">Bathrooms</p>
+                </div>
+                <p className="text-lg font-bold text-pink-900">{viewProperty.bathrooms || 0}</p>
+              </div>
+              <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-4 border border-emerald-200">
+                <div className="flex items-center gap-2 mb-1">
+                  <Users className="w-4 h-4 text-emerald-600" />
+                  <p className="text-xs font-medium text-emerald-600">Max Guests</p>
+                </div>
+                <p className="text-lg font-bold text-emerald-900">{viewProperty.maxGuests || "N/A"}</p>
+              </div>
+            </div>
+
+            {/* Description Card */}
+            {viewProperty.description && (
+              <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-slate-600" />
+                  Description
+                </h3>
+                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{viewProperty.description}</p>
+              </div>
+            )}
+
+            {/* Property Information Grid */}
+            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+              <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <Home className="w-5 h-5 text-slate-600" />
+                Property Information
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                  <div className="p-2 bg-white rounded-lg">
+                    <Home className="w-4 h-4 text-slate-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-slate-500 mb-1">Property Type</p>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {viewProperty.propertyType ? viewProperty.propertyType.charAt(0).toUpperCase() + viewProperty.propertyType.slice(1) : "N/A"}
+                    </p>
+                  </div>
+                </div>
+                {viewProperty.modelType && (
+                  <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                    <div className="p-2 bg-white rounded-lg">
+                      <Home className="w-4 h-4 text-slate-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-slate-500 mb-1">Model Type</p>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {viewProperty.modelType.charAt(0).toUpperCase() + viewProperty.modelType.slice(1)}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {viewProperty.address && (
+                  <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                    <div className="p-2 bg-white rounded-lg">
+                      <MapPin className="w-4 h-4 text-slate-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-slate-500 mb-1">Address</p>
+                      <p className="text-sm font-semibold text-slate-900">{viewProperty.address}</p>
+                    </div>
+                  </div>
+                )}
+                {viewProperty.area && (
+                  <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                    <div className="p-2 bg-white rounded-lg">
+                      <Square className="w-4 h-4 text-slate-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-slate-500 mb-1">Area</p>
+                      <p className="text-sm font-semibold text-slate-900">{viewProperty.area} sq ft</p>
+                    </div>
+                  </div>
+                )}
+                {viewProperty.beds && (
+                  <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                    <div className="p-2 bg-white rounded-lg">
+                      <Bed className="w-4 h-4 text-slate-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-slate-500 mb-1">Beds</p>
+                      <p className="text-sm font-semibold text-slate-900">{viewProperty.beds}</p>
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                  <div className="p-2 bg-white rounded-lg">
+                    {viewProperty.isPubliclyVisible ? (
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <Edit3 className="w-4 h-4 text-amber-600" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-slate-500 mb-1">Publication Status</p>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {!viewProperty.isPubliclyVisible ? "📝 Draft" : "✅ Published"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Amenities */}
+            {viewProperty.amenities && Array.isArray(viewProperty.amenities) && viewProperty.amenities.length > 0 && (
+              <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                  <Star className="w-5 h-5 text-slate-600" />
+                  Amenities
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {viewProperty.amenities.map((amenity, idx) => (
+                    <span
+                      key={idx}
+                      className="px-4 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-sm font-medium border border-blue-200 hover:from-blue-100 hover:to-indigo-100 transition-colors"
+                    >
+                      {amenity}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Airbnb Specific */}
+            {(viewProperty.placeType || viewProperty.guestPlaceType || viewProperty.weekendPremiumPercent) && (
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border border-purple-200 p-6 shadow-sm">
+                <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                  <Home className="w-5 h-5 text-purple-600" />
+                  Airbnb Details
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {viewProperty.placeType && (
+                    <div className="bg-white/60 rounded-lg p-4 border border-purple-100">
+                      <p className="text-xs font-medium text-slate-500 mb-1">Place Type</p>
+                      <p className="text-sm font-semibold text-slate-900">{viewProperty.placeType}</p>
+                    </div>
+                  )}
+                  {viewProperty.guestPlaceType && (
+                    <div className="bg-white/60 rounded-lg p-4 border border-purple-100">
+                      <p className="text-xs font-medium text-slate-500 mb-1">Guest Place Type</p>
+                      <p className="text-sm font-semibold text-slate-900">{viewProperty.guestPlaceType}</p>
+                    </div>
+                  )}
+                  {viewProperty.weekendPremiumPercent && (
+                    <div className="bg-white/60 rounded-lg p-4 border border-purple-100">
+                      <p className="text-xs font-medium text-slate-500 mb-1">Weekend Premium</p>
+                      <p className="text-sm font-semibold text-slate-900">{viewProperty.weekendPremiumPercent}%</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Hotel Specific */}
+            {(() => {
+              const modelType = viewProperty.modelType || (viewProperty.propertyType?.toLowerCase() === "hotel" ? "hotel" : "airbnb");
+              const isHotel = modelType === "hotel";
+
+              if (!isHotel) return null;
+
+              return (
+                <>
+                  {/* Hotel Policies */}
+                  {(viewProperty.checkInTime || viewProperty.checkOutTime || viewProperty.smokingPolicy || viewProperty.petPolicy || viewProperty.cancellationPolicy) && (
+                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl border border-blue-200 p-6 shadow-sm">
+                      <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-blue-600" />
+                        Hotel Details
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {viewProperty.checkInTime && (
+                          <div className="bg-white/60 rounded-lg p-4 border border-blue-100">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Clock className="w-4 h-4 text-blue-600" />
+                              <p className="text-xs font-medium text-slate-500">Check-in Time</p>
+                            </div>
+                            <p className="text-sm font-semibold text-slate-900">{viewProperty.checkInTime}</p>
+                          </div>
+                        )}
+                        {viewProperty.checkOutTime && (
+                          <div className="bg-white/60 rounded-lg p-4 border border-blue-100">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Clock className="w-4 h-4 text-blue-600" />
+                              <p className="text-xs font-medium text-slate-500">Check-out Time</p>
+                            </div>
+                            <p className="text-sm font-semibold text-slate-900">{viewProperty.checkOutTime}</p>
+                          </div>
+                        )}
+                        {viewProperty.smokingPolicy && (
+                          <div className="bg-white/60 rounded-lg p-4 border border-blue-100">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Ban className="w-4 h-4 text-blue-600" />
+                              <p className="text-xs font-medium text-slate-500">Smoking Policy</p>
+                            </div>
+                            <p className="text-sm font-semibold text-slate-900">
+                              {viewProperty.smokingPolicy.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </p>
+                          </div>
+                        )}
+                        {viewProperty.petPolicy && (
+                          <div className="bg-white/60 rounded-lg p-4 border border-blue-100">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Dog className="w-4 h-4 text-blue-600" />
+                              <p className="text-xs font-medium text-slate-500">Pet Policy</p>
+                            </div>
+                            <p className="text-sm font-semibold text-slate-900">
+                              {viewProperty.petPolicy.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </p>
+                          </div>
+                        )}
+                        {viewProperty.cancellationPolicy && (
+                          <div className="bg-white/60 rounded-lg p-4 border border-blue-100">
+                            <div className="flex items-center gap-2 mb-2">
+                              <FileText className="w-4 h-4 text-blue-600" />
+                              <p className="text-xs font-medium text-slate-500">Cancellation Policy</p>
+                            </div>
+                            <p className="text-sm font-semibold text-slate-900">
+                              {viewProperty.cancellationPolicy.charAt(0).toUpperCase() + viewProperty.cancellationPolicy.slice(1)}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Room Types */}
+                  {isLoadingRoomData ? (
+                    <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                      <p className="text-sm text-slate-500">Loading room data...</p>
+                    </div>
+                  ) : viewPropertyRoomTypes.length > 0 ? (
+                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-200 p-6 shadow-sm">
+                      <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                        <Bed className="w-5 h-5 text-indigo-600" />
+                        Room Types ({viewPropertyRoomTypes.length})
+                      </h3>
+                      <div className="space-y-3">
+                        {viewPropertyRoomTypes.map((roomType) => (
+                          <div key={roomType.id || roomType._id} className="bg-white/80 rounded-lg p-4 border border-indigo-100">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1">
+                                <h4 className="text-sm font-semibold text-slate-900 mb-1">{roomType.name}</h4>
+                                <div className="flex flex-wrap gap-2 text-xs text-slate-600">
+                                  <span>{roomType.bedCount || 1} x {roomType.bedType || "King"}</span>
+                                  <span>•</span>
+                                  <span>Max {roomType.maxOccupancy || 2} guests</span>
+                                  {roomType.size && (
+                                    <>
+                                      <span>•</span>
+                                      <span>{roomType.size} sq ft</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm font-bold text-indigo-900">
+                                  {formatCurrency(roomType.price || 0, viewProperty.currency || "USD")}/night
+                                </p>
+                                <p className="text-xs text-slate-500">Inventory: {roomType.inventory || 0}</p>
+                              </div>
+                            </div>
+                            {roomType.amenities && Array.isArray(roomType.amenities) && roomType.amenities.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mt-2">
+                                {roomType.amenities.map((amenity, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-medium"
+                                  >
+                                    {amenity}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      {viewPropertyRooms.length > 0 && (
+                        <p className="text-xs text-slate-500 mt-4">
+                          {viewPropertyRooms.length} individual room{viewPropertyRooms.length !== 1 ? 's' : ''} created from room types
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
+                </>
+              );
+            })()}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

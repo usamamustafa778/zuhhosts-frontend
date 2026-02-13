@@ -9,6 +9,7 @@ import {
   getAuthUser,
   setAuthUser,
   clearAuthUser,
+  clearRefreshToken,
 } from "@/lib/auth";
 
 export function useAuth() {
@@ -58,8 +59,23 @@ export function useAuth() {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Revoke refresh token on backend if available
+    const refreshToken = typeof window !== "undefined"
+      ? localStorage.getItem("luxeboard.refreshToken")
+      : null;
+
+    if (refreshToken) {
+      try {
+        const { revokeRefreshToken } = await import("@/lib/api");
+        await revokeRefreshToken(refreshToken);
+      } catch (error) {
+        console.error("Failed to revoke refresh token:", error);
+      }
+    }
+
     clearAuthToken();
+    clearRefreshToken();
     clearAuthUser();
     setToken(null);
     setUser(null);
@@ -68,12 +84,12 @@ export function useAuth() {
   // Determine user type
   const getUserType = () => {
     if (!user) return null;
-    
+
     // Check if original user is superadmin (during impersonation)
     if (user.originalRole === "superadmin") {
       return "superadmin";
     }
-    
+
     // Check current role
     if (user.role === "superadmin" || user.role?.name === "superadmin") {
       return "superadmin";
@@ -101,19 +117,19 @@ export function useAuth() {
   // Get user permissions
   const getUserPermissions = () => {
     if (!user) return [];
-    
+
     // Superadmin has all permissions (including when impersonating)
-    if (user.role === "superadmin" || 
-        user.role?.name === "superadmin" || 
-        user.originalRole === "superadmin") {
+    if (user.role === "superadmin" ||
+      user.role?.name === "superadmin" ||
+      user.originalRole === "superadmin") {
       return ["all"];
     }
-    
+
     // Get permissions from role object
     if (user.role && typeof user.role === "object" && user.role.permissions) {
       return user.role.permissions;
     }
-    
+
     // Fallback to user.permissions
     return user.permissions || [];
   };
@@ -121,19 +137,19 @@ export function useAuth() {
   // Check if currently impersonating
   const isImpersonating = Boolean(user?.isImpersonating);
 
-  return { 
-    token, 
-    user, 
+  return {
+    token,
+    user,
     userType,
     permissions: getUserPermissions(),
-    isAuthenticated: Boolean(token), 
-    isLoading, 
+    isAuthenticated: Boolean(token),
+    isLoading,
     isSuperAdmin: userType === "superadmin",
     isHost: userType === "host",
     isTeamMember: userType === "team_member",
     isImpersonating,
-    login, 
-    logout 
+    login,
+    logout
   };
 }
 
