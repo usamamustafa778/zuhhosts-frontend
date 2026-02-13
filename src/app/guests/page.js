@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Eye } from "lucide-react";
+import toast from "react-hot-toast";
 import DataTable from "@/components/common/DataTable";
 import Modal from "@/components/common/Modal";
 import PageLoader from "@/components/common/PageLoader";
@@ -16,22 +17,22 @@ const PAGE_SIZE = 10;
 export default function GuestsPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useRequireAuth();
-  
+
   // SEO
   useSEO({
     title: "Guests | Zuha Host",
     description: "Manage your guest directory. View, create, and update guest profiles with contact information.",
     keywords: "guests, guest directory, guest management, customer profiles",
   });
-  
+
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const [selectedGuest, setSelectedGuest] = useState(null);
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [guestsData, setGuestsData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [guestPendingDelete, setGuestPendingDelete] = useState(null);
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [viewMode, setViewMode] = useState(() => {
     // Default to table on desktop, cards on mobile
@@ -113,11 +114,10 @@ export default function GuestsPage() {
   const loadGuests = async () => {
     try {
       setIsLoading(true);
-      setError(null);
       const data = await getAllGuests();
       setGuestsData(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(err.message || "Failed to load guests");
+      toast.error(err.message || "Failed to load guests");
       console.error("Error loading guests:", err);
     } finally {
       setIsLoading(false);
@@ -182,9 +182,9 @@ export default function GuestsPage() {
     e.preventDefault();
     console.log("🚀 Create guest form submitted", createForm);
 
-    try {
-      setError(null);
+    const toastId = toast.loading("Creating guest...");
 
+    try {
       // Check if files are being uploaded
       const hasFiles = createForm.idCard || createForm.profilePicture;
       console.log("📁 Has files:", hasFiles);
@@ -196,9 +196,15 @@ export default function GuestsPage() {
         formData.append("name", createForm.name);
         formData.append("email", createForm.email);
         formData.append("phone", createForm.phone);
-        if (createForm.idCardNumber) formData.append("idCardNumber", createForm.idCardNumber);
-        if (createForm.notes) formData.append("notes", createForm.notes);
-        if (createForm.preferences) formData.append("preferences", createForm.preferences);
+        if (createForm.idCardNumber && createForm.idCardNumber.trim()) {
+          formData.append("idCardNumber", createForm.idCardNumber.trim());
+        }
+        if (createForm.notes && createForm.notes.trim()) {
+          formData.append("notes", createForm.notes.trim());
+        }
+        if (createForm.preferences && createForm.preferences.trim()) {
+          formData.append("preferences", createForm.preferences.trim());
+        }
         // Blacklist fields (API: blacklist, blacklistNotes, internalFlags)
         formData.append("blacklist", String(createForm.isBlacklisted));
         formData.append("blacklistNotes", createForm.blacklistNotes || "");
@@ -242,14 +248,25 @@ export default function GuestsPage() {
         // API payload matches curl: name, phone, email, blacklist, blacklistNotes, internalFlags
         console.log("📤 Sending JSON to API...");
         const flagsArr = parseFlags(createForm.flagsText);
-        newGuest = await createGuest({
+        const guestPayload = {
           name: createForm.name,
           phone: createForm.phone,
           email: createForm.email,
           blacklist: createForm.isBlacklisted,
           blacklistNotes: createForm.blacklistNotes || "",
           internalFlags: flagsArr,
-        });
+        };
+        // Add optional fields only if provided (not empty)
+        if (createForm.idCardNumber && createForm.idCardNumber.trim()) {
+          guestPayload.idCardNumber = createForm.idCardNumber.trim();
+        }
+        if (createForm.notes && createForm.notes.trim()) {
+          guestPayload.notes = createForm.notes.trim();
+        }
+        if (createForm.preferences && createForm.preferences.trim()) {
+          guestPayload.preferences = createForm.preferences.trim();
+        }
+        newGuest = await createGuest(guestPayload);
         console.log("✅ Guest created successfully:", newGuest);
       }
 
@@ -270,9 +287,10 @@ export default function GuestsPage() {
       });
       cleanupCreatePreviews();
       console.log("✅ Modal closed and form reset");
+      toast.success("Guest created successfully", { id: toastId });
     } catch (err) {
       console.error("❌ Error creating guest:", err);
-      setError(err.message || "Failed to create guest");
+      toast.error(err.message || "Failed to create guest", { id: toastId });
     }
   };
 
@@ -280,8 +298,9 @@ export default function GuestsPage() {
     e.preventDefault();
     if (!selectedGuest) return;
 
+    const toastId = toast.loading("Updating guest...");
+
     try {
-      setError(null);
       const guestId = selectedGuest.id || selectedGuest._id;
 
       // Check if files are being uploaded
@@ -296,7 +315,13 @@ export default function GuestsPage() {
         if (editForm.name) formData.append("name", editForm.name);
         if (editForm.email) formData.append("email", editForm.email);
         if (editForm.phone) formData.append("phone", editForm.phone);
-        if (editForm.idCardNumber !== undefined) formData.append("idCardNumber", editForm.idCardNumber);
+        // Send idCardNumber: empty string becomes empty string (backend will normalize to null)
+        if (editForm.idCardNumber !== undefined) {
+          const idCardValue = editForm.idCardNumber && editForm.idCardNumber.trim()
+            ? editForm.idCardNumber.trim()
+            : "";
+          formData.append("idCardNumber", idCardValue);
+        }
         if (editForm.notes !== undefined) formData.append("notes", editForm.notes);
         if (editForm.preferences !== undefined) formData.append("preferences", editForm.preferences);
         formData.append("blacklist", String(editForm.isBlacklisted));
@@ -335,7 +360,12 @@ export default function GuestsPage() {
         if (editForm.name) updateData.name = editForm.name;
         if (editForm.email) updateData.email = editForm.email;
         if (editForm.phone) updateData.phone = editForm.phone;
-        if (editForm.idCardNumber !== undefined) updateData.idCardNumber = editForm.idCardNumber;
+        // Only send idCardNumber if it has a value, otherwise send null to clear it
+        if (editForm.idCardNumber !== undefined) {
+          updateData.idCardNumber = editForm.idCardNumber && editForm.idCardNumber.trim()
+            ? editForm.idCardNumber.trim()
+            : null;
+        }
         if (editForm.notes !== undefined) updateData.notes = editForm.notes;
         if (editForm.preferences !== undefined) updateData.preferences = editForm.preferences;
         updateData.blacklist = editForm.isBlacklisted;
@@ -367,21 +397,30 @@ export default function GuestsPage() {
         profilePicture: null,
       });
       cleanupEditPreviews();
+      toast.success("Guest updated successfully", { id: toastId });
     } catch (err) {
-      setError(err.message || "Failed to update guest");
+      toast.error(err.message || "Failed to update guest", { id: toastId });
     }
   };
 
-  const handleDeleteGuest = async (guestId) => {
-    if (
-      !confirm(
-        "Are you sure you want to delete this guest? This may impact related bookings."
-      )
-    )
-      return;
+  const handleDeleteGuest = (guestId) => {
+    // Find the guest to show in confirmation modal
+    const guest = guestsData.find((g) => {
+      const id = g.id || g._id;
+      return id === guestId;
+    });
+    setGuestPendingDelete(guest || { id: guestId });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!guestPendingDelete) return;
+
+    const guestId = guestPendingDelete.id || guestPendingDelete._id;
+    const guestName = guestPendingDelete.name || "this guest";
+
+    const toastId = toast.loading("Deleting guest...");
 
     try {
-      setError(null);
       await deleteGuest(guestId);
       setGuestsData((prev) =>
         prev.filter((guest) => {
@@ -389,8 +428,10 @@ export default function GuestsPage() {
           return id !== guestId;
         })
       );
+      setGuestPendingDelete(null);
+      toast.success(`Guest "${guestName}" deleted successfully`, { id: toastId });
     } catch (err) {
-      setError(err.message || "Failed to delete guest");
+      toast.error(err.message || "Failed to delete guest", { id: toastId });
     }
   };
 
@@ -475,7 +516,6 @@ export default function GuestsPage() {
   const fetchBookingHistory = async (guest) => {
     try {
       setIsLoadingHistory(true);
-      setError(null);
       const guestId = guest.id || guest._id;
 
       const token =
@@ -500,7 +540,7 @@ export default function GuestsPage() {
       setBookingHistoryGuest(guest);
       setBookingHistoryData(data);
     } catch (err) {
-      setError(err.message || "Failed to fetch booking history");
+      toast.error(err.message || "Failed to fetch booking history");
     } finally {
       setIsLoadingHistory(false);
     }
@@ -516,12 +556,6 @@ export default function GuestsPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
-      {error && (
-        <div className="rounded-2xl border border-rose-100 bg-rose-50/80 p-4 text-sm text-rose-600">
-          {error}
-        </div>
-      )}
-
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -569,11 +603,10 @@ export default function GuestsPage() {
             {/* View Mode Switcher */}
             <div className="flex rounded-full border border-slate-200 p-1">
               <button
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                  viewMode === "cards"
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-600 hover:bg-slate-50"
-                }`}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "cards"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+                  }`}
                 onClick={() => setViewMode("cards")}
               >
                 <svg
@@ -592,11 +625,10 @@ export default function GuestsPage() {
                 </svg>
               </button>
               <button
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                  viewMode === "table"
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-600 hover:bg-slate-50"
-                }`}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "table"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+                  }`}
                 onClick={() => setViewMode("table")}
               >
                 <svg
@@ -777,7 +809,7 @@ export default function GuestsPage() {
                             {guest.name?.charAt(0)?.toUpperCase() || "G"}
                           </div>
                         )}
-                        
+
                         {/* Name, Phone, ID Card, and metadata */}
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-slate-900 truncate mb-1">{guest.name || "N/A"}</h3>
@@ -830,7 +862,7 @@ export default function GuestsPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                           </svg>
                         </button>
-                        
+
                         {/* Dropdown Menu */}
                         {openDropdownId === guestId && (
                           <div className="absolute right-0 top-10 z-20 w-40 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
@@ -878,7 +910,7 @@ export default function GuestsPage() {
               })}
             </div>
           )}
-          
+
           {/* Pagination for Cards View */}
           {filtered.length > PAGE_SIZE && (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-100 bg-white p-4 shadow-sm mt-4">
@@ -911,158 +943,158 @@ export default function GuestsPage() {
       {/* Table View */}
       {viewMode === "table" && (
         <DataTable
-        headers={[
-          "#",
-          "Profile Pic",
-          "Name",
-          "Email",
-          "Phone",
-          "ID Card No",
-          "Notes",
-          "Preferences",
-          "Status",
-          "Flags",
-          "Blacklist Notes",
-          "ID Card",
-          "Created",
-          "Actions",
-        ]}
-        rows={paginated.map((guest, index) => {
-          const guestId = guest.id || guest._id || `guest-${index}`;
-          const createdDate = guest.createdAt
-            ? new Date(guest.createdAt).toLocaleDateString()
-            : "N/A";
-          const profilePicUrl = getImageUrl(guest.profilePicture);
-          const idCardUrl = getImageUrl(guest.idCard);
+          headers={[
+            "#",
+            "Profile Pic",
+            "Name",
+            "Email",
+            "Phone",
+            "ID Card No",
+            "Notes",
+            "Preferences",
+            "Status",
+            "Flags",
+            "Blacklist Notes",
+            "ID Card",
+            "Created",
+            "Actions",
+          ]}
+          rows={paginated.map((guest, index) => {
+            const guestId = guest.id || guest._id || `guest-${index}`;
+            const createdDate = guest.createdAt
+              ? new Date(guest.createdAt).toLocaleDateString()
+              : "N/A";
+            const profilePicUrl = getImageUrl(guest.profilePicture);
+            const idCardUrl = getImageUrl(guest.idCard);
 
-          // Calculate serial number based on current page
-          const serialNumber = page * PAGE_SIZE + index + 1;
+            // Calculate serial number based on current page
+            const serialNumber = page * PAGE_SIZE + index + 1;
 
-          return {
-            id: guestId,
-            cells: [
-              <span
-                key={`serial-${guestId}`}
-                className="text-sm font-medium text-slate-500"
-              >
-                {serialNumber}
-              </span>,
-              <div
-                key={`photo-${guestId}`}
-                className="flex items-center justify-center"
-              >
-                {profilePicUrl ? (
-                  <img
-                    src={profilePicUrl}
-                    alt={guest.name}
-                    className="h-12 w-12 rounded-full object-cover border-2 border-slate-200"
-                    title="View Profile Picture"
-                  />
-                ) : (
-                  <div className="h-12 w-12 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 text-sm font-semibold">
-                    {guest.name ? guest.name.charAt(0).toUpperCase() : "?"}
+            return {
+              id: guestId,
+              cells: [
+                <span
+                  key={`serial-${guestId}`}
+                  className="text-sm font-medium text-slate-500"
+                >
+                  {serialNumber}
+                </span>,
+                <div
+                  key={`photo-${guestId}`}
+                  className="flex items-center justify-center"
+                >
+                  {profilePicUrl ? (
+                    <img
+                      src={profilePicUrl}
+                      alt={guest.name}
+                      className="h-12 w-12 rounded-full object-cover border-2 border-slate-200"
+                      title="View Profile Picture"
+                    />
+                  ) : (
+                    <div className="h-12 w-12 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 text-sm font-semibold">
+                      {guest.name ? guest.name.charAt(0).toUpperCase() : "?"}
+                    </div>
+                  )}
+                </div>,
+                <div key={`name-${guestId}`}>
+                  <div className="font-semibold text-slate-900">
+                    {guest.name || "N/A"}
                   </div>
-                )}
-              </div>,
-              <div key={`name-${guestId}`}>
-                <div className="font-semibold text-slate-900">
-                  {guest.name || "N/A"}
-                </div>
-              </div>,
-              <div key={`email-${guestId}`} className="text-sm text-slate-600">
-                {guest.email || "N/A"}
-              </div>,
-              <div key={`phone-${guestId}`} className="text-sm text-slate-600">
-                {guest.phone || "N/A"}
-              </div>,
-              <div key={`idcardnum-${guestId}`} className="text-sm text-slate-600">
-                {guest.idCardNumber || "—"}
-              </div>,
-              <div key={`notes-${guestId}`} className="text-xs text-slate-500 max-w-xs truncate">
-                {guest.notes || "—"}
-              </div>,
-              <div key={`prefs-${guestId}`} className="text-xs text-slate-500 max-w-xs truncate">
-                {guest.preferences || "—"}
-              </div>,
-              <div key={`status-${guestId}`} className="text-xs">
-                {guest.isBlacklisted ? (
-                  <span className="inline-flex rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
-                    Blacklisted
-                  </span>
-                ) : (
-                  <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                    Active
-                  </span>
-                )}
-              </div>,
-              <div key={`flags-${guestId}`} className="text-xs text-slate-500 max-w-xs truncate">
-                {Array.isArray(guest.flags) && guest.flags.length > 0 ? guest.flags.join(", ") : "—"}
-              </div>,
-              <div key={`blnotes-${guestId}`} className="text-xs text-slate-500 max-w-xs truncate">
-                {guest.blacklistNotes || "—"}
-              </div>,
-              <div key={`idcard-${guestId}`} className="text-center">
-                {idCardUrl ? (
-                  <a
-                    href={idCardUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline"
-                    title="View ID Card"
-                  >
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                </div>,
+                <div key={`email-${guestId}`} className="text-sm text-slate-600">
+                  {guest.email || "N/A"}
+                </div>,
+                <div key={`phone-${guestId}`} className="text-sm text-slate-600">
+                  {guest.phone || "N/A"}
+                </div>,
+                <div key={`idcardnum-${guestId}`} className="text-sm text-slate-600">
+                  {guest.idCardNumber || "—"}
+                </div>,
+                <div key={`notes-${guestId}`} className="text-xs text-slate-500 max-w-xs truncate">
+                  {guest.notes || "—"}
+                </div>,
+                <div key={`prefs-${guestId}`} className="text-xs text-slate-500 max-w-xs truncate">
+                  {guest.preferences || "—"}
+                </div>,
+                <div key={`status-${guestId}`} className="text-xs">
+                  {guest.isBlacklisted ? (
+                    <span className="inline-flex rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+                      Blacklisted
+                    </span>
+                  ) : (
+                    <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                      Active
+                    </span>
+                  )}
+                </div>,
+                <div key={`flags-${guestId}`} className="text-xs text-slate-500 max-w-xs truncate">
+                  {Array.isArray(guest.flags) && guest.flags.length > 0 ? guest.flags.join(", ") : "—"}
+                </div>,
+                <div key={`blnotes-${guestId}`} className="text-xs text-slate-500 max-w-xs truncate">
+                  {guest.blacklistNotes || "—"}
+                </div>,
+                <div key={`idcard-${guestId}`} className="text-center">
+                  {idCardUrl ? (
+                    <a
+                      href={idCardUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                      title="View ID Card"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                      />
-                    </svg>
-                    View
-                  </a>
-                ) : (
-                  <span className="text-xs text-slate-400">No ID</span>
-                )}
-              </div>,
-              <span
-                key={`created-${guestId}`}
-                className="text-xs text-slate-500"
-              >
-                {createdDate}
-              </span>,
-              <div key={`actions-${guestId}`} className="flex gap-2">
-                <button
-                  className="text-blue-500 hover:text-blue-900 transition-colors"
-                  onClick={() => fetchBookingHistory(guest)}
-                  title="View Booking History"
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
+                      </svg>
+                      View
+                    </a>
+                  ) : (
+                    <span className="text-xs text-slate-400">No ID</span>
+                  )}
+                </div>,
+                <span
+                  key={`created-${guestId}`}
+                  className="text-xs text-slate-500"
                 >
-                  <Eye className="w-4 h-4" />
-                </button>
-                <button
-                  className="text-sm text-slate-500 underline-offset-2 hover:text-slate-900 hover:underline"
-                  onClick={() => openEditModal(guest)}
-                  title="Edit Guest"
-                >
-                  Edit
-                </button>
-                <button
-                  className="text-sm text-rose-500 underline-offset-2 hover:text-rose-900 hover:underline"
-                  onClick={() => handleDeleteGuest(guestId)}
-                  title="Delete Guest"
-                >
-                  Delete
-                </button>
-              </div>,
-            ],
-          };
-        })}
-        emptyLabel="No guests match your search."
-      />
+                  {createdDate}
+                </span>,
+                <div key={`actions-${guestId}`} className="flex gap-2">
+                  <button
+                    className="text-blue-500 hover:text-blue-900 transition-colors"
+                    onClick={() => fetchBookingHistory(guest)}
+                    title="View Booking History"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                  <button
+                    className="text-sm text-slate-500 underline-offset-2 hover:text-slate-900 hover:underline"
+                    onClick={() => openEditModal(guest)}
+                    title="Edit Guest"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="text-sm text-rose-500 underline-offset-2 hover:text-rose-900 hover:underline"
+                    onClick={() => handleDeleteGuest(guestId)}
+                    title="Delete Guest"
+                  >
+                    Delete
+                  </button>
+                </div>,
+              ],
+            };
+          })}
+          emptyLabel="No guests match your search."
+        />
       )}
 
       <Modal
@@ -1563,7 +1595,7 @@ export default function GuestsPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
                 {getImageUrl(bookingHistoryData.guest.profilePicture) ? (
-                    <img
+                  <img
                     src={getImageUrl(bookingHistoryData.guest.profilePicture)}
                     alt={bookingHistoryData.guest.name}
                     className="h-20 w-20 rounded-full object-cover border-2 border-slate-200 shrink-0"
@@ -1585,7 +1617,7 @@ export default function GuestsPage() {
                   </p>
                 </div>
               </div>
-              
+
               {/* ID Card */}
               <div className="p-4 bg-slate-50 rounded-lg">
                 <h4 className="text-sm font-semibold text-slate-700 mb-2">ID Card</h4>
@@ -1724,6 +1756,20 @@ export default function GuestsPage() {
             </div>
           </div>
         ) : null}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        title="Delete guest"
+        description={`Are you sure you want to delete ${guestPendingDelete?.name || "this guest"}?`}
+        isOpen={Boolean(guestPendingDelete)}
+        onClose={() => setGuestPendingDelete(null)}
+        primaryActionLabel="Delete"
+        onPrimaryAction={handleConfirmDelete}
+      >
+        <p className="text-sm text-slate-500">
+          This action cannot be undone. This may impact related bookings and guest history.
+        </p>
       </Modal>
     </div>
   );
