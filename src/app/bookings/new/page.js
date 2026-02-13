@@ -434,10 +434,17 @@ export default function NewBookingPage() {
                 type="date"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 value={createForm.start_date}
-                onChange={(e) =>
-                  setCreateForm({ ...createForm, start_date: e.target.value })
-                }
-                min={new Date().toISOString().split('T')[0]}
+                onChange={(e) => {
+                  const selectedDate = e.target.value;
+                  setCreateForm({
+                    ...createForm,
+                    start_date: selectedDate,
+                    // Reset end_date if it's before or equal to the new start_date
+                    end_date: createForm.end_date && createForm.end_date <= selectedDate ? "" : createForm.end_date
+                  });
+                }}
+                min="1900-01-01"
+                max="2099-12-31"
                 required
               />
             </div>
@@ -449,11 +456,21 @@ export default function NewBookingPage() {
                 type="date"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 value={createForm.end_date}
-                onChange={(e) =>
-                  setCreateForm({ ...createForm, end_date: e.target.value })
-                }
-                min={createForm.start_date || new Date().toISOString().split('T')[0]}
+                onChange={(e) => {
+                  const selectedDate = e.target.value;
+
+                  // Validate: end date must be after start date (only if start date is selected)
+                  if (createForm.start_date && selectedDate <= createForm.start_date) {
+                    toast.error("Check-out date must be at least one day after check-in date");
+                    return;
+                  }
+
+                  setCreateForm({ ...createForm, end_date: selectedDate });
+                }}
+                min="1900-01-01"
+                max="2099-12-31"
                 required
+                disabled={!createForm.start_date}
               />
             </div>
           </div>
@@ -531,7 +548,7 @@ export default function NewBookingPage() {
                       />
                     ) : (
                       <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-                        <svg className="h-8 w-8 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0-1.657 1.343-3 3-3s3 1.343 3 3M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        <svg className="h-8 w-8 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0-1.657 1.343-3 3-3s3 1.343 3 3M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                         <span className="text-xs text-slate-500">{file.name}</span>
                       </div>
                     )}

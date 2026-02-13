@@ -1446,9 +1446,17 @@ export default function BookingsPage() {
                 type="date"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 value={editForm.start_date}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, start_date: e.target.value })
-                }
+                onChange={(e) => {
+                  const selectedDate = e.target.value;
+                  setEditForm({
+                    ...editForm,
+                    start_date: selectedDate,
+                    // Reset end_date if it's before or equal to the new start_date
+                    end_date: editForm.end_date && editForm.end_date <= selectedDate ? "" : editForm.end_date
+                  });
+                }}
+                min="1900-01-01"
+                max="2099-12-31"
                 required
                 disabled={isUpdating}
               />
@@ -1461,11 +1469,30 @@ export default function BookingsPage() {
                 type="date"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 value={editForm.end_date}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, end_date: e.target.value })
+                onChange={(e) => {
+                  const selectedDate = e.target.value;
+                  // Validate: end date must be after start date
+                  if (editForm.start_date && selectedDate <= editForm.start_date) {
+                    toast.error("End date must be at least one day after start date");
+                    return;
+                  }
+                  setEditForm({ ...editForm, end_date: selectedDate });
+                }}
+                min={
+                  editForm.start_date
+                    ? (() => {
+                        const start = new Date(editForm.start_date);
+                        start.setDate(start.getDate() + 1);
+                        const year = start.getFullYear();
+                        const month = String(start.getMonth() + 1).padStart(2, '0');
+                        const day = String(start.getDate()).padStart(2, '0');
+                        return `${year}-${month}-${day}`;
+                      })()
+                    : "1900-01-01"
                 }
+                max="2099-12-31"
                 required
-                disabled={isUpdating}
+                disabled={isUpdating || !editForm.start_date}
               />
             </div>
           </div>
@@ -1709,10 +1736,17 @@ export default function BookingsPage() {
                 type="date"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 value={createForm.start_date}
-                onChange={(e) =>
-                  setCreateForm({ ...createForm, start_date: e.target.value })
-                }
-                min={new Date().toISOString().split('T')[0]}
+                onChange={(e) => {
+                  const selectedDate = e.target.value;
+                  setCreateForm({
+                    ...createForm,
+                    start_date: selectedDate,
+                    // Reset end_date if it's before or equal to the new start_date
+                    end_date: createForm.end_date && createForm.end_date <= selectedDate ? "" : createForm.end_date
+                  });
+                }}
+                min="1900-01-01"
+                max="2099-12-31"
                 required
               />
             </div>
@@ -1724,11 +1758,30 @@ export default function BookingsPage() {
                 type="date"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 value={createForm.end_date}
-                onChange={(e) =>
-                  setCreateForm({ ...createForm, end_date: e.target.value })
+                onChange={(e) => {
+                  const selectedDate = e.target.value;
+                  // Validate: end date must be after start date
+                  if (createForm.start_date && selectedDate <= createForm.start_date) {
+                    toast.error("End date must be at least one day after start date");
+                    return;
+                  }
+                  setCreateForm({ ...createForm, end_date: selectedDate });
+                }}
+                min={
+                  createForm.start_date
+                    ? (() => {
+                        const start = new Date(createForm.start_date);
+                        start.setDate(start.getDate() + 1);
+                        const year = start.getFullYear();
+                        const month = String(start.getMonth() + 1).padStart(2, '0');
+                        const day = String(start.getDate()).padStart(2, '0');
+                        return `${year}-${month}-${day}`;
+                      })()
+                    : "1900-01-01"
                 }
-                min={createForm.start_date || new Date().toISOString().split('T')[0]}
+                max="2099-12-31"
                 required
+                disabled={!createForm.start_date}
               />
             </div>
           </div>
