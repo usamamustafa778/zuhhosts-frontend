@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
+  getCheckInDashboard,
+  getCheckOutDashboard,
   getAllBookings,
   checkInBooking,
   checkOutBooking,
@@ -30,7 +32,12 @@ export default function CheckInOutPage() {
   const [activeTab, setActiveTab] = useState("checkin");
   const [todaysCheckIns, setTodaysCheckIns] = useState([]);
   const [todaysCheckOuts, setTodaysCheckOuts] = useState([]);
-  
+  // curl response: check-in (allCheckedIn, checkedInToday, upcoming, overdue); check-out (checkedOutToday, upcoming, overdue)
+  const [checkInUpcoming, setCheckInUpcoming] = useState([]);
+  const [checkInOverdue, setCheckInOverdue] = useState([]);
+  const [checkOutUpcoming, setCheckOutUpcoming] = useState([]);
+  const [checkOutOverdue, setCheckOutOverdue] = useState([]);
+
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [isCheckInModalOpen, setCheckInModalOpen] = useState(false);
   const [isCheckOutModalOpen, setCheckOutModalOpen] = useState(false);
@@ -53,52 +60,46 @@ export default function CheckInOutPage() {
   const loadBookings = async () => {
     try {
       setIsLoading(true);
-      
-      // Get today's date
-      const today = new Date().toISOString().split("T")[0];
-      
-      // Fetch bookings
-      const allBookings = await getAllBookings();
-      const bookings = Array.isArray(allBookings) ? allBookings : [];
-
-      // ── Check-Ins tab ──
-      // Show ALL bookings whose status is checked_in (regardless of checkInTime).
-      // Guests may be checked in via status dropdown OR via the dedicated check-in flow.
-      const checkIns = bookings.filter((booking) => {
-        return booking.status === "checked_in";
-      });
-
-      // ── Check-Outs tab ──
-      // Show ALL bookings whose status is checked_out.
-      const checkOuts = bookings.filter((booking) => {
-        return booking.status === "checked_out";
-      });
-
-      console.log("[Check-In/Out] Today:", today);
-      console.log("[Check-In/Out] All bookings from API:", bookings.length);
-      console.log(
-        "[Check-In/Out] Check-ins (status=checked_in):",
-        checkIns.length,
-        checkIns.map((b) => ({
-          id: b._id || b.id,
-          status: b.status,
-          checkInTime: b.checkInTime || "not set",
-        }))
-      );
-      console.log(
-        "[Check-In/Out] Check-outs (status=checked_out):",
-        checkOuts.length,
-        checkOuts.map((b) => ({
-          id: b._id || b.id,
-          status: b.status,
-          checkOutTime: b.checkOutTime || "not set",
-        }))
-      );
-
-      setTodaysCheckIns(checkIns);
-      setTodaysCheckOuts(checkOuts);
+      try {
+        // curl: GET /api/check-in/dashboard, GET /api/check-out/dashboard
+        const [checkInRes, checkOutRes] = await Promise.all([
+          getCheckInDashboard(),
+          getCheckOutDashboard(),
+        ]);
+        const checkInData = checkInRes?.data ?? checkInRes;
+        const checkOutData = checkOutRes?.data ?? checkOutRes;
+        const arr = (obj, ...keys) => {
+          if (Array.isArray(obj)) return obj;
+          for (const k of keys) {
+            const v = obj?.[k];
+            if (Array.isArray(v)) return v;
+          }
+          return [];
+        };
+        // Check-in: allCheckedIn, checkedInToday, upcoming, overdue (camelCase or snake_case)
+        const allCheckedIn = arr(checkInData, "allCheckedIn", "all_checked_in", "checkedInToday", "checked_in_today");
+        setCheckInUpcoming(arr(checkInData, "upcoming"));
+        setCheckInOverdue(arr(checkInData, "overdue"));
+        setTodaysCheckIns(allCheckedIn);
+        // Check-out: checkedOutToday, upcoming, overdue
+        setTodaysCheckOuts(arr(checkOutData, "checkedOutToday", "checked_out_today"));
+        setCheckOutUpcoming(arr(checkOutData, "upcoming"));
+        setCheckOutOverdue(arr(checkOutData, "overdue"));
+      } catch (dashboardErr) {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[Check-in/out] Dashboard API failed, using getAllBookings:", dashboardErr?.message);
+        }
+        setCheckInUpcoming([]);
+        setCheckInOverdue([]);
+        setCheckOutUpcoming([]);
+        setCheckOutOverdue([]);
+        const raw = await getAllBookings();
+        const bookings = Array.isArray(raw) ? raw : raw?.data ?? [];
+        const norm = (s) => String(s ?? "").toLowerCase().replace(/-/g, "_").trim();
+        setTodaysCheckIns(bookings.filter((b) => norm(b.status) === "checked_in"));
+        setTodaysCheckOuts(bookings.filter((b) => norm(b.status) === "checked_out"));
+      }
     } catch (error) {
-      // Use centralized error handler - auto-redirects on TENANT_REQUIRED
       handleApiError(error, router, toast);
     } finally {
       setIsLoading(false);
@@ -222,7 +223,9 @@ export default function CheckInOutPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-600">Checked In</p>
-              <p className="text-3xl font-bold text-slate-900 mt-2">{todaysCheckIns.length}</p>
+              <p className="text-3xl font-bold text-slate-900 mt-2">
+                {todaysCheckIns.length + checkInUpcoming.length + checkInOverdue.length}
+              </p>
             </div>
             <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
               <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -236,7 +239,9 @@ export default function CheckInOutPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-600">Checked Out</p>
-              <p className="text-3xl font-bold text-slate-900 mt-2">{todaysCheckOuts.length}</p>
+              <p className="text-3xl font-bold text-slate-900 mt-2">
+                {todaysCheckOuts.length + checkOutUpcoming.length + checkOutOverdue.length}
+              </p>
             </div>
             <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
               <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -261,7 +266,7 @@ export default function CheckInOutPage() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
             </svg>
-            Check-Ins ({todaysCheckIns.length})
+            Check-Ins ({todaysCheckIns.length + checkInUpcoming.length + checkInOverdue.length})
           </button>
 
           <button
@@ -275,26 +280,31 @@ export default function CheckInOutPage() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
-            Check-Outs ({todaysCheckOuts.length})
+            Check-Outs ({todaysCheckOuts.length + checkOutUpcoming.length + checkOutOverdue.length})
           </button>
         </div>
       </div>
 
-      {/* Check-Ins List */}
+      {/* Check-Ins List: allCheckedIn + upcoming + overdue (curl response) */}
       {activeTab === "checkin" && (
         <div className="space-y-3">
-          {todaysCheckIns.length === 0 ? (
-            <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-12 text-center">
-              <div className="text-6xl mb-4">✅</div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">All Clear!</h3>
-              <p className="text-slate-600">No checked-in guests at this time.</p>
-            </div>
-          ) : (
-            todaysCheckIns.map((booking) => {
+          {(() => {
+            const allCheckInList = [...todaysCheckIns, ...checkInUpcoming, ...checkInOverdue];
+            if (allCheckInList.length === 0) {
+              return (
+                <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-12 text-center">
+                  <div className="text-6xl mb-4">✅</div>
+                  <h3 className="text-xl font-semibold text-slate-900 mb-2">All Clear!</h3>
+                  <p className="text-slate-600">No check-ins or arrivals due at this time.</p>
+                </div>
+              );
+            }
+            return allCheckInList.map((booking) => {
               const bookingId = booking.id || booking._id;
-              const guest = booking.guest_id;
-              const property = booking.property_id;
-              const room = booking.roomId;
+              const guest = booking.guest_id ?? booking.guestId ?? booking.guest;
+              const property = booking.property_id ?? booking.propertyId ?? booking.property;
+              const room = booking.roomId ?? booking.room_id ?? booking.room;
+              const isCheckedIn = (booking.status || "").toLowerCase().replace(/-/g, "_") === "checked_in";
 
               return (
                 <div
@@ -323,7 +333,7 @@ export default function CheckInOutPage() {
                         {room && (
                           <div>
                             <p className="text-slate-500">Room</p>
-                            <p className="font-medium text-slate-900">Room {room.roomNumber}</p>
+                            <p className="font-medium text-slate-900">Room {room.roomNumber ?? room.number ?? room.room_number ?? "—"}</p>
                           </div>
                         )}
                         <div>
@@ -345,35 +355,49 @@ export default function CheckInOutPage() {
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => handleOpenCheckOut(booking)}
-                      className="rounded-full bg-green-600 px-6 py-3 text-sm font-semibold text-white hover:bg-green-700"
-                    >
-                      Check Out
-                    </button>
+                    {isCheckedIn ? (
+                      <button
+                        onClick={() => handleOpenCheckOut(booking)}
+                        className="rounded-full bg-green-600 px-6 py-3 text-sm font-semibold text-white hover:bg-green-700"
+                      >
+                        Check Out
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleOpenCheckIn(booking)}
+                        className="rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+                      >
+                        Check In
+                      </button>
+                    )}
                   </div>
                 </div>
               );
-            })
-          )}
+            });
+          })()}
         </div>
       )}
 
-      {/* Check-Outs List */}
+      {/* Check-Outs List: checkedOutToday + upcoming + overdue (curl response) */}
       {activeTab === "checkout" && (
         <div className="space-y-3">
-          {todaysCheckOuts.length === 0 ? (
-            <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-12 text-center">
-              <div className="text-6xl mb-4">✅</div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">All Clear!</h3>
-              <p className="text-slate-600">No checked-out guests at this time.</p>
-            </div>
-          ) : (
-            todaysCheckOuts.map((booking) => {
+          {(() => {
+            const allCheckOutList = [...todaysCheckOuts, ...checkOutUpcoming, ...checkOutOverdue];
+            if (allCheckOutList.length === 0) {
+              return (
+                <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-12 text-center">
+                  <div className="text-6xl mb-4">✅</div>
+                  <h3 className="text-xl font-semibold text-slate-900 mb-2">All Clear!</h3>
+                  <p className="text-slate-600">No check-outs or departures due at this time.</p>
+                </div>
+              );
+            }
+            return allCheckOutList.map((booking) => {
               const bookingId = booking.id || booking._id;
-              const guest = booking.guest_id;
-              const property = booking.property_id;
-              const room = booking.roomId;
+              const guest = booking.guest_id ?? booking.guestId ?? booking.guest;
+              const property = booking.property_id ?? booking.propertyId ?? booking.property;
+              const room = booking.roomId ?? booking.room_id ?? booking.room;
+              const isCheckedOut = (booking.status || "").toLowerCase().replace(/-/g, "_") === "checked_out";
 
               return (
                 <div
@@ -402,7 +426,7 @@ export default function CheckInOutPage() {
                         {room && (
                           <div>
                             <p className="text-slate-500">Room</p>
-                            <p className="font-medium text-slate-900">Room {room.roomNumber}</p>
+                            <p className="font-medium text-slate-900">Room {room.roomNumber ?? room.number ?? room.room_number ?? "—"}</p>
                           </div>
                         )}
                         <div>
@@ -424,16 +448,24 @@ export default function CheckInOutPage() {
                       </div>
                     </div>
 
-                    <span
-                      className="rounded-full bg-slate-100 px-6 py-3 text-sm font-semibold text-slate-600"
-                    >
-                      Completed
-                    </span>
+                    {!isCheckedOut && (
+                      <button
+                        onClick={() => handleOpenCheckOut(booking)}
+                        className="rounded-full bg-green-600 px-6 py-3 text-sm font-semibold text-white hover:bg-green-700"
+                      >
+                        Check Out
+                      </button>
+                    )}
+                    {isCheckedOut && (
+                      <span className="rounded-full bg-slate-100 px-6 py-3 text-sm font-semibold text-slate-600">
+                        Completed
+                      </span>
+                    )}
                   </div>
                 </div>
               );
-            })
-          )}
+            });
+          })()}
         </div>
       )}
 

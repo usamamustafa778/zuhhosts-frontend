@@ -2155,79 +2155,117 @@ export async function deleteRoomType(propertyId, roomTypeId) {
 // (Units removed — replaced by Room Types / Room Categories)
 
 // ============================================
-// Check-In / Check-Out API Functions
+// Check-In / Check-Out API Functions (curl-aligned)
 // ============================================
 
 /**
- * Check-in a booking
- * Endpoint: PATCH /api/bookings/:id/check-in
- * @param {string} id - Booking ID
- * @param {Object} data - Check-in data
- * @param {string} [data.verificationNotes] - Verification notes
- * @returns {Promise<Object>} Updated booking object
+ * Check-in dashboard (today’s check-ins, upcoming, overdue).
+ * curl: GET /api/check-in/dashboard
+ * Response: { success, data: { allCheckedIn, checkedInToday, upcoming, overdue, stats: { allCheckedInCount, checkedInTodayCount, upcomingCount, overdueCount } } }
+ */
+export async function getCheckInDashboard() {
+  const base = (API_BASE_URL && API_BASE_URL.replace(/\/$/, "")) || "";
+  const url = base ? `${base}/api/check-in/dashboard` : "/api/check-in/dashboard";
+  const res = await fetchWithAuth(url);
+  return handleResponse(res, "Failed to fetch check-in dashboard");
+}
+
+/**
+ * Check-out dashboard (today’s check-outs, upcoming, overdue).
+ * curl: GET /api/check-out/dashboard
+ * Response: { success, data: { checkedOutToday, upcoming, overdue, stats: { checkedOutTodayCount, upcomingCount, overdueCount } } }
+ */
+export async function getCheckOutDashboard() {
+  const base = (API_BASE_URL && API_BASE_URL.replace(/\/$/, "")) || "";
+  const url = base ? `${base}/api/check-out/dashboard` : "/api/check-out/dashboard";
+  const res = await fetchWithAuth(url);
+  return handleResponse(res, "Failed to fetch check-out dashboard");
+}
+
+/**
+ * Check-in a booking.
+ * curl: PATCH /api/bookings/:id/check-in, body: { verificationNotes?: string }
  */
 export async function checkInBooking(id, data = {}) {
+  const payload = {};
+  if (data.verificationNotes != null) payload.verificationNotes = data.verificationNotes;
   const res = await fetchWithAuth(`${API_BASE_URL}/api/bookings/${id}/check-in`, {
     method: "PATCH",
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
   return handleResponse(res, "Failed to check-in booking");
 }
 
 /**
- * Check-out a booking
- * Endpoint: PATCH /api/bookings/:id/check-out
- * @param {string} id - Booking ID
- * @param {Object} data - Check-out data
- * @param {number} [data.finalCharges] - Final charges
- * @param {string} [data.checkoutNotes] - Checkout notes
- * @returns {Promise<Object>} Updated booking object
+ * Check-out a booking.
+ * curl: PATCH /api/bookings/:id/check-out, body: { finalCharges?: number, checkoutNotes?: string }
  */
 export async function checkOutBooking(id, data = {}) {
+  const payload = {};
+  if (data.finalCharges != null) payload.finalCharges = Number(data.finalCharges);
+  if (data.checkoutNotes != null) payload.checkoutNotes = data.checkoutNotes;
   const res = await fetchWithAuth(`${API_BASE_URL}/api/bookings/${id}/check-out`, {
     method: "PATCH",
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
   return handleResponse(res, "Failed to check-out booking");
 }
 
 // ============================================
-// Housekeeping / Operations API Functions
+// Housekeeping API Functions (curl-aligned)
 // ============================================
 
 /**
- * Get housekeeping dashboard data
- * Endpoint: GET /api/housekeeping/dashboard
- * @returns {Promise<Object>} Dashboard statistics
+ * Get properties with housekeeping (checkout wali – dirty/in_progress rooms).
+ * curl: GET /api/housekeeping/properties [?tenantId=TENANT_ID]
+ * @returns {Promise<Object>} { success, data: [{ property: { id, title, location }, rooms: [{ id, roomNumber, housekeepingStatus }], stats: { dirty, in_progress, clean } }], count }
  */
-export async function getHousekeepingDashboard() {
-  const res = await fetchWithAuth(`${API_BASE_URL}/api/housekeeping/dashboard`);
+export async function getHousekeepingProperties(tenantId = null) {
+  const base = (API_BASE_URL && API_BASE_URL.replace(/\/$/, "")) || "";
+  let url = `${base}/api/housekeeping/properties`;
+  if (tenantId) url += `?tenantId=${tenantId}`;
+  const res = await fetchWithAuth(url);
+  return handleResponse(res, "Failed to fetch housekeeping properties");
+}
+
+/**
+ * Get housekeeping dashboard (stats + dirty rooms).
+ * curl: GET /api/housekeeping/dashboard [?tenantId=TENANT_ID for superadmin]
+ * @param {Object} [opts] - Optional
+ * @param {string} [opts.tenantId] - Tenant ID (superadmin only)
+ * @returns {Promise<Object>} { roomStats: { clean, dirty, in_progress }, taskStats: { pending, inProgress, completedToday }, dirtyItems: { rooms } }
+ */
+export async function getHousekeepingDashboard(opts = {}) {
+  const queryParams = new URLSearchParams();
+  if (opts.tenantId) queryParams.append("tenantId", opts.tenantId);
+  const url = `${API_BASE_URL}/api/housekeeping/dashboard${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+  const res = await fetchWithAuth(url);
   return handleResponse(res, "Failed to fetch housekeeping dashboard");
 }
 
 /**
- * Get all housekeeping tasks
- * Endpoint: GET /api/housekeeping/tasks
- * @param {Object} filters - Optional filters
- * @param {string} [filters.status] - Filter by status (pending, in_progress, completed)
- * @param {string} [filters.propertyId] - Filter by property ID
+ * Get housekeeping tasks (list with filters).
+ * curl: GET /api/housekeeping/tasks [?status=dirty|in_progress|clean] [?propertyId=] [?assignedOnly=true]
+ * Backend: status pending→dirty, completed→clean.
+ * @param {Object} [filters] - Optional filters
+ * @param {string} [filters.status] - dirty | in_progress | clean (or pending→dirty, completed→clean)
+ * @param {string} [filters.propertyId] - Property ID
+ * @param {boolean} [filters.assignedOnly] - Current user's tasks only
  * @returns {Promise<Array>} Array of tasks
  */
 export async function getHousekeepingTasks(filters = {}) {
   const queryParams = new URLSearchParams();
   if (filters.status) queryParams.append("status", filters.status);
   if (filters.propertyId) queryParams.append("propertyId", filters.propertyId);
-
+  if (filters.assignedOnly === true) queryParams.append("assignedOnly", "true");
   const url = `${API_BASE_URL}/api/housekeeping/tasks${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
   const res = await fetchWithAuth(url);
   return handleResponse(res, "Failed to fetch housekeeping tasks");
 }
 
 /**
- * Start a housekeeping task
- * Endpoint: PATCH /api/housekeeping/tasks/:id/start
- * @param {string} id - Task ID
- * @returns {Promise<Object>} Updated task object
+ * Start a housekeeping task (dirty → in_progress).
+ * curl: PATCH /api/housekeeping/tasks/:id/start
  */
 export async function startHousekeepingTask(id) {
   const res = await fetchWithAuth(`${API_BASE_URL}/api/housekeeping/tasks/${id}/start`, {
@@ -2237,25 +2275,26 @@ export async function startHousekeepingTask(id) {
 }
 
 /**
- * Complete a housekeeping task
- * Endpoint: PATCH /api/housekeeping/tasks/:id/complete
+ * Complete a housekeeping task (dirty/in_progress → clean).
+ * curl: PATCH /api/housekeeping/tasks/:id/complete, body: { notes?: string }
  * @param {string} id - Task ID
- * @param {Object} data - Completion data
- * @param {string} [data.notes] - Completion notes
- * @returns {Promise<Object>} Updated task object
+ * @param {Object} [data] - Optional body
+ * @param {string} [data.notes] - Completion notes (e.g. "Linens changed, bathroom cleaned")
  */
 export async function completeHousekeepingTask(id, data = {}) {
+  const body = {};
+  if (data.notes != null) body.notes = data.notes;
   const res = await fetchWithAuth(`${API_BASE_URL}/api/housekeeping/tasks/${id}/complete`, {
     method: "PATCH",
-    body: JSON.stringify(data),
+    body: JSON.stringify(body),
   });
   return handleResponse(res, "Failed to complete housekeeping task");
 }
 
 /**
- * Get housekeeping status options for dropdowns
- * Endpoint: GET /api/housekeeping/statuses
- * @returns {Promise<Array>} Array of { value, label } e.g. [{ value: 'clean', label: 'Clean' }, ...]
+ * Get housekeeping status options for dropdowns.
+ * curl: GET /api/housekeeping/statuses
+ * @returns {Promise<Array>} [{ value: 'clean', label: 'Clean' }, { value: 'dirty', label: 'Dirty' }, { value: 'in_progress', label: 'In progress' }]
  */
 export async function getHousekeepingStatuses() {
   const res = await fetchWithAuth(`${API_BASE_URL}/api/housekeeping/statuses`);
@@ -2264,21 +2303,38 @@ export async function getHousekeepingStatuses() {
 }
 
 /**
- * Update housekeeping status for a room or unit
- * Endpoint: PATCH /api/housekeeping/status
- * @param {Object} payload - { roomId?: string, unitId?: string, status: 'clean' | 'dirty' | 'in_progress' }
- * @returns {Promise<Object>} Updated room/unit document
+ * Update room housekeeping status.
+ * curl: PATCH /api/housekeeping/status, body: { roomId, status } (status: clean | dirty | in_progress). Backend may support unitId.
+ * @param {Object} payload - { roomId: string, status: 'clean'|'dirty'|'in_progress' } or unitId instead of roomId
  */
 export async function updateHousekeepingStatus(payload) {
   const { roomId, unitId, status } = payload;
   if (!status || (!roomId && !unitId)) {
     throw new Error("Provide status and either roomId or unitId");
   }
+  const body = { status };
+  if (roomId) body.roomId = roomId;
+  if (unitId) body.unitId = unitId;
   const res = await fetchWithAuth(`${API_BASE_URL}/api/housekeeping/status`, {
     method: "PATCH",
-    body: JSON.stringify({ roomId: roomId || undefined, unitId: unitId || undefined, status }),
+    body: JSON.stringify(body),
   });
   return handleResponse(res, "Failed to update housekeeping status");
+}
+
+/**
+ * Create housekeeping task (manual).
+ * curl: POST /api/housekeeping/tasks, body: { propertyId, roomId?, title?, description?, assignedTo?, priority? }. Superadmin: tenantId in body.
+ * @param {Object} data - propertyId (required); roomId, title, description, assignedTo, priority, tenantId (optional)
+ * @returns {Promise<Object>} Created task
+ */
+export async function createHousekeepingTask(data) {
+  if (!data.propertyId) throw new Error("propertyId is required");
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/housekeeping/tasks`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, "Failed to create housekeeping task");
 }
 
 // ============================================

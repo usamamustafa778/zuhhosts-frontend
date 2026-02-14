@@ -3,6 +3,7 @@
 import {
   DndContext,
   closestCenter,
+  pointerWithin,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -298,7 +299,7 @@ function DroppableColumn({
         <span className="text-xs text-slate-400">{tasks.length}</span>
       </div>
       <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-        <div className="mt-3 space-y-3">
+        <div className={`mt-3 space-y-3 ${safeTasks.length === 0 ? "min-h-[180px]" : ""}`}>
           {safeTasks.map((task) => (
             <SortableTask
               key={task.id}
@@ -362,9 +363,9 @@ export default function KanbanBoard({
     if (!over) return;
 
     const activeId = active?.id;
-    const overId = over?.id;
+    let overId = over?.id;
 
-    if (!activeId || !overId) return;
+    if (!activeId || overId == null) return;
 
     // Find the task being dragged
     const draggedTask = tasks.find((task) => task && task.id === activeId);
@@ -383,24 +384,16 @@ export default function KanbanBoard({
 
     const currentStatus = normalizeStatus(draggedTask.status);
 
-    // Check if dropped on a column (droppable area)
+    // If dropped on a task, resolve to its column first
+    const targetTask = tasks.find((task) => task && task.id === overId);
+    if (targetTask) {
+      overId = targetTask.column;
+    }
+
+    // Check if resolved to a column (droppable area or column from task)
     const targetColumn = columns.find((col) => col === overId);
     if (targetColumn) {
       const newStatus = columnToStatus[targetColumn];
-
-      // Only update if status actually changed
-      if (newStatus && newStatus !== currentStatus) {
-        onStatusChange?.(activeId, newStatus);
-      }
-      return;
-    }
-
-    // Check if dropped on another task - find which column it belongs to
-    const targetTask = tasks.find((task) => task && task.id === overId);
-    if (targetTask) {
-      const targetColumn = targetTask.column;
-      const newStatus = columnToStatus[targetColumn];
-
       // Only update if status actually changed
       if (newStatus && newStatus !== currentStatus) {
         onStatusChange?.(activeId, newStatus);
@@ -421,7 +414,7 @@ export default function KanbanBoard({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={pointerWithin}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
