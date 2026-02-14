@@ -111,7 +111,7 @@ export default function LandingPage() {
         schemaStr
           .replace(/airbnb-dashboard\.com/g, "zuhahosts.com")
           .replace(/Airbnb Dashboard/g, "Zuha Hosts")
-          .replace(/@airbnbdashboard/g, "@zuhahosts")
+          .replace(/@airbnbdashboard/g, "@zuhahosts"),
       );
     });
 
@@ -506,26 +506,22 @@ export default function LandingPage() {
           <div className="grid gap-8 lg:grid-cols-2">
             {[
               {
-
                 description:
                   "Track bookings, revenue, and occupancy at a glance",
                 gradient: "from-slate-50 to-slate-100",
                 image: "/image1.png",
               },
               {
-
                 description: "Visual booking management with drag-and-drop",
                 gradient: "from-blue-50 to-indigo-100",
                 image: "/image2.png",
               },
               {
-
                 description: "Manage all your properties from one central hub",
                 gradient: "from-emerald-50 to-teal-100",
                 image: "/image3.png",
               },
               {
-
                 description: "Complete revenue tracking and payment management",
                 gradient: "from-purple-50 to-pink-100",
                 image: "/image4.png",
@@ -716,10 +712,11 @@ export default function LandingPage() {
             {Object.entries(PACKAGES).map(([key, pkg]) => (
               <div
                 key={key}
-                className={`rounded-2xl border-2 bg-white p-6 transition-all ${key === "basic"
-                  ? "border-rose-500 shadow-xl scale-105"
-                  : "border-slate-200 hover:border-rose-500 hover:shadow-lg"
-                  }`}
+                className={`rounded-2xl border-2 bg-white p-6 transition-all ${
+                  key === "basic"
+                    ? "border-rose-500 shadow-xl scale-105"
+                    : "border-slate-200 hover:border-rose-500 hover:shadow-lg"
+                }`}
               >
                 {key === "basic" && (
                   <div className="mb-4 text-center">
@@ -778,10 +775,11 @@ export default function LandingPage() {
 
                 <Link
                   href="/register"
-                  className={`w-full block text-center rounded-full px-4 py-2.5 text-sm font-semibold transition-colors ${key === "basic"
-                    ? "bg-gradient-to-r from-rose-500 to-pink-600 text-white hover:shadow-lg hover:shadow-rose-500/30"
-                    : "bg-slate-900 text-white hover:bg-slate-800"
-                    }`}
+                  className={`w-full block text-center rounded-full px-4 py-2.5 text-sm font-semibold transition-colors ${
+                    key === "basic"
+                      ? "bg-gradient-to-r from-rose-500 to-pink-600 text-white hover:shadow-lg hover:shadow-rose-500/30"
+                      : "bg-slate-900 text-white hover:bg-slate-800"
+                  }`}
                 >
                   {pkg.price === 0 ? "Start Free Trial" : "Get Started"}
                 </Link>
