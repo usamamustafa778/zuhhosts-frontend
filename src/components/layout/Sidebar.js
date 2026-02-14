@@ -82,12 +82,33 @@ export default function Sidebar({
     } else if (isHost) {
       menuKey = "host";
     } else if (userType === "team_member") {
-      menuKey = user?.role?.name || user?.role || "staff";
+      // Get role name and normalize it
+      const roleName = user?.role?.name || user?.role || "staff";
+      const roleNameLower = roleName?.toLowerCase();
+
+      // Normalize co-host variations: handle both "co-host" and "cohost" (case-insensitive)
+      // Prefer "cohost" if the role is either "cohost" or "co-host"
+      if (roleNameLower === "co-host" || roleNameLower === "cohost") {
+        menuKey = roleMenus["cohost"] ? "cohost" : "co-host";
+      } else {
+        // Check roleMenus with case-insensitive matching
+        const matchingKey = Object.keys(roleMenus).find(
+          key => key.toLowerCase() === roleNameLower
+        );
+        menuKey = matchingKey || (roleMenus[roleName] ? roleName : "staff");
+      }
     }
 
     const navItems = roleMenus[menuKey] || roleMenus.Admin;
 
     const filteredItems = navItems.filter((item) => {
+      // Staff and cohost should not see Staff management menu item
+      // Only hosts and superadmins can manage users
+      if (!isHost && !isSuperAdmin) {
+        if (item.href === "/users" && (item.label === "Staff" || item.label === "Users")) {
+          return false;
+        }
+      }
       if (!item.permission) return true;
       if (isSuperAdmin) return true;
       return hasPermission(permissions, item.permission);
@@ -215,8 +236,8 @@ export default function Sidebar({
                           key={item.href}
                           href={isDisabled ? "#" : item.href}
                           className={`group relative flex items-center gap-3 lg:mx-1 mx-2 px-3 lg:py-2.5 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${isActive
-                              ? "bg-rose-50 text-rose-700"
-                              : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                            ? "bg-rose-50 text-rose-700"
+                            : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
                             } ${collapsed ? "justify-center" : ""}`}
                           onClick={(e) => {
                             if (isDisabled) {
