@@ -4,6 +4,26 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
+  BarChart3,
+  DollarSign,
+  MapPin,
+  Users,
+  Globe,
+  Calendar,
+  TrendingUp,
+  Home,
+  Bed,
+  RefreshCw,
+  ArrowLeft,
+  Building2,
+  CreditCard,
+  Repeat,
+  Percent,
+  UserCheck,
+  Target,
+  PieChart,
+} from "lucide-react";
+import {
   getOccupancyAnalytics,
   getRevenueAnalytics,
   getBookingSourcesAnalytics,
@@ -17,6 +37,7 @@ import SummaryCard from "@/components/common/SummaryCard";
 import Select from "@/components/common/Select";
 import PageLoader from "@/components/common/PageLoader";
 import { formatCurrency } from "@/utils/currencyUtils";
+import { handleApiError } from "@/utils/errorHandler";
 
 export default function AnalyticsPage() {
   const router = useRouter();
@@ -72,29 +93,84 @@ export default function AnalyticsPage() {
       if (filters.endDate) params.endDate = filters.endDate;
 
       switch (activeTab) {
-        case "occupancy":
-          const occupancy = await getOccupancyAnalytics(params);
-          setOccupancyData(occupancy);
+        case "occupancy": {
+          const response = await getOccupancyAnalytics(params);
+          // API returns { success: true, data: {...} }
+          const data = response?.data || response;
+          setOccupancyData({
+            totalBookings: data?.summary?.totalBookings || 0,
+            bookedNights: data?.summary?.totalBookedNights || 0,
+            occupancyRate: data?.summary?.occupancyRate || 0,
+            availableRooms: data?.summary?.totalResources || 0,
+            byProperty: data?.byProperty || [],
+          });
           break;
-        case "revenue":
-          const revenue = await getRevenueAnalytics(params);
-          setRevenueData(revenue);
+        }
+        case "revenue": {
+          const response = await getRevenueAnalytics(params);
+          const data = response?.data || response;
+          const byProperty = data?.byProperty || [];
+          setRevenueData({
+            totalRevenue: data?.summary?.totalRevenue || 0,
+            averageBookingValue: data?.summary?.avgBookingValue || 0,
+            totalBookings: data?.summary?.totalBookings || 0,
+            propertiesCount: byProperty.length,
+            byProperty: byProperty,
+            bySource: data?.bySource || [],
+            byMonth: data?.byMonth || [],
+            byPaymentStatus: data?.byPaymentStatus || [],
+            currency: data?.summary?.currency || "USD",
+          });
           break;
-        case "sources":
-          const sources = await getBookingSourcesAnalytics(params);
-          setSourcesData(sources);
+        }
+        case "sources": {
+          const response = await getBookingSourcesAnalytics(params);
+          const data = response?.data || response;
+          const sources = data?.sources || [];
+          setSourcesData({
+            totalBookings: data?.summary?.totalBookings || 0,
+            totalRevenue: data?.summary?.totalRevenue || 0,
+            bySource: sources.map((source) => ({
+              source: source.source || source._id || "Unknown",
+              count: source.bookings || source.count || 0,
+              revenue: source.revenue || 0,
+              percentage: source.bookingPercentage || 0,
+            })),
+          });
           break;
-        case "guests":
-          const guestTrends = await getGuestTrendsAnalytics(params);
-          setGuestTrendsData(guestTrends);
+        }
+        case "guests": {
+          const response = await getGuestTrendsAnalytics(params);
+          const data = response?.data || response;
+          setGuestTrendsData({
+            totalGuests: data?.summary?.totalGuests || 0,
+            repeatGuests: data?.summary?.repeatGuests || 0,
+            repeatRate: data?.summary?.repeatGuestRate || 0,
+            averageGuestsPerBooking: data?.summary?.avgGuestsPerBooking || 0,
+            topGuests: data?.topGuests || [],
+            guestComposition: data?.guestComposition || { totalAdults: 0, totalChildren: 0 },
+          });
           break;
-        case "direct":
-          const directBookings = await getDirectBookingsAnalytics(params);
-          setDirectBookingsData(directBookings);
+        }
+        case "direct": {
+          const response = await getDirectBookingsAnalytics(params);
+          const data = response?.data || response;
+          const summary = data?.summary || {};
+          setDirectBookingsData({
+            directBookings: summary.totalBookings || 0,
+            directShare: summary.directBookingShare || 0,
+            directRevenue: summary.totalRevenue || 0,
+            conversionRate: summary.conversionRate || 0,
+            avgBookingValue: summary.avgBookingValue || 0,
+            commissionSaved: (summary.totalRevenue || 0) * 0.15, // Assuming 15% commission
+            statusBreakdown: data?.statusBreakdown || {},
+            monthlyTrend: data?.monthlyTrend || [],
+          });
           break;
+        }
       }
     } catch (error) {
-      // Use centralized error handler - auto-redirects on TENANT_REQUIRED
+      console.error("Failed to load analytics:", error);
       handleApiError(error, router, toast);
     } finally {
       setIsLoading(false);
@@ -109,8 +185,16 @@ export default function AnalyticsPage() {
     return <PageLoader message="Checking your access..." />;
   }
 
+  const tabs = [
+    { id: "occupancy", label: "Occupancy", icon: BarChart3, activeClass: "border-blue-600 text-blue-600" },
+    { id: "revenue", label: "Revenue", icon: DollarSign, activeClass: "border-green-600 text-green-600" },
+    { id: "sources", label: "Booking Sources", icon: MapPin, activeClass: "border-purple-600 text-purple-600" },
+    { id: "guests", label: "Guest Trends", icon: Users, activeClass: "border-pink-600 text-pink-600" },
+    { id: "direct", label: "Direct Bookings", icon: Globe, activeClass: "border-indigo-600 text-indigo-600" },
+  ];
+
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -118,50 +202,53 @@ export default function AnalyticsPage() {
             onClick={() => router.back()}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0 lg:hidden"
           >
-            <svg className="w-6 h-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
+            <ArrowLeft className="w-5 h-5 text-slate-900" />
           </button>
-          <h1 className="mt-2 text-3xl font-semibold text-slate-900">Analytics</h1>
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Analytics</h1>
+            <p className="text-sm text-slate-600 mt-1">Comprehensive insights into your business performance</p>
+          </div>
         </div>
 
         <button
           onClick={() => loadAnalytics()}
-          className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+          disabled={isLoading}
+          className="flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
+          <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
           Refresh
         </button>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-slate-200">
-        <div className="flex gap-1 overflow-x-auto">
-          {[
-            { id: "occupancy", label: "Occupancy", icon: "📊" },
-            { id: "revenue", label: "Revenue", icon: "💰" },
-            { id: "sources", label: "Booking Sources", icon: "📍" },
-            { id: "guests", label: "Guest Trends", icon: "👥" },
-            { id: "direct", label: "Direct Bookings", icon: "🌐" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === tab.id
-                  ? "border-slate-900 text-slate-900"
-                  : "border-transparent text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <span>{tab.icon}</span>
-              {tab.label}
-            </button>
-          ))}
+      <div className="border-b border-slate-200 bg-white rounded-t-xl">
+        <div className="flex gap-1 overflow-x-auto px-4">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-5 py-3.5 text-sm font-semibold border-b-2 transition-all whitespace-nowrap ${isActive
+                  ? tab.activeClass
+                  : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  }`}
+              >
+                <Icon className="w-4 h-4" strokeWidth={2.5} />
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* Filters */}
-      <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Filters</h3>
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Calendar className="w-5 h-5 text-slate-600" />
+          <h3 className="text-lg font-semibold text-slate-900">Filters</h3>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Select
@@ -179,24 +266,24 @@ export default function AnalyticsPage() {
           />
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">
               Start Date
             </label>
             <input
               type="date"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all"
               value={filters.startDate}
               onChange={(e) => handleFilterChange("startDate", e.target.value)}
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">
               End Date
             </label>
             <input
               type="date"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all"
               value={filters.endDate}
               onChange={(e) => handleFilterChange("endDate", e.target.value)}
             />
@@ -205,7 +292,7 @@ export default function AnalyticsPage() {
 
         <button
           onClick={() => setFilters({ propertyId: "", startDate: "", endDate: "" })}
-          className="mt-4 text-sm text-slate-600 hover:text-slate-900 underline"
+          className="mt-4 text-sm text-slate-600 hover:text-slate-900 underline transition-colors"
         >
           Clear filters
         </button>
@@ -223,11 +310,7 @@ export default function AnalyticsPage() {
                 <SummaryCard
                   title="Total Bookings"
                   value={occupancyData.totalBookings || 0}
-                  icon={
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                  }
+                  icon={<Calendar className="w-6 h-6" />}
                   iconBgColor="bg-blue-100"
                   iconColor="text-blue-600"
                 />
@@ -235,23 +318,15 @@ export default function AnalyticsPage() {
                 <SummaryCard
                   title="Booked Nights"
                   value={occupancyData.bookedNights || 0}
-                  icon={
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  }
+                  icon={<Bed className="w-6 h-6" />}
                   iconBgColor="bg-purple-100"
                   iconColor="text-purple-600"
                 />
 
                 <SummaryCard
                   title="Occupancy Rate"
-                  value={`${occupancyData.occupancyRate || 0}%`}
-                  icon={
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                  }
+                  value={`${(occupancyData.occupancyRate || 0).toFixed(1)}%`}
+                  icon={<TrendingUp className="w-6 h-6" />}
                   iconBgColor="bg-green-100"
                   iconColor="text-green-600"
                 />
@@ -259,30 +334,34 @@ export default function AnalyticsPage() {
                 <SummaryCard
                   title="Available Rooms"
                   value={occupancyData.availableRooms || 0}
-                  icon={
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                    </svg>
-                  }
+                  icon={<Home className="w-6 h-6" />}
                   iconBgColor="bg-slate-100"
                   iconColor="text-slate-600"
                 />
               </div>
 
               {occupancyData.byProperty && occupancyData.byProperty.length > 0 && (
-                <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">By Property</h3>
+                <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Building2 className="w-5 h-5 text-slate-600" />
+                    <h3 className="text-lg font-semibold text-slate-900">By Property</h3>
+                  </div>
                   <div className="space-y-3">
                     {occupancyData.byProperty.map((item) => (
-                      <div key={item.propertyId} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                      <div
+                        key={item.propertyId}
+                        className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-white rounded-xl border border-slate-100 hover:shadow-md transition-all"
+                      >
                         <div>
                           <h4 className="font-semibold text-slate-900">{item.propertyName}</h4>
-                          <p className="text-sm text-slate-600">
+                          <p className="text-sm text-slate-600 mt-1">
                             {item.bookings} bookings • {item.nights} nights
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="text-2xl font-bold text-slate-900">{item.occupancyRate}%</p>
+                          <p className="text-2xl font-bold text-slate-900">
+                            {((item.nights / (occupancyData.availableRooms || 1)) * 100).toFixed(1)}%
+                          </p>
                           <p className="text-xs text-slate-600">Occupancy</p>
                         </div>
                       </div>
@@ -299,24 +378,16 @@ export default function AnalyticsPage() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <SummaryCard
                   title="Total Revenue"
-                  value={formatCurrency(revenueData.totalRevenue || 0)}
-                  icon={
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  }
+                  value={formatCurrency(revenueData.totalRevenue || 0, revenueData.currency)}
+                  icon={<DollarSign className="w-6 h-6" />}
                   iconBgColor="bg-green-100"
                   iconColor="text-green-600"
                 />
 
                 <SummaryCard
                   title="Avg Booking Value"
-                  value={formatCurrency(revenueData.averageBookingValue || 0)}
-                  icon={
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                  }
+                  value={formatCurrency(revenueData.averageBookingValue || 0, revenueData.currency)}
+                  icon={<CreditCard className="w-6 h-6" />}
                   iconBgColor="bg-blue-100"
                   iconColor="text-blue-600"
                 />
@@ -324,11 +395,7 @@ export default function AnalyticsPage() {
                 <SummaryCard
                   title="Properties"
                   value={revenueData.propertiesCount || 0}
-                  icon={
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
-                  }
+                  icon={<Building2 className="w-6 h-6" />}
                   iconBgColor="bg-purple-100"
                   iconColor="text-purple-600"
                 />
@@ -336,32 +403,76 @@ export default function AnalyticsPage() {
                 <SummaryCard
                   title="Total Bookings"
                   value={revenueData.totalBookings || 0}
-                  icon={
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                  }
+                  icon={<Calendar className="w-6 h-6" />}
                   iconBgColor="bg-slate-100"
                   iconColor="text-slate-600"
                 />
               </div>
 
               {revenueData.byProperty && revenueData.byProperty.length > 0 && (
-                <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Revenue by Property</h3>
+                <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <PieChart className="w-5 h-5 text-slate-600" />
+                    <h3 className="text-lg font-semibold text-slate-900">Revenue by Property</h3>
+                  </div>
                   <div className="space-y-3">
-                    {revenueData.byProperty.map((item) => (
-                      <div key={item.propertyId} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-slate-900">{item.propertyName}</h4>
-                          <p className="text-sm text-slate-600">{item.bookings} bookings</p>
+                    {revenueData.byProperty.map((item) => {
+                      const percentage =
+                        revenueData.totalRevenue > 0
+                          ? ((item.revenue / revenueData.totalRevenue) * 100).toFixed(1)
+                          : 0;
+                      return (
+                        <div
+                          key={item.propertyId}
+                          className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-white rounded-xl border border-slate-100 hover:shadow-md transition-all"
+                        >
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-slate-900">{item.propertyName}</h4>
+                            <p className="text-sm text-slate-600 mt-1">{item.bookings} bookings</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xl font-bold text-slate-900">
+                              {formatCurrency(item.revenue, revenueData.currency)}
+                            </p>
+                            <p className="text-xs text-slate-600">{percentage}% of total</p>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-xl font-bold text-slate-900">{formatCurrency(item.revenue)}</p>
-                          <p className="text-xs text-slate-600">{item.percentage}% of total</p>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {revenueData.bySource && revenueData.bySource.length > 0 && (
+                <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <MapPin className="w-5 h-5 text-slate-600" />
+                    <h3 className="text-lg font-semibold text-slate-900">Revenue by Source</h3>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {revenueData.bySource.map((source) => {
+                      const percentage =
+                        revenueData.totalRevenue > 0
+                          ? ((source.revenue / revenueData.totalRevenue) * 100).toFixed(1)
+                          : 0;
+                      return (
+                        <div
+                          key={source.source}
+                          className="p-4 bg-gradient-to-br from-slate-50 to-white rounded-xl border border-slate-100"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-slate-700 capitalize">
+                              {source.source.replace("_", " ")}
+                            </span>
+                            <span className="text-xs text-slate-500">{percentage}%</span>
+                          </div>
+                          <p className="text-2xl font-bold text-slate-900">
+                            {formatCurrency(source.revenue, revenueData.currency)}
+                          </p>
+                          <p className="text-xs text-slate-600 mt-1">{source.bookings} bookings</p>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -372,22 +483,59 @@ export default function AnalyticsPage() {
           {activeTab === "sources" && sourcesData && (
             <div className="space-y-6">
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {sourcesData.bySource && sourcesData.bySource.map((source) => (
-                  <SummaryCard
-                    key={source.source}
-                    title={source.source}
-                    value={`${source.count} (${source.percentage}%)`}
-                    subtitle={formatCurrency(source.revenue)}
-                    icon={
-                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                      </svg>
-                    }
-                    iconBgColor="bg-blue-100"
-                    iconColor="text-blue-600"
-                  />
-                ))}
+                <SummaryCard
+                  title="Total Bookings"
+                  value={sourcesData.totalBookings || 0}
+                  icon={<Calendar className="w-6 h-6" />}
+                  iconBgColor="bg-blue-100"
+                  iconColor="text-blue-600"
+                />
+                <SummaryCard
+                  title="Total Revenue"
+                  value={formatCurrency(sourcesData.totalRevenue || 0)}
+                  icon={<DollarSign className="w-6 h-6" />}
+                  iconBgColor="bg-green-100"
+                  iconColor="text-green-600"
+                />
               </div>
+
+              {sourcesData.bySource && sourcesData.bySource.length > 0 && (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {sourcesData.bySource.map((source) => (
+                    <div
+                      key={source.source}
+                      className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 hover:shadow-md transition-all"
+                    >
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                          <MapPin className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <h3 className="font-semibold text-slate-900 capitalize">
+                          {source.source.replace("_", " ")}
+                        </h3>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-slate-600">Bookings</span>
+                          <span className="text-lg font-bold text-slate-900">{source.count}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-slate-600">Revenue</span>
+                          <span className="text-lg font-bold text-green-600">
+                            {formatCurrency(source.revenue)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                          <span className="text-sm text-slate-600">Share</span>
+                          <span className="text-sm font-semibold text-slate-900">
+                            {source.percentage.toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -398,11 +546,7 @@ export default function AnalyticsPage() {
                 <SummaryCard
                   title="Total Guests"
                   value={guestTrendsData.totalGuests || 0}
-                  icon={
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                  }
+                  icon={<Users className="w-6 h-6" />}
                   iconBgColor="bg-blue-100"
                   iconColor="text-blue-600"
                 />
@@ -410,23 +554,15 @@ export default function AnalyticsPage() {
                 <SummaryCard
                   title="Repeat Guests"
                   value={guestTrendsData.repeatGuests || 0}
-                  icon={
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                  }
+                  icon={<Repeat className="w-6 h-6" />}
                   iconBgColor="bg-green-100"
                   iconColor="text-green-600"
                 />
 
                 <SummaryCard
                   title="Repeat Rate"
-                  value={`${guestTrendsData.repeatRate || 0}%`}
-                  icon={
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                  }
+                  value={`${(guestTrendsData.repeatRate || 0).toFixed(1)}%`}
+                  icon={<Percent className="w-6 h-6" />}
                   iconBgColor="bg-purple-100"
                   iconColor="text-purple-600"
                 />
@@ -434,15 +570,46 @@ export default function AnalyticsPage() {
                 <SummaryCard
                   title="Avg Guests/Booking"
                   value={(guestTrendsData.averageGuestsPerBooking || 0).toFixed(1)}
-                  icon={
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                  }
+                  icon={<UserCheck className="w-6 h-6" />}
                   iconBgColor="bg-slate-100"
                   iconColor="text-slate-600"
                 />
               </div>
+
+              {guestTrendsData.topGuests && guestTrendsData.topGuests.length > 0 && (
+                <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Users className="w-5 h-5 text-slate-600" />
+                    <h3 className="text-lg font-semibold text-slate-900">Top Guests</h3>
+                  </div>
+                  <div className="space-y-3">
+                    {guestTrendsData.topGuests.map((guest, index) => (
+                      <div
+                        key={guest.guestId}
+                        className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-white rounded-xl border border-slate-100"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600 font-semibold">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-slate-900">{guest.guestName}</h4>
+                            <p className="text-sm text-slate-600">{guest.guestEmail}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold text-slate-900">
+                            {guest.bookings} {guest.bookings === 1 ? "booking" : "bookings"}
+                          </p>
+                          <p className="text-xs text-slate-600">
+                            {formatCurrency(guest.totalSpent)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -453,24 +620,15 @@ export default function AnalyticsPage() {
                 <SummaryCard
                   title="Direct Bookings"
                   value={directBookingsData.directBookings || 0}
-                  icon={
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                    </svg>
-                  }
+                  icon={<Globe className="w-6 h-6" />}
                   iconBgColor="bg-green-100"
                   iconColor="text-green-600"
                 />
 
                 <SummaryCard
                   title="Direct Share"
-                  value={`${directBookingsData.directShare || 0}%`}
-                  icon={
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
-                    </svg>
-                  }
+                  value={`${(directBookingsData.directShare || 0).toFixed(1)}%`}
+                  icon={<PieChart className="w-6 h-6" />}
                   iconBgColor="bg-blue-100"
                   iconColor="text-blue-600"
                 />
@@ -478,34 +636,39 @@ export default function AnalyticsPage() {
                 <SummaryCard
                   title="Direct Revenue"
                   value={formatCurrency(directBookingsData.directRevenue || 0)}
-                  icon={
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  }
+                  icon={<DollarSign className="w-6 h-6" />}
                   iconBgColor="bg-purple-100"
                   iconColor="text-purple-600"
                 />
 
                 <SummaryCard
                   title="Conversion Rate"
-                  value={`${directBookingsData.conversionRate || 0}%`}
-                  icon={
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                    </svg>
-                  }
+                  value={`${(directBookingsData.conversionRate || 0).toFixed(1)}%`}
+                  icon={<Target className="w-6 h-6" />}
                   iconBgColor="bg-slate-100"
                   iconColor="text-slate-600"
                 />
               </div>
 
-              <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">Performance Summary</h3>
+              <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <TrendingUp className="w-5 h-5 text-slate-600" />
+                  <h3 className="text-lg font-semibold text-slate-900">Performance Summary</h3>
+                </div>
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center p-4 bg-green-50 rounded-xl">
-                    <span className="text-slate-700">Commission Saved</span>
-                    <span className="text-xl font-bold text-green-700">
+                  <div className="flex justify-between items-center p-5 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-100">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-green-100 rounded-lg">
+                        <DollarSign className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div>
+                        <span className="text-slate-700 font-medium">Commission Saved</span>
+                        <p className="text-xs text-slate-600 mt-0.5">
+                          Estimated savings from direct bookings
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-2xl font-bold text-green-700">
                       {formatCurrency(directBookingsData.commissionSaved || 0)}
                     </span>
                   </div>
