@@ -8,6 +8,7 @@ import {
   updateProperty,
   getPropertyById,
   addRoomType,
+  addRoom,
   getMyTenant,
 } from "@/lib/api";
 import PageLoader from "@/components/common/PageLoader";
@@ -60,7 +61,6 @@ const INITIAL_ROOM_TYPE_FORM = {
   maxOccupancy: "2",
   size: "",
   price: "",
-  inventory: "1",
   amenities: [],
 };
 
@@ -79,6 +79,8 @@ export default function NewPropertyPage() {
   const [formData, setFormData] = useState(INITIAL_FORM_DATA);
   const [roomTypes, setRoomTypes] = useState([]);
   const [roomTypeForm, setRoomTypeForm] = useState(INITIAL_ROOM_TYPE_FORM);
+  const [rooms, setRooms] = useState([]); // Rooms to be created: [{ roomTypeId: tempId, roomNumber, price, maxOccupancy, bedType, bedCount, size, bedrooms, bathrooms, amenities }]
+  const [expandedRoomTypes, setExpandedRoomTypes] = useState(new Set());
 
   const isAirbnbFlow = propertyModel === "airbnb";
   const isHotelFlow = propertyModel === "hotel";
@@ -142,7 +144,6 @@ export default function NewPropertyPage() {
                   maxOccupancy: String(rt.maxOccupancy ?? 2),
                   size: rt.size != null ? String(rt.size) : "",
                   price: String(rt.price ?? ""),
-                  inventory: String(rt.inventory ?? 1),
                   amenities: rt.amenities || [],
                   saved: true,
                 }))
@@ -294,19 +295,40 @@ export default function NewPropertyPage() {
       try {
         if (isHotelFlow) {
           const unsaved = roomTypes.filter((r) => !r.saved);
+          const roomTypeIdMap = new Map(); // Maps temp roomType id to actual created roomType id
+          
+          // Create room types first
           for (const rt of unsaved) {
-            await addRoomType(draftPropertyId, {
+            const created = await addRoomType(draftPropertyId, {
               name: rt.name,
               bedType: rt.bedType || "King",
               bedCount: Number(rt.bedCount) || 1,
               maxOccupancy: Number(rt.maxOccupancy) || 2,
               price: Number(rt.price),
-              inventory: Math.max(1, Math.floor(Number(rt.inventory) || 1)),
               size: rt.size && Number(rt.size) > 0 ? Number(rt.size) : undefined,
               amenities: rt.amenities || [],
             });
+            roomTypeIdMap.set(rt.id, created.id || created._id);
           }
           setRoomTypes((prev) => prev.map((r) => ({ ...r, saved: true })));
+          
+          // Create rooms for each room type
+          const roomsToCreate = rooms.filter((r) => r.roomTypeId && roomTypeIdMap.has(r.roomTypeId));
+          for (const room of roomsToCreate) {
+            const actualRoomTypeId = roomTypeIdMap.get(room.roomTypeId);
+            await addRoom(draftPropertyId, {
+              roomNumber: room.roomNumber,
+              roomTypeId: actualRoomTypeId,
+              price: Number(room.price) || Number(roomTypes.find(rt => rt.id === room.roomTypeId)?.price || 0),
+              maxOccupancy: Number(room.maxOccupancy) || Number(roomTypes.find(rt => rt.id === room.roomTypeId)?.maxOccupancy || 2),
+              bedType: room.bedType || undefined,
+              bedCount: room.bedCount ? Number(room.bedCount) : undefined,
+              size: room.size ? Number(room.size) : undefined,
+              bedrooms: room.bedrooms ? Number(room.bedrooms) : undefined,
+              bathrooms: room.bathrooms ? Number(room.bathrooms) : undefined,
+              amenities: Array.isArray(room.amenities) ? room.amenities : undefined,
+            });
+          }
         } else {
           await updateProperty(draftPropertyId, {
             modelType: propertyModel, // Ensure modelType is preserved
@@ -341,7 +363,18 @@ export default function NewPropertyPage() {
     setRoomTypeForm(INITIAL_ROOM_TYPE_FORM);
   };
 
-  const removeRoomType = (id) => setRoomTypes((prev) => prev.filter((r) => r.id !== id));
+  const removeRoomType = (id) => {
+    setRoomTypes((prev) => prev.filter((r) => r.id !== id));
+    setRooms((prev) => prev.filter((r) => r.roomTypeId !== id)); // Remove rooms when room type is deleted
+  };
+
+  const addRoomLocal = (roomData) => {
+    setRooms((prev) => [...prev, { ...roomData, id: Date.now() }]);
+  };
+
+  const removeRoom = (roomId) => {
+    setRooms((prev) => prev.filter((r) => r.id !== roomId));
+  };
 
   const removeExistingImage = (pathOrUrl) => {
     setImagesToRemove((prev) => (prev.includes(pathOrUrl) ? prev : [...prev, pathOrUrl]));
@@ -406,6 +439,11 @@ export default function NewPropertyPage() {
             addRoomType={addRoomTypeLocal}
             removeRoomType={removeRoomType}
             toggleRoomAmenity={toggleRoomAmenity}
+            rooms={rooms}
+            addRoom={addRoomLocal}
+            removeRoom={removeRoom}
+            expandedRoomTypes={expandedRoomTypes}
+            setExpandedRoomTypes={setExpandedRoomTypes}
             onBack={handleBack}
             onNext={handleNext}
             isSaving={isSaving}
@@ -414,7 +452,7 @@ export default function NewPropertyPage() {
         : <Step4AirbnbPricing formData={formData} handleChange={handleChange} onBack={handleBack} onNext={handleNext} isSaving={isSaving} />;
 
     case 5:
-      return <Step5Review formData={formData} existingImages={existingImages} images={images} propertyModel={propertyModel} isHotelFlow={isHotelFlow} isAirbnbFlow={isAirbnbFlow} roomTypes={roomTypes} onBack={handleBack} onSubmit={handleSubmit} />;
+      return <Step5Review formData={formData} existingImages={existingImages} images={images} propertyModel={propertyModel} isHotelFlow={isHotelFlow} isAirbnbFlow={isAirbnbFlow} roomTypes={roomTypes} rooms={rooms} onBack={handleBack} onSubmit={handleSubmit} />;
 
     default:
       return null;

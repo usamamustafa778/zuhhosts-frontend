@@ -248,8 +248,22 @@ export async function getAllProperties() {
 }
 
 export async function getPropertyById(id) {
-  const res = await fetchWithAuth(`${API_BASE_URL}/api/properties/${id}`);
-  return handleResponse(res, "Failed to fetch property");
+  // Add cache-busting parameter to ensure fresh data
+  const timestamp = new Date().getTime();
+  const url = `${API_BASE_URL}/api/properties/${id}?t=${timestamp}`;
+  console.log('[getPropertyById] Fetching property:', url);
+  const res = await fetchWithAuth(url, {
+    cache: 'no-store',
+  });
+  const property = await handleResponse(res, "Failed to fetch property");
+  console.log('[getPropertyById] Received property:', {
+    id: property?.id,
+    modelType: property?.modelType,
+    propertyType: property?.propertyType,
+    roomTypesCount: property?.roomTypes?.length || 0,
+    roomsCount: property?.rooms?.length || 0
+  });
+  return property;
 }
 
 export async function createProperty(data, images = []) {

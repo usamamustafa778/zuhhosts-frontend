@@ -47,16 +47,26 @@ export default function PropertyDetailsPage() {
   const [isHotel, setIsHotel] = useState(false);
 
   const [isAddRoomModalOpen, setAddRoomModalOpen] = useState(false);
+  const [isEditRoomModalOpen, setEditRoomModalOpen] = useState(false);
   const [isAddRoomTypeModalOpen, setAddRoomTypeModalOpen] = useState(false);
   const [isEditRoomTypeModalOpen, setEditRoomTypeModalOpen] = useState(false);
   const [editingRoomTypeId, setEditingRoomTypeId] = useState(null);
+  const [editingRoomId, setEditingRoomId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [expandedRoomTypes, setExpandedRoomTypes] = useState(new Set());
+  const [roomsViewMode, setRoomsViewMode] = useState("categories"); // "categories" or "table"
 
   const [roomForm, setRoomForm] = useState({
     roomNumber: "",
     roomType: "",
+    roomTypeId: "", // For hotel properties - required
     price: "",
     maxOccupancy: "",
+    bedType: "",
+    bedCount: "",
+    size: "",
+    bathrooms: "",
+    amenities: [],
   });
 
   const defaultRoomTypeForm = {
@@ -66,7 +76,6 @@ export default function PropertyDetailsPage() {
     maxOccupancy: 2,
     size: "",
     price: "",
-    inventory: 1,
     amenities: [],
   };
   const [roomTypeForm, setRoomTypeForm] = useState(defaultRoomTypeForm);
@@ -131,7 +140,7 @@ export default function PropertyDetailsPage() {
   const handleSaveProperty = async () => {
     if (!propertyId || !property) return;
     const p = editForm;
-    
+
     // Validate required fields
     if (!p.title || p.title.trim().length < 3) {
       toast.error("Property title must be at least 3 characters");
@@ -141,7 +150,7 @@ export default function PropertyDetailsPage() {
       toast.error("Please enter property location");
       return;
     }
-    
+
     // Validate image limit: backend allows maximum 5 images total
     const currentImages = (property.images || []).filter((img) => !editImagesToRemove.includes(img));
     const totalImageCount = currentImages.length + editImages.length;
@@ -232,25 +241,118 @@ export default function PropertyDetailsPage() {
     }
   };
 
+  const defaultRoomForm = {
+    roomNumber: "",
+    roomType: "",
+    roomTypeId: "",
+    price: "",
+    maxOccupancy: "",
+    bedType: "",
+    bedCount: "",
+    size: "",
+    bathrooms: "",
+    amenities: [],
+  };
+
   const handleAddRoom = async (e) => {
     if (e) e.preventDefault();
+
+    // For hotel properties, roomTypeId is required
+    if (isHotel && !roomForm.roomTypeId) {
+      toast.error("Please select a room type category first");
+      return;
+    }
+
     setIsSaving(true);
     const toastId = toast.loading("Adding room...");
 
     try {
-      await addRoom(propertyId, {
+      const roomData = {
         roomNumber: roomForm.roomNumber,
         roomType: roomForm.roomType,
         price: Number(roomForm.price),
         maxOccupancy: roomForm.maxOccupancy ? Number(roomForm.maxOccupancy) : 2,
-      });
+      };
+
+      // Add roomTypeId for hotel properties
+      if (isHotel && roomForm.roomTypeId) {
+        roomData.roomTypeId = roomForm.roomTypeId;
+      }
+
+      // Add optional fields
+      if (roomForm.bedType) roomData.bedType = roomForm.bedType;
+      if (roomForm.bedCount) roomData.bedCount = Number(roomForm.bedCount);
+      if (roomForm.size) roomData.size = Number(roomForm.size);
+      if (roomForm.bedrooms) roomData.bedrooms = Number(roomForm.bedrooms);
+      if (roomForm.bathrooms) roomData.bathrooms = Number(roomForm.bathrooms);
+      if (Array.isArray(roomForm.amenities) && roomForm.amenities.length > 0) {
+        roomData.amenities = roomForm.amenities;
+      }
+
+      await addRoom(propertyId, roomData);
 
       toast.success("Room added successfully!", { id: toastId });
       setAddRoomModalOpen(false);
-      setRoomForm({ roomNumber: "", roomType: "", price: "", maxOccupancy: "" });
+      setRoomForm(defaultRoomForm);
       loadProperty();
     } catch (error) {
       toast.error(error.message || "Failed to add room", { id: toastId });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const openEditRoom = (room) => {
+    setEditingRoomId(room.id || room._id);
+    setRoomForm({
+      roomNumber: room.roomNumber || "",
+      roomType: room.roomType || "",
+      roomTypeId: room.roomTypeId || "",
+      price: room.basePrice || room.price || "",
+      maxOccupancy: room.maxOccupancy || "",
+      bedType: room.bedType || "",
+      bedCount: room.bedCount || "",
+      size: room.size || "",
+      bathrooms: room.bathrooms || "",
+      amenities: Array.isArray(room.amenities) ? room.amenities : [],
+    });
+    setEditRoomModalOpen(true);
+  };
+
+  const handleUpdateRoom = async (e) => {
+    if (e) e.preventDefault();
+    if (!editingRoomId) return;
+
+    setIsSaving(true);
+    const toastId = toast.loading("Updating room...");
+
+    try {
+      const roomData = {
+        roomNumber: roomForm.roomNumber,
+        roomType: roomForm.roomType,
+        basePrice: Number(roomForm.price),
+        maxOccupancy: roomForm.maxOccupancy ? Number(roomForm.maxOccupancy) : 2,
+      };
+
+      // Add optional fields
+      if (roomForm.bedType) roomData.bedType = roomForm.bedType;
+      if (roomForm.bedCount) roomData.bedCount = Number(roomForm.bedCount);
+      if (roomForm.size) roomData.size = Number(roomForm.size);
+      if (roomForm.bedrooms) roomData.bedrooms = Number(roomForm.bedrooms);
+      if (roomForm.bathrooms) roomData.bathrooms = Number(roomForm.bathrooms);
+      if (Array.isArray(roomForm.amenities)) {
+        roomData.amenities = roomForm.amenities;
+      }
+
+      await updateRoom(propertyId, editingRoomId, roomData);
+
+      toast.success("Room updated successfully!", { id: toastId });
+      setEditRoomModalOpen(false);
+      setEditingRoomId(null);
+      setRoomForm(defaultRoomForm);
+      loadProperty();
+    } catch (error) {
+      toast.error(error.message || "Failed to update room", { id: toastId });
     } finally {
       setIsSaving(false);
     }
@@ -284,12 +386,11 @@ export default function PropertyDetailsPage() {
         bedCount: Number(roomTypeForm.bedCount) || 1,
         maxOccupancy: Number(roomTypeForm.maxOccupancy) || 2,
         price: Number(roomTypeForm.price),
-        inventory: Math.max(1, Math.floor(Number(roomTypeForm.inventory) || 1)),
         amenities: Array.isArray(roomTypeForm.amenities) ? roomTypeForm.amenities : [],
       };
       if (roomTypeForm.size && Number(roomTypeForm.size) > 0) payload.size = Number(roomTypeForm.size);
       await addRoomType(propertyId, payload);
-      toast.success("Room type added. Rooms created.", { id: toastId });
+      toast.success("Room type category added. You can now add rooms under this category.", { id: toastId });
       setAddRoomTypeModalOpen(false);
       setRoomTypeForm(defaultRoomTypeForm);
       loadProperty();
@@ -310,7 +411,6 @@ export default function PropertyDetailsPage() {
       maxOccupancy: rt.maxOccupancy ?? 2,
       size: rt.size ?? "",
       price: rt.price ?? "",
-      inventory: rt.inventory ?? 1,
       amenities: Array.isArray(rt.amenities) ? rt.amenities : [],
     });
     setEditRoomTypeModalOpen(true);
@@ -331,7 +431,6 @@ export default function PropertyDetailsPage() {
         bedCount: Number(roomTypeForm.bedCount) || 1,
         maxOccupancy: Number(roomTypeForm.maxOccupancy) || 2,
         price: Number(roomTypeForm.price),
-        inventory: Math.max(1, Math.floor(Number(roomTypeForm.inventory) || 1)),
         amenities: Array.isArray(roomTypeForm.amenities) ? roomTypeForm.amenities : [],
       };
       if (roomTypeForm.size && Number(roomTypeForm.size) > 0) payload.size = Number(roomTypeForm.size);
@@ -429,11 +528,10 @@ export default function PropertyDetailsPage() {
           <div className="flex flex-col items-end gap-1">
             <button
               onClick={handleToggleVisibility}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
-                property.isPubliclyVisible
-                  ? "bg-green-100 text-green-700 hover:bg-green-200"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-              }`}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${property.isPubliclyVisible
+                ? "bg-green-100 text-green-700 hover:bg-green-200"
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
             >
               {property.isPubliclyVisible ? "🌐 Public" : "🔒 Private"}
             </button>
@@ -634,9 +732,9 @@ export default function PropertyDetailsPage() {
                 </div>
               </div>
             )}
-            <FileUpload 
-              label="Add more photos" 
-              files={editImages} 
+            <FileUpload
+              label="Add more photos"
+              files={editImages}
               onChange={(newImages) => {
                 // Calculate total images after adding new ones
                 const currentImages = (property.images || []).filter((p) => !editImagesToRemove.includes(p));
@@ -646,8 +744,8 @@ export default function PropertyDetailsPage() {
                   return;
                 }
                 setEditImages(newImages);
-              }} 
-              maxFiles={5} 
+              }}
+              maxFiles={5}
               maxSizeMB={5}
               helpText="Maximum 5 images total"
             />
@@ -666,136 +764,348 @@ export default function PropertyDetailsPage() {
 
       {/* Property Info Card (read-only when not editing) */}
       {!isEditFormOpen && (
-      <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6">
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Images */}
-          {images.length > 0 && (
-            <div>
-              <img
-                src={images[0]}
-                alt={property.title}
-                className="w-full h-64 object-cover rounded-xl"
-              />
-              {images.length > 1 && (
-                <div className="grid grid-cols-4 gap-2 mt-2">
-                  {images.slice(1, 5).map((img, index) => (
-                    <img
-                      key={index}
-                      src={img}
-                      alt={`${property.title} ${index + 2}`}
-                      className="w-full h-20 object-cover rounded-lg"
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Details */}
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-600 mb-2">Description</h3>
-              <p className="text-slate-900">{property.description}</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+        <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6">
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Images */}
+            {images.length > 0 && (
               <div>
-                <p className="text-xs text-slate-600">Property Type</p>
-                <p className="text-sm font-semibold text-slate-900">{property.propertyType}</p>
+                <img
+                  src={images[0]}
+                  alt={property.title}
+                  className="w-full h-64 object-cover rounded-xl"
+                />
+                {images.length > 1 && (
+                  <div className="grid grid-cols-4 gap-2 mt-2">
+                    {images.slice(1, 5).map((img, index) => (
+                      <img
+                        key={index}
+                        src={img}
+                        alt={`${property.title} ${index + 2}`}
+                        className="w-full h-20 object-cover rounded-lg"
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-              {property.bedrooms > 0 && (
-                <div>
-                  <p className="text-xs text-slate-600">Bedrooms</p>
-                  <p className="text-sm font-semibold text-slate-900">{property.bedrooms}</p>
-                </div>
-              )}
-              {property.bathrooms > 0 && (
-                <div>
-                  <p className="text-xs text-slate-600">Bathrooms</p>
-                  <p className="text-sm font-semibold text-slate-900">{property.bathrooms}</p>
-                </div>
-              )}
-              {property.area > 0 && (
-                <div>
-                  <p className="text-xs text-slate-600">Area</p>
-                  <p className="text-sm font-semibold text-slate-900">{property.area} sq ft</p>
-                </div>
-              )}
+            )}
+
+            {/* Details */}
+            <div className="space-y-4">
               <div>
-                <p className="text-xs text-slate-600">Base Price</p>
-                <p className="text-sm font-semibold text-slate-900">${property.price}/night</p>
+                <h3 className="text-sm font-semibold text-slate-600 mb-2">Description</h3>
+                <p className="text-slate-900">{property.description}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-slate-600">Property Type</p>
+                  <p className="text-sm font-semibold text-slate-900">{property.propertyType}</p>
+                </div>
+                {property.bedrooms > 0 && (
+                  <div>
+                    <p className="text-xs text-slate-600">Bedrooms</p>
+                    <p className="text-sm font-semibold text-slate-900">{property.bedrooms}</p>
+                  </div>
+                )}
+                {property.bathrooms > 0 && (
+                  <div>
+                    <p className="text-xs text-slate-600">Bathrooms</p>
+                    <p className="text-sm font-semibold text-slate-900">{property.bathrooms}</p>
+                  </div>
+                )}
+                {property.area > 0 && (
+                  <div>
+                    <p className="text-xs text-slate-600">Area</p>
+                    <p className="text-sm font-semibold text-slate-900">{property.area} sq ft</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs text-slate-600">Base Price</p>
+                  <p className="text-sm font-semibold text-slate-900">${property.price}/night</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
       )}
 
       {/* Room Types Section */}
       <div className="rounded-3xl border border-slate-100 bg-white shadow-sm p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-slate-900">
-            Room types ({roomTypes.length})
-          </h2>
-          <button
-            onClick={() => {
-              setRoomTypeForm(defaultRoomTypeForm);
-              setAddRoomTypeModalOpen(true);
-            }}
-            className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-          >
-            Add room type
-          </button>
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900">
+              Room types ({roomTypes.length})
+            </h2>
+            <p className="text-sm text-slate-600 mt-1">
+              Total rooms: <span className="font-semibold text-slate-900">{rooms.length}</span>
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {isHotel && rooms.length > 0 && (
+              <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
+                <button
+                  type="button"
+                  onClick={() => setRoomsViewMode("categories")}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${roomsViewMode === "categories"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-600 hover:text-slate-900"
+                    }`}
+                >
+                  Categories
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoomsViewMode("table")}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${roomsViewMode === "table"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-600 hover:text-slate-900"
+                    }`}
+                >
+                  Table View
+                </button>
+              </div>
+            )}
+            <button
+              onClick={() => {
+                setRoomTypeForm(defaultRoomTypeForm);
+                setAddRoomTypeModalOpen(true);
+              }}
+              className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+            >
+              Add room type
+            </button>
+          </div>
         </div>
 
         {roomTypes.length === 0 ? (
           <div className="text-center py-12 text-slate-500">
-            <p>No room types yet. Add a room type to auto-create rooms (e.g. Deluxe King x 12).</p>
+            <p>No room type categories yet. Add a category first (e.g. Deluxe King), then add rooms under each category.</p>
+          </div>
+        ) : roomsViewMode === "table" ? (
+          <div>
+            <DataTable
+              headers={["Room Number", "Category", "Bed Type", "Bed Count", "Size (sq ft)", "Price/Night", "Max Occupancy", "Bathrooms", "Status", "Actions"]}
+              rows={rooms.map((room) => {
+                const roomType = roomTypes.find(rt => (rt.id || rt._id).toString() === (room.roomTypeId?.toString() || room.roomTypeId));
+                return {
+                  id: room.id || room._id,
+                  cells: [
+                    <span key="number" className="font-medium text-slate-900">{room.roomNumber}</span>,
+                    <span key="category" className="text-slate-700">{roomType?.name || room.roomType || "—"}</span>,
+                    <span key="bedType" className="text-slate-700">{room.bedType || "—"}</span>,
+                    <span key="bedCount" className="text-slate-700">{room.bedCount || "—"}</span>,
+                    <span key="size" className="text-slate-700">{room.size ? `${room.size} sq ft` : "—"}</span>,
+                    <span key="price" className="font-medium text-slate-900">${Number(room.basePrice || room.price || 0).toLocaleString()}</span>,
+                    <span key="occupancy" className="text-slate-700">{room.maxOccupancy || "—"}</span>,
+                    <span key="bathrooms" className="text-slate-700">{room.bathrooms || "—"}</span>,
+                    <span key="status" className={`px-2 py-1 rounded-full text-xs font-medium ${room.status === "available" ? "bg-green-100 text-green-700" :
+                      room.status === "occupied" ? "bg-blue-100 text-blue-700" :
+                        room.status === "maintenance" ? "bg-amber-100 text-amber-700" :
+                          "bg-slate-100 text-slate-700"
+                      }`}>{room.status || "available"}</span>,
+                    <span key="actions" className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openEditRoom(room)}
+                        className="text-slate-600 hover:text-slate-800 text-sm underline"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRoom(room.id || room._id)}
+                        className="text-rose-600 hover:text-rose-700 text-sm underline"
+                      >
+                        Delete
+                      </button>
+                    </span>,
+                  ],
+                };
+              })}
+              emptyLabel="No rooms added yet"
+            />
+            <div className="mt-4 p-4 bg-slate-50 rounded-lg">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                {roomTypes.map((rt) => {
+                  const rtId = rt.id ?? rt._id;
+                  const roomsInCategory = rooms.filter(r => {
+                    const rRoomTypeId = r.roomTypeId?.toString() || r.roomTypeId;
+                    return rRoomTypeId === rtId.toString();
+                  });
+                  return (
+                    <div key={rtId} className="bg-white p-3 rounded-lg border border-slate-200">
+                      <div className="font-semibold text-slate-900">{rt.name}</div>
+                      <div className="text-xs text-slate-600 mt-1">
+                        Inventory: <span className="font-semibold text-blue-600">{roomsInCategory.length}</span> room{roomsInCategory.length !== 1 ? "s" : ""}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         ) : (
-          <DataTable
-            headers={["Name", "Bed", "Occupancy", "Price/night", "Inventory", "Actions"]}
-            rows={roomTypes.map((rt) => ({
-              id: rt.id ?? rt._id,
-              cells: [
-                rt.name,
-                `${rt.bedCount ?? 1} x ${rt.bedType ?? "—"}`,
-                rt.maxOccupancy ?? 2,
-                `$${Number(rt.price ?? 0).toLocaleString()}`,
-                rt.inventory ?? 0,
-                <span key="actions" className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openEditRoomType(rt)}
-                    className="text-slate-600 hover:text-slate-800 text-sm underline"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteRoomType(rt.id ?? rt._id)}
-                    className="text-rose-600 hover:text-rose-700 text-sm underline"
-                  >
-                    Delete
-                  </button>
-                </span>,
-              ],
-            }))}
-          />
-        )}
-        {rooms.length > 0 && (
-          <div className="mt-6 pt-6 border-t border-slate-100">
-            <p className="text-sm text-slate-500">
-              {rooms.length} individual room{rooms.length !== 1 ? "s" : ""} (created from room types).
-            </p>
+          <div className="space-y-4">
+            {roomTypes.map((rt) => {
+              const rtId = rt.id ?? rt._id;
+              const roomsInCategory = rooms.filter(r => {
+                const rRoomTypeId = r.roomTypeId?.toString() || r.roomTypeId;
+                return rRoomTypeId === rtId.toString();
+              });
+              const isExpanded = expandedRoomTypes.has(rtId.toString());
+
+              return (
+                <div key={rtId} className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="bg-slate-50 p-4 flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <h3 className="font-semibold text-slate-900">{rt.name}</h3>
+                        <span className="text-xs bg-slate-200 text-slate-700 rounded-full px-2 py-0.5">
+                          {rt.bedCount ?? 1}x {rt.bedType ?? "—"}
+                        </span>
+                        <span className="text-xs bg-slate-200 text-slate-700 rounded-full px-2 py-0.5">
+                          {rt.maxOccupancy ?? 2} guests
+                        </span>
+                        <span className="text-sm font-semibold text-slate-900">
+                          ${Number(rt.price ?? 0).toLocaleString()}/night
+                        </span>
+                        {rt.size && <span className="text-xs text-slate-600">{rt.size} sq ft</span>}
+                      </div>
+                      <div className="mt-2 flex items-center gap-4 text-sm">
+                        <span className="font-semibold text-slate-900">
+                          Inventory: <span className="text-blue-600">{roomsInCategory.length}</span> room{roomsInCategory.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRoomForm({
+                            roomNumber: "",
+                            roomType: rt.name,
+                            roomTypeId: String(rtId),
+                            price: String(rt.price || ""),
+                            maxOccupancy: String(rt.maxOccupancy || 2),
+                            bedType: rt.bedType || "",
+                            bedCount: rt.bedCount ? String(rt.bedCount) : "",
+                            size: rt.size ? String(rt.size) : "",
+                            bathrooms: "",
+                            amenities: Array.isArray(rt.amenities) ? rt.amenities : [],
+                          });
+                          setAddRoomModalOpen(true);
+                        }}
+                        className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+                      >
+                        + Add Room
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newExpanded = new Set(expandedRoomTypes);
+                          if (isExpanded) {
+                            newExpanded.delete(rtId.toString());
+                          } else {
+                            newExpanded.add(rtId.toString());
+                          }
+                          setExpandedRoomTypes(newExpanded);
+                        }}
+                        className="p-2 text-slate-600 hover:text-slate-900"
+                      >
+                        <svg
+                          className={`w-5 h-5 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  {isExpanded && (
+                    <div className="p-4 border-t border-slate-200 bg-white">
+                      {roomsInCategory.length === 0 ? (
+                        <p className="text-sm text-slate-500 text-center py-4">
+                          No rooms added yet. Click "+ Add Room" to add rooms under this category.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {roomsInCategory.map((room) => (
+                            <div
+                              key={room.id || room._id}
+                              className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                            >
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-medium text-slate-900">Room {room.roomNumber}</span>
+                                  {room.bedCount && room.bedType && (
+                                    <span className="text-xs bg-blue-100 text-blue-700 rounded-full px-2 py-0.5">
+                                      {room.bedCount}x {room.bedType}
+                                    </span>
+                                  )}
+                                  {room.size && (
+                                    <span className="text-xs text-slate-500">
+                                      {room.size} sq ft
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="mt-1 flex items-center gap-3 text-sm text-slate-600 flex-wrap">
+                                  <span>${room.basePrice || room.price}/night</span>
+                                  <span>•</span>
+                                  <span>Max {room.maxOccupancy} guests</span>
+                                  {room.bathrooms && <span>• {room.bathrooms} bathroom{room.bathrooms !== 1 ? 's' : ''}</span>}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => openEditRoom(room)}
+                                  className="text-slate-600 hover:text-slate-800 text-sm underline"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteRoom(room.id || room._id)}
+                                  className="text-rose-600 hover:text-rose-700 text-sm underline"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openEditRoomType(rt)}
+                      className="text-slate-600 hover:text-slate-800 text-sm underline"
+                    >
+                      Edit Category
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteRoomType(rtId)}
+                      className="text-rose-600 hover:text-rose-700 text-sm underline"
+                    >
+                      Delete Category
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
       {/* Add Room Type Modal */}
       <Modal
-        title="Add room type"
-        description="Creates this room type and auto-generates rooms (e.g. 12 Deluxe King rooms)."
+        title="Add room type category"
+        description="Create a room type category (e.g. Deluxe King). You can then add individual rooms under this category."
         isOpen={isAddRoomTypeModalOpen}
         onClose={() => {
           setAddRoomTypeModalOpen(false);
@@ -853,14 +1163,6 @@ export default function PropertyDetailsPage() {
               onChange={(e) => setRoomTypeForm({ ...roomTypeForm, price: e.target.value })}
               placeholder="150"
             />
-            <FormField
-              label="Inventory (number of rooms)"
-              type="number"
-              min="1"
-              value={roomTypeForm.inventory}
-              onChange={(e) => setRoomTypeForm({ ...roomTypeForm, inventory: e.target.value })}
-              placeholder="10"
-            />
           </div>
           <div>
             <p className="text-sm font-medium text-slate-700 mb-2">Room amenities (optional)</p>
@@ -879,9 +1181,8 @@ export default function PropertyDetailsPage() {
                           : [...(roomTypeForm.amenities || []), a],
                       })
                     }
-                    className={`rounded-full px-3 py-1.5 text-sm ${
-                      selected ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                    }`}
+                    className={`rounded-full px-3 py-1.5 text-sm ${selected ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      }`}
                   >
                     {a}
                   </button>
@@ -894,8 +1195,8 @@ export default function PropertyDetailsPage() {
 
       {/* Edit Room Type Modal */}
       <Modal
-        title="Edit room type"
-        description="Changing inventory adds or removes rooms. Price updates all rooms of this type."
+        title="Edit room type category"
+        description="Update room type details. Price changes will apply to all rooms of this type."
         isOpen={isEditRoomTypeModalOpen}
         onClose={() => {
           setEditRoomTypeModalOpen(false);
@@ -950,13 +1251,6 @@ export default function PropertyDetailsPage() {
               value={roomTypeForm.price}
               onChange={(e) => setRoomTypeForm({ ...roomTypeForm, price: e.target.value })}
             />
-            <FormField
-              label="Inventory (number of rooms)"
-              type="number"
-              min="1"
-              value={roomTypeForm.inventory}
-              onChange={(e) => setRoomTypeForm({ ...roomTypeForm, inventory: e.target.value })}
-            />
           </div>
           <div>
             <p className="text-sm font-medium text-slate-700 mb-2">Room amenities</p>
@@ -975,9 +1269,8 @@ export default function PropertyDetailsPage() {
                           : [...(roomTypeForm.amenities || []), a],
                       })
                     }
-                    className={`rounded-full px-3 py-1.5 text-sm ${
-                      selected ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                    }`}
+                    className={`rounded-full px-3 py-1.5 text-sm ${selected ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      }`}
                   >
                     {a}
                   </button>
@@ -988,17 +1281,162 @@ export default function PropertyDetailsPage() {
         </form>
       </Modal>
 
-      {/* Legacy Add Room Modal (individual room; kept for backward compat) */}
+      {/* Add Room Modal */}
       <Modal
         title="Add Room"
-        description="Add a single room (legacy). Prefer adding a room type to auto-create multiple rooms."
+        description={isHotel ? "Add a room under the selected category. For hotels, you must select a room type category first." : "Add a single room to this property."}
         isOpen={isAddRoomModalOpen}
         onClose={() => {
           setAddRoomModalOpen(false);
-          setRoomForm({ roomNumber: "", roomType: "", price: "", maxOccupancy: "" });
+          setRoomForm(defaultRoomForm);
         }}
         primaryActionLabel={isSaving ? "Adding..." : "Add Room"}
         onPrimaryAction={handleAddRoom}
+        disabled={isSaving}
+      >
+        <form className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            {isHotel && roomTypes.length > 0 && (
+              <Select
+                label="Room Type Category *"
+                value={roomForm.roomTypeId ? String(roomForm.roomTypeId) : ""}
+                onChange={(value) => {
+                  const selectedType = roomTypes.find(rt => {
+                    const rtId = String(rt.id || rt._id);
+                    return rtId === String(value);
+                  });
+                  setRoomForm({
+                    ...roomForm,
+                    roomTypeId: value,
+                    roomType: selectedType?.name || "",
+                    price: selectedType?.price ? String(selectedType.price) : roomForm.price,
+                    maxOccupancy: selectedType?.maxOccupancy ? String(selectedType.maxOccupancy) : roomForm.maxOccupancy,
+                    bedType: selectedType?.bedType || roomForm.bedType,
+                    bedCount: selectedType?.bedCount ? String(selectedType.bedCount) : roomForm.bedCount,
+                    size: selectedType?.size ? String(selectedType.size) : roomForm.size,
+                  });
+                }}
+                placeholder="Select category"
+                options={roomTypes.map(rt => ({
+                  value: String(rt.id || rt._id),
+                  label: `${rt.name} (${rt.bedCount || 1}x ${rt.bedType || "—"}) - $${rt.price || 0}/night`
+                }))}
+              />
+            )}
+            <FormField
+              label="Room Number *"
+              value={roomForm.roomNumber}
+              onChange={(e) => setRoomForm({ ...roomForm, roomNumber: e.target.value })}
+              placeholder="101"
+            />
+            {!isHotel && (
+              <Select
+                label="Room Type *"
+                value={roomForm.roomType}
+                onChange={(value) => setRoomForm({ ...roomForm, roomType: value })}
+                placeholder="Select type"
+                options={["Standard", "Deluxe", "Suite", "Executive", "Presidential"]}
+              />
+            )}
+            <FormField
+              label="Price per Night (USD) *"
+              type="number"
+              min="0"
+              step="0.01"
+              value={roomForm.price}
+              onChange={(e) => setRoomForm({ ...roomForm, price: e.target.value })}
+              placeholder={isHotel && roomForm.roomTypeId ? "Auto-filled from category" : "100"}
+              disabled={isHotel && roomForm.roomTypeId}
+            />
+            <FormField
+              label="Max Occupancy"
+              type="number"
+              min="1"
+              value={roomForm.maxOccupancy}
+              onChange={(e) => setRoomForm({ ...roomForm, maxOccupancy: e.target.value })}
+              placeholder={isHotel && roomForm.roomTypeId ? "Auto-filled from category" : "2"}
+              disabled={isHotel && roomForm.roomTypeId}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="Bed Type"
+              value={roomForm.bedType}
+              onChange={(value) => setRoomForm({ ...roomForm, bedType: value })}
+              placeholder="Select bed type"
+              options={["King", "Queen", "Double", "Twin", "Single", "Bunk"]}
+            />
+            <FormField
+              label="Bed Count"
+              type="number"
+              min="1"
+              value={roomForm.bedCount}
+              onChange={(e) => setRoomForm({ ...roomForm, bedCount: e.target.value })}
+              placeholder="1"
+            />
+            <FormField
+              label="Size (sq ft)"
+              type="number"
+              min="0"
+              value={roomForm.size}
+              onChange={(e) => setRoomForm({ ...roomForm, size: e.target.value })}
+              placeholder="400"
+            />
+            <FormField
+              label="Bathrooms"
+              type="number"
+              min="0"
+              value={roomForm.bathrooms}
+              onChange={(e) => setRoomForm({ ...roomForm, bathrooms: e.target.value })}
+              placeholder="1"
+            />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-slate-700 mb-2">Room Amenities (optional)</p>
+            <div className="flex flex-wrap gap-2">
+              {ROOM_AMENITIES.map((a) => {
+                const selected = (roomForm.amenities || []).includes(a);
+                return (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() =>
+                      setRoomForm({
+                        ...roomForm,
+                        amenities: selected
+                          ? (roomForm.amenities || []).filter((x) => x !== a)
+                          : [...(roomForm.amenities || []), a],
+                      })
+                    }
+                    className={`rounded-full px-3 py-1.5 text-sm ${selected ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      }`}
+                  >
+                    {a}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {isHotel && roomTypes.length === 0 && (
+            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+              Please create a room type category first before adding rooms.
+            </div>
+          )}
+        </form>
+      </Modal>
+
+      {/* Edit Room Modal */}
+      <Modal
+        title="Edit Room"
+        description="Update room details. Each room can have different properties even within the same category."
+        isOpen={isEditRoomModalOpen}
+        onClose={() => {
+          setEditRoomModalOpen(false);
+          setEditingRoomId(null);
+          setRoomForm(defaultRoomForm);
+        }}
+        primaryActionLabel={isSaving ? "Saving..." : "Save Changes"}
+        onPrimaryAction={handleUpdateRoom}
         disabled={isSaving}
       >
         <form className="space-y-4">
@@ -1008,13 +1446,6 @@ export default function PropertyDetailsPage() {
               value={roomForm.roomNumber}
               onChange={(e) => setRoomForm({ ...roomForm, roomNumber: e.target.value })}
               placeholder="101"
-            />
-            <Select
-              label="Room Type *"
-              value={roomForm.roomType}
-              onChange={(value) => setRoomForm({ ...roomForm, roomType: value })}
-              placeholder="Select type"
-              options={["Standard", "Deluxe", "Suite", "Executive", "Presidential"]}
             />
             <FormField
               label="Price per Night (USD) *"
@@ -1026,13 +1457,70 @@ export default function PropertyDetailsPage() {
               placeholder="100"
             />
             <FormField
-              label="Max Occupancy"
+              label="Max Occupancy *"
               type="number"
               min="1"
               value={roomForm.maxOccupancy}
               onChange={(e) => setRoomForm({ ...roomForm, maxOccupancy: e.target.value })}
               placeholder="2"
             />
+            <Select
+              label="Bed Type"
+              value={roomForm.bedType}
+              onChange={(value) => setRoomForm({ ...roomForm, bedType: value })}
+              placeholder="Select bed type"
+              options={["King", "Queen", "Double", "Twin", "Single", "Bunk"]}
+            />
+            <FormField
+              label="Bed Count"
+              type="number"
+              min="1"
+              value={roomForm.bedCount}
+              onChange={(e) => setRoomForm({ ...roomForm, bedCount: e.target.value })}
+              placeholder="1"
+            />
+            <FormField
+              label="Size (sq ft)"
+              type="number"
+              min="0"
+              value={roomForm.size}
+              onChange={(e) => setRoomForm({ ...roomForm, size: e.target.value })}
+              placeholder="400"
+            />
+            <FormField
+              label="Bathrooms"
+              type="number"
+              min="0"
+              value={roomForm.bathrooms}
+              onChange={(e) => setRoomForm({ ...roomForm, bathrooms: e.target.value })}
+              placeholder="1"
+            />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-slate-700 mb-2">Room Amenities</p>
+            <div className="flex flex-wrap gap-2">
+              {ROOM_AMENITIES.map((a) => {
+                const selected = (roomForm.amenities || []).includes(a);
+                return (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() =>
+                      setRoomForm({
+                        ...roomForm,
+                        amenities: selected
+                          ? (roomForm.amenities || []).filter((x) => x !== a)
+                          : [...(roomForm.amenities || []), a],
+                      })
+                    }
+                    className={`rounded-full px-3 py-1.5 text-sm ${selected ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      }`}
+                  >
+                    {a}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </form>
       </Modal>

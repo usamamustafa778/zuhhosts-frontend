@@ -2,8 +2,8 @@
 
 import StepLayout from "./StepLayout";
 
-export default function Step5Review({ formData, existingImages = [], images = [], propertyModel, isHotelFlow, isAirbnbFlow, roomTypes, onBack, onSubmit }) {
-  const totalRooms = roomTypes.reduce((sum, rt) => sum + (Number(rt.inventory) || 0), 0);
+export default function Step5Review({ formData, existingImages = [], images = [], propertyModel, isHotelFlow, isAirbnbFlow, roomTypes, rooms = [], onBack, onSubmit }) {
+  const totalRooms = rooms.length || roomTypes.reduce((sum, rt) => sum + (Number(rt.inventory) || 0), 0);
   const photoCount = (existingImages?.length || 0) + (images?.length || 0);
 
   return (
@@ -70,17 +70,25 @@ export default function Step5Review({ formData, existingImages = [], images = []
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                 <h2 className="text-lg font-semibold text-slate-900 mb-3">Room Types</h2>
                 <div className="space-y-2">
-                  {roomTypes.map((rt) => (
-                    <div key={rt.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-100">
-                      <div>
-                        <span className="font-medium text-slate-900">{rt.name}</span>
-                        <span className="text-sm text-slate-600 ml-2">({rt.inventory} rooms · ${rt.price}/night)</span>
+                  {roomTypes.map((rt) => {
+                    const roomsInCategory = rooms.filter(r => r.roomTypeId === rt.id);
+                    const roomCount = roomsInCategory.length;
+                    return (
+                      <div key={rt.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-100">
+                        <div>
+                          <span className="font-medium text-slate-900">{rt.name}</span>
+                          <span className="text-sm text-slate-600 ml-2">
+                            ({roomCount} room{roomCount !== 1 ? "s" : ""} · ${rt.price}/night)
+                          </span>
+                        </div>
+                        <span className="text-sm text-slate-600">{rt.bedCount} {rt.bedType} · {rt.maxOccupancy} guests</span>
                       </div>
-                      <span className="text-sm text-slate-600">{rt.bedCount} {rt.bedType} · {rt.maxOccupancy} guests</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
-                <p className="mt-3 text-sm font-medium text-slate-900">Total: {totalRooms} rooms</p>
+                <p className="mt-3 text-sm font-medium text-slate-900">
+                  Total: {totalRooms} room{totalRooms !== 1 ? "s" : ""} {totalRooms > 0 ? "will be created" : ""}
+                </p>
               </div>
             )}
 

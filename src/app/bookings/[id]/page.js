@@ -261,7 +261,7 @@ export default function BookingDetailsPage() {
                 <div>
                   <span className="text-xs text-slate-500">Address:</span>
                   <p className="text-sm text-slate-700">
-                    {booking.property_id?.address || "N/A"}
+                    {booking.property_id?.address || booking.property_id?.location || "N/A"}
                   </p>
                 </div>
                 <div>
@@ -270,6 +270,44 @@ export default function BookingDetailsPage() {
                     {booking.property_id?.location || "N/A"}
                   </p>
                 </div>
+                {booking.roomId && (
+                  <>
+                    <div className="pt-2 border-t border-slate-200">
+                      <span className="text-xs text-slate-500">Room Number:</span>
+                      <p className="text-sm font-medium text-slate-800">
+                        {booking.roomId.roomNumber || "N/A"}
+                      </p>
+                    </div>
+                    {(booking.roomId.roomTypeId?.name || booking.roomId.roomType) && (
+                      <div>
+                        <span className="text-xs text-slate-500">Room Type:</span>
+                        <p className="text-sm text-slate-700">
+                          {booking.roomId.roomTypeId?.name || booking.roomId.roomType || "N/A"}
+                        </p>
+                      </div>
+                    )}
+                    {booking.roomId.roomTypeId && (
+                      <>
+                        {booking.roomId.roomTypeId.bedType && (
+                          <div>
+                            <span className="text-xs text-slate-500">Bed Type:</span>
+                            <p className="text-sm text-slate-700">
+                              {booking.roomId.roomTypeId.bedCount || booking.roomId.bedCount || 1}x {booking.roomId.roomTypeId.bedType || booking.roomId.bedType || "N/A"}
+                            </p>
+                          </div>
+                        )}
+                        {booking.roomId.maxOccupancy && (
+                          <div>
+                            <span className="text-xs text-slate-500">Max Occupancy:</span>
+                            <p className="text-sm text-slate-700">
+                              {booking.roomId.maxOccupancy || booking.roomId.roomTypeId.maxOccupancy || "N/A"} guests
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </div>
