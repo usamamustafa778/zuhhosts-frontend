@@ -8,7 +8,14 @@ import DataTable from "@/components/common/DataTable";
 import Modal from "@/components/common/Modal";
 import PageLoader from "@/components/common/PageLoader";
 import PhoneInput from "@/components/common/PhoneInput";
-import { getAllGuests, createGuest, updateGuest, deleteGuest, API_BASE_URL, getImageUrl } from "@/lib/api";
+import {
+  getAllGuests,
+  createGuest,
+  updateGuest,
+  deleteGuest,
+  API_BASE_URL,
+  getImageUrl,
+} from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
 
@@ -21,7 +28,8 @@ export default function GuestsPage() {
   // SEO
   useSEO({
     title: "Guests | Zuha Host",
-    description: "Manage your guest directory. View, create, and update guest profiles with contact information.",
+    description:
+      "Manage your guest directory. View, create, and update guest profiles with contact information.",
     keywords: "guests, guest directory, guest management, customer profiles",
   });
 
@@ -36,7 +44,7 @@ export default function GuestsPage() {
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [viewMode, setViewMode] = useState(() => {
     // Default to table on desktop, cards on mobile
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       return window.innerWidth >= 768 ? "table" : "cards";
     }
     return "table";
@@ -50,13 +58,13 @@ export default function GuestsPage() {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (openDropdownId && !event.target.closest('.dropdown-container')) {
+      if (openDropdownId && !event.target.closest(".dropdown-container")) {
         setOpenDropdownId(null);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openDropdownId]);
 
   // Form state for create modal (matches API: name, phone, email, idCardNumber, notes, preferences, blacklist fields + files)
@@ -130,9 +138,15 @@ export default function GuestsPage() {
       const searchQuery = filters.search || query;
       if (searchQuery) {
         const searchLower = searchQuery.toLowerCase();
-        const nameMatch = (guest.name || "").toLowerCase().includes(searchLower);
-        const emailMatch = (guest.email || "").toLowerCase().includes(searchLower);
-        const phoneMatch = (guest.phone || "").toLowerCase().includes(searchLower);
+        const nameMatch = (guest.name || "")
+          .toLowerCase()
+          .includes(searchLower);
+        const emailMatch = (guest.email || "")
+          .toLowerCase()
+          .includes(searchLower);
+        const phoneMatch = (guest.phone || "")
+          .toLowerCase()
+          .includes(searchLower);
         if (!nameMatch && !emailMatch && !phoneMatch) return false;
       }
 
@@ -141,8 +155,10 @@ export default function GuestsPage() {
       if (filters.hasIdCard === "no" && guest.idCard) return false;
 
       // Has Profile Picture filter
-      if (filters.hasProfilePicture === "yes" && !guest.profilePicture) return false;
-      if (filters.hasProfilePicture === "no" && guest.profilePicture) return false;
+      if (filters.hasProfilePicture === "yes" && !guest.profilePicture)
+        return false;
+      if (filters.hasProfilePicture === "no" && guest.profilePicture)
+        return false;
 
       return true;
     });
@@ -165,7 +181,7 @@ export default function GuestsPage() {
 
   const paginated = filtered.slice(
     page * PAGE_SIZE,
-    page * PAGE_SIZE + PAGE_SIZE
+    page * PAGE_SIZE + PAGE_SIZE,
   );
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
 
@@ -317,13 +333,16 @@ export default function GuestsPage() {
         if (editForm.phone) formData.append("phone", editForm.phone);
         // Send idCardNumber: empty string becomes empty string (backend will normalize to null)
         if (editForm.idCardNumber !== undefined) {
-          const idCardValue = editForm.idCardNumber && editForm.idCardNumber.trim()
-            ? editForm.idCardNumber.trim()
-            : "";
+          const idCardValue =
+            editForm.idCardNumber && editForm.idCardNumber.trim()
+              ? editForm.idCardNumber.trim()
+              : "";
           formData.append("idCardNumber", idCardValue);
         }
-        if (editForm.notes !== undefined) formData.append("notes", editForm.notes);
-        if (editForm.preferences !== undefined) formData.append("preferences", editForm.preferences);
+        if (editForm.notes !== undefined)
+          formData.append("notes", editForm.notes);
+        if (editForm.preferences !== undefined)
+          formData.append("preferences", editForm.preferences);
         formData.append("blacklist", String(editForm.isBlacklisted));
         formData.append("blacklistNotes", editForm.blacklistNotes ?? "");
         const flagsArr = parseFlags(editForm.flagsText);
@@ -337,16 +356,13 @@ export default function GuestsPage() {
           typeof window !== "undefined"
             ? localStorage.getItem("luxeboard.authToken")
             : null;
-        const response = await fetch(
-          `${API_BASE_URL}/guests/${guestId}`,
-          {
-            method: "PUT",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-            body: formData,
-          }
-        );
+        const response = await fetch(`${API_BASE_URL}/guests/${guestId}`, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        });
 
         if (!response.ok) {
           const errorData = await response.json();
@@ -362,12 +378,14 @@ export default function GuestsPage() {
         if (editForm.phone) updateData.phone = editForm.phone;
         // Only send idCardNumber if it has a value, otherwise send null to clear it
         if (editForm.idCardNumber !== undefined) {
-          updateData.idCardNumber = editForm.idCardNumber && editForm.idCardNumber.trim()
-            ? editForm.idCardNumber.trim()
-            : null;
+          updateData.idCardNumber =
+            editForm.idCardNumber && editForm.idCardNumber.trim()
+              ? editForm.idCardNumber.trim()
+              : null;
         }
         if (editForm.notes !== undefined) updateData.notes = editForm.notes;
-        if (editForm.preferences !== undefined) updateData.preferences = editForm.preferences;
+        if (editForm.preferences !== undefined)
+          updateData.preferences = editForm.preferences;
         updateData.blacklist = editForm.isBlacklisted;
         updateData.blacklistNotes = editForm.blacklistNotes ?? "";
         const flagsArr = parseFlags(editForm.flagsText);
@@ -380,7 +398,7 @@ export default function GuestsPage() {
         prev.map((guest) => {
           const id = guest.id || guest._id;
           return id === guestId ? updatedGuest : guest;
-        })
+        }),
       );
       setSelectedGuest(null);
       setEditForm({
@@ -426,10 +444,12 @@ export default function GuestsPage() {
         prev.filter((guest) => {
           const id = guest.id || guest._id;
           return id !== guestId;
-        })
+        }),
       );
       setGuestPendingDelete(null);
-      toast.success(`Guest "${guestName}" deleted successfully`, { id: toastId });
+      toast.success(`Guest "${guestName}" deleted successfully`, {
+        id: toastId,
+      });
     } catch (err) {
       toast.error(err.message || "Failed to delete guest", { id: toastId });
     }
@@ -439,7 +459,11 @@ export default function GuestsPage() {
     setSelectedGuest(guest);
     // API returns blacklist / internalFlags; support legacy isBlacklisted / flags
     const blacklist = guest.blacklist ?? guest.isBlacklisted;
-    const flagsArr = Array.isArray(guest.internalFlags) ? guest.internalFlags : (Array.isArray(guest.flags) ? guest.flags : []);
+    const flagsArr = Array.isArray(guest.internalFlags)
+      ? guest.internalFlags
+      : Array.isArray(guest.flags)
+        ? guest.flags
+        : [];
     setEditForm({
       name: guest.name || "",
       email: guest.email || "",
@@ -528,7 +552,7 @@ export default function GuestsPage() {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -555,7 +579,7 @@ export default function GuestsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
+    <div className="mx-auto space-y-8">
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -563,8 +587,18 @@ export default function GuestsPage() {
               onClick={() => router.back()}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0 lg:hidden"
             >
-              <svg className="w-6 h-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              <svg
+                className="w-6 h-6 text-slate-900"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
               </svg>
             </button>
             <h1 className="mt-2 text-2xl lg:text-3xl font-semibold text-slate-900">
@@ -603,10 +637,11 @@ export default function GuestsPage() {
             {/* View Mode Switcher */}
             <div className="flex rounded-full border border-slate-200 p-1">
               <button
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "cards"
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:bg-slate-50"
-                  }`}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                  viewMode === "cards"
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-600 hover:bg-slate-50"
+                }`}
                 onClick={() => setViewMode("cards")}
               >
                 <svg
@@ -625,10 +660,11 @@ export default function GuestsPage() {
                 </svg>
               </button>
               <button
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "table"
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:bg-slate-50"
-                  }`}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                  viewMode === "table"
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-600 hover:bg-slate-50"
+                }`}
                 onClick={() => setViewMode("table")}
               >
                 <svg
@@ -693,7 +729,9 @@ export default function GuestsPage() {
                 </label>
                 <select
                   value={filters.hasIdCard}
-                  onChange={(e) => handleFilterChange("hasIdCard", e.target.value)}
+                  onChange={(e) =>
+                    handleFilterChange("hasIdCard", e.target.value)
+                  }
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
                 >
                   <option value="">All</option>
@@ -709,7 +747,9 @@ export default function GuestsPage() {
                 </label>
                 <select
                   value={filters.hasProfilePicture}
-                  onChange={(e) => handleFilterChange("hasProfilePicture", e.target.value)}
+                  onChange={(e) =>
+                    handleFilterChange("hasProfilePicture", e.target.value)
+                  }
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
                 >
                   <option value="">All</option>
@@ -766,12 +806,26 @@ export default function GuestsPage() {
           {filtered.length === 0 ? (
             <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
-                <svg className="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                <svg
+                  className="h-8 w-8 text-slate-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+                  />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">No guests found</h3>
-              <p className="text-sm text-slate-600 mb-6">Try adjusting your filters or add a new guest</p>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                No guests found
+              </h3>
+              <p className="text-sm text-slate-600 mb-6">
+                Try adjusting your filters or add a new guest
+              </p>
               <button
                 className="rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white hover:bg-slate-800"
                 onClick={() => setCreateOpen(true)}
@@ -812,8 +866,12 @@ export default function GuestsPage() {
 
                         {/* Name, Phone, ID Card, and metadata */}
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-slate-900 truncate mb-1">{guest.name || "N/A"}</h3>
-                          <p className="text-sm text-slate-600 mb-1">{guest.phone || "N/A"}</p>
+                          <h3 className="font-semibold text-slate-900 truncate mb-1">
+                            {guest.name || "N/A"}
+                          </h3>
+                          <p className="text-sm text-slate-600 mb-1">
+                            {guest.phone || "N/A"}
+                          </p>
                           <div className="text-sm mb-1">
                             {idCardUrl ? (
                               <a
@@ -825,7 +883,9 @@ export default function GuestsPage() {
                                 View ID Card
                               </a>
                             ) : (
-                              <span className="text-slate-400">ID Card: N/A</span>
+                              <span className="text-slate-400">
+                                ID Card: N/A
+                              </span>
                             )}
                           </div>
                           {guest.idCardNumber && (
@@ -838,15 +898,17 @@ export default function GuestsPage() {
                               Blacklisted
                             </p>
                           )}
-                          {Array.isArray(guest.flags) && guest.flags.length > 0 && (
-                            <p className="mt-1 text-[11px] text-slate-500">
-                              Flags: {guest.flags.join(", ")}
-                            </p>
-                          )}
+                          {Array.isArray(guest.flags) &&
+                            guest.flags.length > 0 && (
+                              <p className="mt-1 text-[11px] text-slate-500">
+                                Flags: {guest.flags.join(", ")}
+                              </p>
+                            )}
                           {(guest.notes || guest.preferences) && (
                             <p className="mt-1 text-xs text-slate-500 line-clamp-2">
                               {guest.notes && `Notes: ${guest.notes} `}
-                              {guest.preferences && `Prefs: ${guest.preferences}`}
+                              {guest.preferences &&
+                                `Prefs: ${guest.preferences}`}
                             </p>
                           )}
                         </div>
@@ -855,11 +917,25 @@ export default function GuestsPage() {
                       {/* Actions Dropdown */}
                       <div className="relative dropdown-container">
                         <button
-                          onClick={() => setOpenDropdownId(openDropdownId === guestId ? null : guestId)}
+                          onClick={() =>
+                            setOpenDropdownId(
+                              openDropdownId === guestId ? null : guestId,
+                            )
+                          }
                           className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100 active:bg-slate-200 transition-colors shrink-0"
                         >
-                          <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                          <svg
+                            className="w-5 h-5 text-slate-600"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+                            />
                           </svg>
                         </button>
 
@@ -884,8 +960,18 @@ export default function GuestsPage() {
                                 setOpenDropdownId(null);
                               }}
                             >
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                />
                               </svg>
                               Edit
                             </button>
@@ -896,8 +982,18 @@ export default function GuestsPage() {
                                 setOpenDropdownId(null);
                               }}
                             >
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
                               </svg>
                               Delete
                             </button>
@@ -933,7 +1029,9 @@ export default function GuestsPage() {
                 </button>
               </div>
               <p className="text-sm text-slate-600">
-                Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length} guest{filtered.length !== 1 ? "s" : ""}
+                Showing {page * PAGE_SIZE + 1}-
+                {Math.min((page + 1) * PAGE_SIZE, filtered.length)} of{" "}
+                {filtered.length} guest{filtered.length !== 1 ? "s" : ""}
               </p>
             </div>
           )}
@@ -1001,19 +1099,34 @@ export default function GuestsPage() {
                     {guest.name || "N/A"}
                   </div>
                 </div>,
-                <div key={`email-${guestId}`} className="text-sm text-slate-600">
+                <div
+                  key={`email-${guestId}`}
+                  className="text-sm text-slate-600"
+                >
                   {guest.email || "N/A"}
                 </div>,
-                <div key={`phone-${guestId}`} className="text-sm text-slate-600">
+                <div
+                  key={`phone-${guestId}`}
+                  className="text-sm text-slate-600"
+                >
                   {guest.phone || "N/A"}
                 </div>,
-                <div key={`idcardnum-${guestId}`} className="text-sm text-slate-600">
+                <div
+                  key={`idcardnum-${guestId}`}
+                  className="text-sm text-slate-600"
+                >
                   {guest.idCardNumber || "—"}
                 </div>,
-                <div key={`notes-${guestId}`} className="text-xs text-slate-500 max-w-xs truncate">
+                <div
+                  key={`notes-${guestId}`}
+                  className="text-xs text-slate-500 max-w-xs truncate"
+                >
                   {guest.notes || "—"}
                 </div>,
-                <div key={`prefs-${guestId}`} className="text-xs text-slate-500 max-w-xs truncate">
+                <div
+                  key={`prefs-${guestId}`}
+                  className="text-xs text-slate-500 max-w-xs truncate"
+                >
                   {guest.preferences || "—"}
                 </div>,
                 <div key={`status-${guestId}`} className="text-xs">
@@ -1027,10 +1140,18 @@ export default function GuestsPage() {
                     </span>
                   )}
                 </div>,
-                <div key={`flags-${guestId}`} className="text-xs text-slate-500 max-w-xs truncate">
-                  {Array.isArray(guest.flags) && guest.flags.length > 0 ? guest.flags.join(", ") : "—"}
+                <div
+                  key={`flags-${guestId}`}
+                  className="text-xs text-slate-500 max-w-xs truncate"
+                >
+                  {Array.isArray(guest.flags) && guest.flags.length > 0
+                    ? guest.flags.join(", ")
+                    : "—"}
                 </div>,
-                <div key={`blnotes-${guestId}`} className="text-xs text-slate-500 max-w-xs truncate">
+                <div
+                  key={`blnotes-${guestId}`}
+                  className="text-xs text-slate-500 max-w-xs truncate"
+                >
                   {guest.blacklistNotes || "—"}
                 </div>,
                 <div key={`idcard-${guestId}`} className="text-center">
@@ -1133,16 +1254,17 @@ export default function GuestsPage() {
           {selectedGuest &&
             (selectedGuest.profilePicture || selectedGuest.idCard) && (
               <div className="flex gap-4 p-3 bg-slate-50 rounded-lg">
-                {selectedGuest.profilePicture && getImageUrl(selectedGuest.profilePicture) && (
-                  <div className="text-center">
-                    <img
-                      src={getImageUrl(selectedGuest.profilePicture)}
-                      alt="Current Profile"
-                      className="h-20 w-20 rounded-full object-cover border-2 border-slate-200 mb-1"
-                    />
-                    <p className="text-xs text-slate-500">Current Photo</p>
-                  </div>
-                )}
+                {selectedGuest.profilePicture &&
+                  getImageUrl(selectedGuest.profilePicture) && (
+                    <div className="text-center">
+                      <img
+                        src={getImageUrl(selectedGuest.profilePicture)}
+                        alt="Current Profile"
+                        className="h-20 w-20 rounded-full object-cover border-2 border-slate-200 mb-1"
+                      />
+                      <p className="text-xs text-slate-500">Current Photo</p>
+                    </div>
+                  )}
                 {selectedGuest.idCard && getImageUrl(selectedGuest.idCard) && (
                   <div className="text-center">
                     <a
@@ -1253,7 +1375,8 @@ export default function GuestsPage() {
               placeholder="vip, late-checkout, no-show"
             />
             <p className="mt-1 text-xs text-slate-500">
-              Internal tags to quickly identify guest behaviour or special handling.
+              Internal tags to quickly identify guest behaviour or special
+              handling.
             </p>
           </div>
 
@@ -1602,7 +1725,8 @@ export default function GuestsPage() {
                   />
                 ) : (
                   <div className="h-20 w-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-2xl font-bold text-white shrink-0">
-                    {bookingHistoryData.guest.name?.charAt(0)?.toUpperCase() || "G"}
+                    {bookingHistoryData.guest.name?.charAt(0)?.toUpperCase() ||
+                      "G"}
                   </div>
                 )}
                 <div>
@@ -1620,7 +1744,9 @@ export default function GuestsPage() {
 
               {/* ID Card */}
               <div className="p-4 bg-slate-50 rounded-lg">
-                <h4 className="text-sm font-semibold text-slate-700 mb-2">ID Card</h4>
+                <h4 className="text-sm font-semibold text-slate-700 mb-2">
+                  ID Card
+                </h4>
                 {getImageUrl(bookingHistoryData.guest.idCard) ? (
                   <div className="space-y-2">
                     <a
@@ -1675,7 +1801,7 @@ export default function GuestsPage() {
                 <div className="bg-orange-50 p-3 rounded-lg">
                   <div className="text-2xl font-bold text-orange-900">
                     {bookingHistoryData.statistics.averageStayDuration.toFixed(
-                      1
+                      1,
                     )}
                   </div>
                   <div className="text-xs text-orange-600">
@@ -1768,7 +1894,8 @@ export default function GuestsPage() {
         onPrimaryAction={handleConfirmDelete}
       >
         <p className="text-sm text-slate-500">
-          This action cannot be undone. This may impact related bookings and guest history.
+          This action cannot be undone. This may impact related bookings and
+          guest history.
         </p>
       </Modal>
     </div>

@@ -137,8 +137,7 @@ function MobileBottomNav({ onMenuToggle }) {
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={
-                pathname === "/bookings" ||
-                pathname.startsWith("/bookings/")
+                pathname === "/bookings" || pathname.startsWith("/bookings/")
                   ? 2.5
                   : 2
               }
@@ -204,7 +203,11 @@ export default function DashboardShell({ children }) {
 
   return (
     <DashboardContext.Provider value={contextValue}>
-      <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-900">
+      {/* Desktop topbar only – mobile uses bottom navigation */}
+      <div className="hidden lg:block">
+        <Topbar onMenuToggle={() => setSidebarVisible((prev) => !prev)} />
+      </div>
+      <div className="flex h-screen lg:h-[calc(100vh-64px)] overflow-hidden text-slate-900 bg-slate-100 lg:rounded-xl">
         {/* Desktop Sidebar */}
         <Sidebar
           collapsed={sidebarCollapsed}
@@ -215,14 +218,9 @@ export default function DashboardShell({ children }) {
         />
 
         <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Topbar - Desktop Only */}
-          <div className="hidden lg:block">
-            <Topbar onMenuToggle={() => setSidebarVisible((prev) => !prev)} />
-          </div>
-
           {/* Main Content - no horizontal padding on /website (full-bleed editor) */}
           <main
-            className={`flex-1 overflow-y-auto pb-24 lg:pb-6 ${
+            className={`flex-1 overflow-y-auto pb-24 lg:pb-6 bg-slate-100 ${
               pathname === "/website" || pathname?.startsWith("/website/")
                 ? "py-0"
                 : "px-4 py-6 lg:px-10"

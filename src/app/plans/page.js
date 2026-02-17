@@ -40,35 +40,36 @@ export default function PlansPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.back()}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0 lg:hidden"
+    <div className="mx-auto max-w-3xl space-y-8">
+      <header className="mb-8 lg:max-w-4xl lg:mx-auto">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="mb-3 inline-flex items-center gap-1 text-xs font-medium text-slate-500 transition-colors hover:text-slate-900 focus:outline-none"
+          aria-label="Go back"
+        >
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
           >
-            <svg
-              className="w-6 h-6 text-slate-900"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-          </button>
-          <div>
-            <h1 className="text-3xl font-semibold text-slate-900">Plans</h1>
-            <p className="text-slate-600 mt-1">
-              View and manage your subscription plan
-            </p>
-          </div>
-        </div>
-      </div>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
+          Back
+        </button>
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900">
+          Plans
+        </h1>
+        <p className="mt-1 text-sm text-slate-600">
+          View and manage your subscription plan.
+        </p>
+      </header>
 
       {subscriptionLoading ? (
         <div className="flex min-h-[200px] items-center justify-center rounded-3xl border border-slate-100 bg-white">
@@ -113,12 +114,12 @@ export default function PlansPage() {
                 onCreateSubscription={async (
                   packageType,
                   notes,
-                  paymentScreenshot
+                  paymentScreenshot,
                 ) => {
                   await createSubscription(
                     packageType,
                     notes,
-                    paymentScreenshot
+                    paymentScreenshot,
                   );
                   await loadActiveSubscription();
                 }}

@@ -3,7 +3,26 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { Eye, MapPin, DollarSign, Home, Bed, Bath, Users, Square, Calendar, Clock, Ban, Dog, FileText, Star, Globe, Lock, Edit3, CheckCircle } from "lucide-react";
+import {
+  Eye,
+  MapPin,
+  DollarSign,
+  Home,
+  Bed,
+  Bath,
+  Users,
+  Square,
+  Calendar,
+  Clock,
+  Ban,
+  Dog,
+  FileText,
+  Star,
+  Globe,
+  Lock,
+  Edit3,
+  CheckCircle,
+} from "lucide-react";
 import PhotoCarousel from "@/components/modules/PhotoCarousel";
 import DataTable from "@/components/common/DataTable";
 import Modal from "@/components/common/Modal";
@@ -87,10 +106,12 @@ export default function PropertiesPage() {
 
         // Provide more helpful error messages for common backend issues
         if (errorMessage.includes("is not a function")) {
-          errorMessage = "Backend API error: Please contact support or check backend logs";
+          errorMessage =
+            "Backend API error: Please contact support or check backend logs";
           console.error("🔴 Backend Error:", err.message);
         } else if (errorMessage.includes("fetch")) {
-          errorMessage = "Unable to connect to server. Please check your connection.";
+          errorMessage =
+            "Unable to connect to server. Please check your connection.";
         }
 
         console.error("🔴 PropertiesPage: API call failed:", err);
@@ -144,7 +165,9 @@ export default function PropertiesPage() {
       const data = await getAllProperties();
       setPropertiesData(Array.isArray(data) ? data : []);
     } catch (error) {
-      toast.error(error.message || "Failed to update visibility", { id: toastId });
+      toast.error(error.message || "Failed to update visibility", {
+        id: toastId,
+      });
     }
   };
 
@@ -201,7 +224,7 @@ export default function PropertiesPage() {
       isCreating,
       formData,
       newImages,
-      event: e
+      event: e,
     });
 
     if (isCreating) {
@@ -211,7 +234,10 @@ export default function PropertiesPage() {
 
     let toastId;
     try {
-      console.log("🔵 handleCreateProperty - Starting validation", { formData, newImages });
+      console.log("🔵 handleCreateProperty - Starting validation", {
+        formData,
+        newImages,
+      });
       setIsCreating(true);
 
       // Validate form
@@ -229,7 +255,9 @@ export default function PropertiesPage() {
       }
 
       // modelType: "hotel" or "airbnb" per backend; propertyType: display category (hotel, apartment, villa, etc.)
-      const propertyTypeLower = formData.propertyType ? formData.propertyType.toLowerCase() : "house";
+      const propertyTypeLower = formData.propertyType
+        ? formData.propertyType.toLowerCase()
+        : "house";
       const payload = {
         ...formData,
         price: Number(formData.price),
@@ -268,7 +296,7 @@ export default function PropertiesPage() {
       toastId = toast.loading("Deleting property...");
       await deleteProperty(propertyId);
       setPropertiesData((prev) =>
-        prev.filter((prop) => (prop.id || prop._id) !== propertyId)
+        prev.filter((prop) => (prop.id || prop._id) !== propertyId),
       );
       toast.success("Property deleted successfully!", { id: toastId });
     } catch (err) {
@@ -386,10 +414,14 @@ export default function PropertiesPage() {
           {error.includes("Backend") && (
             <div className="mt-6 p-4 bg-white rounded-lg border border-rose-200">
               <p className="text-xs text-slate-600 font-mono text-left">
-                <strong>Technical Details:</strong><br />
-                This appears to be a backend server error. Please ensure:<br />
-                1. Backend server is running<br />
-                2. API endpoint is correctly configured<br />
+                <strong>Technical Details:</strong>
+                <br />
+                This appears to be a backend server error. Please ensure:
+                <br />
+                1. Backend server is running
+                <br />
+                2. API endpoint is correctly configured
+                <br />
                 3. Backend dependencies are up to date
               </p>
             </div>
@@ -400,7 +432,7 @@ export default function PropertiesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
+    <div className="mx-auto space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
@@ -457,10 +489,11 @@ export default function PropertiesPage() {
           <div className="flex rounded-full border border-slate-200 p-1">
             {/* Blog Card View */}
             <button
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "blog"
-                ? "bg-slate-900 text-white"
-                : "text-slate-600 hover:bg-slate-50"
-                }`}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                viewMode === "blog"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
               onClick={() => setViewMode("blog")}
               title="Blog Cards"
             >
@@ -481,10 +514,11 @@ export default function PropertiesPage() {
             </button>
             {/* List View */}
             <button
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "list"
-                ? "bg-slate-900 text-white"
-                : "text-slate-600 hover:bg-slate-50"
-                }`}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                viewMode === "list"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
               onClick={() => setViewMode("list")}
               title="List View"
             >
@@ -505,10 +539,11 @@ export default function PropertiesPage() {
             </button>
             {/* Table View */}
             <button
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "table"
-                ? "bg-slate-900 text-white"
-                : "text-slate-600 hover:bg-slate-50"
-                }`}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                viewMode === "table"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
               onClick={() => setViewMode("table")}
               title="Table View"
             >
@@ -672,13 +707,17 @@ export default function PropertiesPage() {
             const images =
               property.images && property.images.length > 0
                 ? property.images.map((img) => getImageUrl(img)).filter(Boolean)
-                : (property.photos || (property.photo ? [property.photo] : [])).map((p) => (typeof p === "string" ? getImageUrl(p) : p)).filter(Boolean);
+                : (property.photos || (property.photo ? [property.photo] : []))
+                    .map((p) => (typeof p === "string" ? getImageUrl(p) : p))
+                    .filter(Boolean);
 
             return (
               <div
                 key={propertyId}
                 className="flex flex-col rounded-3xl border border-slate-100 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => router.push(`/properties/${property.id || property._id}`)}
+                onClick={() =>
+                  router.push(`/properties/${property.id || property._id}`)
+                }
               >
                 {/* Full-width Image */}
                 <div className="relative w-full h-56">
@@ -729,10 +768,14 @@ export default function PropertiesPage() {
                   </h3>
                   <p className="text-sm text-slate-500 mb-3">
                     {property.propertyType
-                      ? property.propertyType.charAt(0).toUpperCase() + property.propertyType.slice(1)
+                      ? property.propertyType.charAt(0).toUpperCase() +
+                        property.propertyType.slice(1)
                       : "House"}
                     {property.placeType && (
-                      <span className="text-slate-400"> · {property.placeType}</span>
+                      <span className="text-slate-400">
+                        {" "}
+                        · {property.placeType}
+                      </span>
                     )}{" "}
                     in {property.location || property.address}
                   </p>
@@ -746,7 +789,10 @@ export default function PropertiesPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-lg font-semibold text-slate-900">
-                      {formatCurrency(property.price || 0, property.currency || null)}
+                      {formatCurrency(
+                        property.price || 0,
+                        property.currency || null,
+                      )}
                       <span className="text-sm font-normal text-slate-500">
                         {" "}
                         / night
@@ -768,13 +814,17 @@ export default function PropertiesPage() {
             const images =
               property.images && property.images.length > 0
                 ? property.images.map((img) => getImageUrl(img)).filter(Boolean)
-                : (property.photos || (property.photo ? [property.photo] : [])).map((p) => (typeof p === "string" ? getImageUrl(p) : p)).filter(Boolean);
+                : (property.photos || (property.photo ? [property.photo] : []))
+                    .map((p) => (typeof p === "string" ? getImageUrl(p) : p))
+                    .filter(Boolean);
 
             return (
               <div
                 key={propertyId}
                 className="flex gap-2 items-center rounded-2xl border border-slate-100 bg-white p-1.5 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => router.push(`/properties/${property.id || property._id}`)}
+                onClick={() =>
+                  router.push(`/properties/${property.id || property._id}`)
+                }
               >
                 {/* Small Thumbnail */}
                 <div className="shrink-0 w-12 h-12">
@@ -816,14 +866,21 @@ export default function PropertiesPage() {
                   </h3>
                   <p className="text-sm text-slate-500 truncate">
                     {property.propertyType
-                      ? property.propertyType.charAt(0).toUpperCase() + property.propertyType.slice(1)
+                      ? property.propertyType.charAt(0).toUpperCase() +
+                        property.propertyType.slice(1)
                       : "House"}
                     {property.placeType && (
-                      <span className="text-slate-400"> · {property.placeType}</span>
+                      <span className="text-slate-400">
+                        {" "}
+                        · {property.placeType}
+                      </span>
                     )}{" "}
                     in {property.location || property.address}
-                    {property.maxGuests > 0 && ` · ${property.maxGuests} guests`}
-                    {property.starRating != null && property.starRating > 0 && ` · ★ ${Number(property.starRating).toFixed(1)}`}
+                    {property.maxGuests > 0 &&
+                      ` · ${property.maxGuests} guests`}
+                    {property.starRating != null &&
+                      property.starRating > 0 &&
+                      ` · ★ ${Number(property.starRating).toFixed(1)}`}
                   </p>
                 </div>
               </div>
@@ -855,9 +912,17 @@ export default function PropertiesPage() {
               const hostName = property.hostId?.name || "N/A";
 
               // Get property image
-              const images = property.images && property.images.length > 0
-                ? property.images.map((img) => getImageUrl(img)).filter(Boolean)
-                : (property.photos || (property.photo ? [property.photo] : [])).map((p) => (typeof p === "string" ? getImageUrl(p) : p)).filter(Boolean);
+              const images =
+                property.images && property.images.length > 0
+                  ? property.images
+                      .map((img) => getImageUrl(img))
+                      .filter(Boolean)
+                  : (
+                      property.photos ||
+                      (property.photo ? [property.photo] : [])
+                    )
+                      .map((p) => (typeof p === "string" ? getImageUrl(p) : p))
+                      .filter(Boolean);
               const firstImage = images.length > 0 ? images[0] : null;
 
               return {
@@ -871,15 +936,15 @@ export default function PropertiesPage() {
                         alt={property.title || "Property"}
                         className="w-16 h-16 object-cover rounded-lg border border-slate-200"
                         onError={(e) => {
-                          e.target.style.display = 'none';
+                          e.target.style.display = "none";
                           if (e.target.nextSibling) {
-                            e.target.nextSibling.style.display = 'flex';
+                            e.target.nextSibling.style.display = "flex";
                           }
                         }}
                       />
                     ) : null}
                     <div
-                      className={`w-16 h-16 rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center ${firstImage ? 'hidden' : ''}`}
+                      className={`w-16 h-16 rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center ${firstImage ? "hidden" : ""}`}
                     >
                       <svg
                         className="w-8 h-8 text-slate-400"
@@ -900,37 +965,61 @@ export default function PropertiesPage() {
                   hostName,
                   property.location || property.address,
                   (property.propertyType
-                    ? property.propertyType.charAt(0).toUpperCase() + property.propertyType.slice(1)
+                    ? property.propertyType.charAt(0).toUpperCase() +
+                      property.propertyType.slice(1)
                     : "House") +
-                  (property.starRating != null && property.starRating > 0
-                    ? ` ★${Number(property.starRating).toFixed(1)}`
-                    : ""),
+                    (property.starRating != null && property.starRating > 0
+                      ? ` ★${Number(property.starRating).toFixed(1)}`
+                      : ""),
                   `${property.bedrooms || 0} / ${property.bathrooms || 0}` +
-                  (property.maxGuests > 0 ? ` · ${property.maxGuests} guests` : ""),
+                    (property.maxGuests > 0
+                      ? ` · ${property.maxGuests} guests`
+                      : ""),
                   `${property.area || 0} sq ft`,
-                  formatCurrency(property.price || 0, property.currency || null),
+                  formatCurrency(
+                    property.price || 0,
+                    property.currency || null,
+                  ),
                   <StatusPill
                     key="status"
                     label={property.status || "available"}
                   />,
-                  <div key="public-available" className="flex items-center gap-2">
+                  <div
+                    key="public-available"
+                    className="flex items-center gap-2"
+                  >
                     <button
-                      onClick={() => handleToggleVisibility(propertyId, property.isPubliclyVisible)}
-                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${property.isPubliclyVisible
-                        ? "bg-green-100 text-green-700 hover:bg-green-200"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                        }`}
-                      title={property.isPubliclyVisible ? "Click to make private" : "Click to make public"}
+                      onClick={() =>
+                        handleToggleVisibility(
+                          propertyId,
+                          property.isPubliclyVisible,
+                        )
+                      }
+                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                        property.isPubliclyVisible
+                          ? "bg-green-100 text-green-700 hover:bg-green-200"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                      title={
+                        property.isPubliclyVisible
+                          ? "Click to make private"
+                          : "Click to make public"
+                      }
                     >
                       {property.isPubliclyVisible ? "🌐 Public" : "🔒 Private"}
                     </button>
                   </div>,
                   <div key="drafted" className="flex items-center">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${!property.isPubliclyVisible
-                      ? "bg-amber-100 text-amber-700"
-                      : "bg-slate-100 text-slate-500"
-                      }`}>
-                      {!property.isPubliclyVisible ? "📝 Draft" : "✅ Published"}
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        !property.isPubliclyVisible
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {!property.isPubliclyVisible
+                        ? "📝 Draft"
+                        : "✅ Published"}
                     </span>
                   </div>,
                   <div key="actions" className="flex gap-2 items-center">
@@ -939,17 +1028,26 @@ export default function PropertiesPage() {
                       onClick={async () => {
                         setViewProperty(property);
                         // If it's a hotel property, fetch room types and rooms
-                        const modelType = property.modelType || (property.propertyType?.toLowerCase() === "hotel" ? "hotel" : "airbnb");
+                        const modelType =
+                          property.modelType ||
+                          (property.propertyType?.toLowerCase() === "hotel"
+                            ? "hotel"
+                            : "airbnb");
                         if (modelType === "hotel") {
                           setIsLoadingRoomData(true);
                           try {
                             const propertyId = property.id || property._id;
-                            const [roomTypesData, roomsData] = await Promise.all([
-                              getRoomTypes(propertyId).catch(() => []),
-                              getRooms(propertyId).catch(() => []),
-                            ]);
-                            setViewPropertyRoomTypes(Array.isArray(roomTypesData) ? roomTypesData : []);
-                            setViewPropertyRooms(Array.isArray(roomsData) ? roomsData : []);
+                            const [roomTypesData, roomsData] =
+                              await Promise.all([
+                                getRoomTypes(propertyId).catch(() => []),
+                                getRooms(propertyId).catch(() => []),
+                              ]);
+                            setViewPropertyRoomTypes(
+                              Array.isArray(roomTypesData) ? roomTypesData : [],
+                            );
+                            setViewPropertyRooms(
+                              Array.isArray(roomsData) ? roomsData : [],
+                            );
                           } catch (error) {
                             console.error("Failed to load room data:", error);
                             setViewPropertyRoomTypes([]);
@@ -968,7 +1066,11 @@ export default function PropertiesPage() {
                     </button>
                     <button
                       className="text-slate-900 underline-offset-2 hover:underline text-sm"
-                      onClick={() => router.push(`/properties/${property.id || property._id}`)}
+                      onClick={() =>
+                        router.push(
+                          `/properties/${property.id || property._id}`,
+                        )
+                      }
                     >
                       Edit
                     </button>
@@ -1017,7 +1119,7 @@ export default function PropertiesPage() {
                     type="button"
                     onClick={() => {
                       setNewImages((prev) =>
-                        prev.filter((_, i) => i !== index)
+                        prev.filter((_, i) => i !== index),
                       );
                     }}
                     className="absolute top-1 right-1 rounded-full bg-rose-500 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600"
@@ -1054,7 +1156,7 @@ export default function PropertiesPage() {
                       // Validate file sizes
                       const maxSizeBytes = 5 * 1024 * 1024;
                       const oversized = filesToAdd.filter(
-                        (f) => f.size > maxSizeBytes
+                        (f) => f.size > maxSizeBytes,
                       );
 
                       if (oversized.length > 0) {
@@ -1182,9 +1284,17 @@ export default function PropertiesPage() {
           <div className="space-y-6">
             {/* Hero Section with Image and Title */}
             {(() => {
-              const images = viewProperty.images && viewProperty.images.length > 0
-                ? viewProperty.images.map((img) => getImageUrl(img)).filter(Boolean)
-                : (viewProperty.photos || (viewProperty.photo ? [viewProperty.photo] : [])).map((p) => (typeof p === "string" ? getImageUrl(p) : p)).filter(Boolean);
+              const images =
+                viewProperty.images && viewProperty.images.length > 0
+                  ? viewProperty.images
+                      .map((img) => getImageUrl(img))
+                      .filter(Boolean)
+                  : (
+                      viewProperty.photos ||
+                      (viewProperty.photo ? [viewProperty.photo] : [])
+                    )
+                      .map((p) => (typeof p === "string" ? getImageUrl(p) : p))
+                      .filter(Boolean);
 
               return (
                 <div className="relative -mx-6 -mt-6 mb-6">
@@ -1201,25 +1311,34 @@ export default function PropertiesPage() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
-                          {viewProperty.title || viewProperty.name || "Untitled Property"}
+                          {viewProperty.title ||
+                            viewProperty.name ||
+                            "Untitled Property"}
                         </h2>
                         <div className="flex items-center gap-3 flex-wrap">
                           {viewProperty.location && (
                             <div className="flex items-center gap-1.5 text-white/90">
                               <MapPin className="w-4 h-4" />
-                              <span className="text-sm">{viewProperty.location}</span>
+                              <span className="text-sm">
+                                {viewProperty.location}
+                              </span>
                             </div>
                           )}
-                          {viewProperty.starRating != null && viewProperty.starRating > 0 && (
-                            <div className="flex items-center gap-1 text-white/90">
-                              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                              <span className="text-sm font-semibold">{Number(viewProperty.starRating).toFixed(1)}</span>
-                            </div>
-                          )}
+                          {viewProperty.starRating != null &&
+                            viewProperty.starRating > 0 && (
+                              <div className="flex items-center gap-1 text-white/90">
+                                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                                <span className="text-sm font-semibold">
+                                  {Number(viewProperty.starRating).toFixed(1)}
+                                </span>
+                              </div>
+                            )}
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <StatusPill label={viewProperty.status || "available"} />
+                        <StatusPill
+                          label={viewProperty.status || "available"}
+                        />
                         {viewProperty.isPubliclyVisible ? (
                           <span className="px-3 py-1 bg-green-500/90 text-white rounded-full text-xs font-semibold flex items-center gap-1.5">
                             <Globe className="w-3.5 h-3.5" />
@@ -1246,30 +1365,43 @@ export default function PropertiesPage() {
                   <p className="text-xs font-medium text-blue-600">Price</p>
                 </div>
                 <p className="text-lg font-bold text-blue-900">
-                  {formatCurrency(viewProperty.price || 0, viewProperty.currency || null)}
+                  {formatCurrency(
+                    viewProperty.price || 0,
+                    viewProperty.currency || null,
+                  )}
                 </p>
                 <p className="text-xs text-blue-600 mt-0.5">per night</p>
               </div>
               <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
                 <div className="flex items-center gap-2 mb-1">
                   <Bed className="w-4 h-4 text-purple-600" />
-                  <p className="text-xs font-medium text-purple-600">Bedrooms</p>
+                  <p className="text-xs font-medium text-purple-600">
+                    Bedrooms
+                  </p>
                 </div>
-                <p className="text-lg font-bold text-purple-900">{viewProperty.bedrooms || 0}</p>
+                <p className="text-lg font-bold text-purple-900">
+                  {viewProperty.bedrooms || 0}
+                </p>
               </div>
               <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-xl p-4 border border-pink-200">
                 <div className="flex items-center gap-2 mb-1">
                   <Bath className="w-4 h-4 text-pink-600" />
                   <p className="text-xs font-medium text-pink-600">Bathrooms</p>
                 </div>
-                <p className="text-lg font-bold text-pink-900">{viewProperty.bathrooms || 0}</p>
+                <p className="text-lg font-bold text-pink-900">
+                  {viewProperty.bathrooms || 0}
+                </p>
               </div>
               <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-4 border border-emerald-200">
                 <div className="flex items-center gap-2 mb-1">
                   <Users className="w-4 h-4 text-emerald-600" />
-                  <p className="text-xs font-medium text-emerald-600">Max Guests</p>
+                  <p className="text-xs font-medium text-emerald-600">
+                    Max Guests
+                  </p>
                 </div>
-                <p className="text-lg font-bold text-emerald-900">{viewProperty.maxGuests || "N/A"}</p>
+                <p className="text-lg font-bold text-emerald-900">
+                  {viewProperty.maxGuests || "N/A"}
+                </p>
               </div>
             </div>
 
@@ -1280,7 +1412,9 @@ export default function PropertiesPage() {
                   <FileText className="w-5 h-5 text-slate-600" />
                   Description
                 </h3>
-                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{viewProperty.description}</p>
+                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
+                  {viewProperty.description}
+                </p>
               </div>
             )}
 
@@ -1296,9 +1430,14 @@ export default function PropertiesPage() {
                     <Home className="w-4 h-4 text-slate-600" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-xs font-medium text-slate-500 mb-1">Property Type</p>
+                    <p className="text-xs font-medium text-slate-500 mb-1">
+                      Property Type
+                    </p>
                     <p className="text-sm font-semibold text-slate-900">
-                      {viewProperty.propertyType ? viewProperty.propertyType.charAt(0).toUpperCase() + viewProperty.propertyType.slice(1) : "N/A"}
+                      {viewProperty.propertyType
+                        ? viewProperty.propertyType.charAt(0).toUpperCase() +
+                          viewProperty.propertyType.slice(1)
+                        : "N/A"}
                     </p>
                   </div>
                 </div>
@@ -1308,9 +1447,12 @@ export default function PropertiesPage() {
                       <Home className="w-4 h-4 text-slate-600" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-xs font-medium text-slate-500 mb-1">Model Type</p>
+                      <p className="text-xs font-medium text-slate-500 mb-1">
+                        Model Type
+                      </p>
                       <p className="text-sm font-semibold text-slate-900">
-                        {viewProperty.modelType.charAt(0).toUpperCase() + viewProperty.modelType.slice(1)}
+                        {viewProperty.modelType.charAt(0).toUpperCase() +
+                          viewProperty.modelType.slice(1)}
                       </p>
                     </div>
                   </div>
@@ -1321,8 +1463,12 @@ export default function PropertiesPage() {
                       <MapPin className="w-4 h-4 text-slate-600" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-xs font-medium text-slate-500 mb-1">Address</p>
-                      <p className="text-sm font-semibold text-slate-900">{viewProperty.address}</p>
+                      <p className="text-xs font-medium text-slate-500 mb-1">
+                        Address
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {viewProperty.address}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -1332,8 +1478,12 @@ export default function PropertiesPage() {
                       <Square className="w-4 h-4 text-slate-600" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-xs font-medium text-slate-500 mb-1">Area</p>
-                      <p className="text-sm font-semibold text-slate-900">{viewProperty.area} sq ft</p>
+                      <p className="text-xs font-medium text-slate-500 mb-1">
+                        Area
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {viewProperty.area} sq ft
+                      </p>
                     </div>
                   </div>
                 )}
@@ -1343,8 +1493,12 @@ export default function PropertiesPage() {
                       <Bed className="w-4 h-4 text-slate-600" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-xs font-medium text-slate-500 mb-1">Beds</p>
-                      <p className="text-sm font-semibold text-slate-900">{viewProperty.beds}</p>
+                      <p className="text-xs font-medium text-slate-500 mb-1">
+                        Beds
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {viewProperty.beds}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -1357,9 +1511,13 @@ export default function PropertiesPage() {
                     )}
                   </div>
                   <div className="flex-1">
-                    <p className="text-xs font-medium text-slate-500 mb-1">Publication Status</p>
+                    <p className="text-xs font-medium text-slate-500 mb-1">
+                      Publication Status
+                    </p>
                     <p className="text-sm font-semibold text-slate-900">
-                      {!viewProperty.isPubliclyVisible ? "📝 Draft" : "✅ Published"}
+                      {!viewProperty.isPubliclyVisible
+                        ? "📝 Draft"
+                        : "✅ Published"}
                     </p>
                   </div>
                 </div>
@@ -1367,27 +1525,31 @@ export default function PropertiesPage() {
             </div>
 
             {/* Amenities */}
-            {viewProperty.amenities && Array.isArray(viewProperty.amenities) && viewProperty.amenities.length > 0 && (
-              <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-                <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                  <Star className="w-5 h-5 text-slate-600" />
-                  Amenities
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {viewProperty.amenities.map((amenity, idx) => (
-                    <span
-                      key={idx}
-                      className="px-4 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-sm font-medium border border-blue-200 hover:from-blue-100 hover:to-indigo-100 transition-colors"
-                    >
-                      {amenity}
-                    </span>
-                  ))}
+            {viewProperty.amenities &&
+              Array.isArray(viewProperty.amenities) &&
+              viewProperty.amenities.length > 0 && (
+                <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                  <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <Star className="w-5 h-5 text-slate-600" />
+                    Amenities
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {viewProperty.amenities.map((amenity, idx) => (
+                      <span
+                        key={idx}
+                        className="px-4 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-sm font-medium border border-blue-200 hover:from-blue-100 hover:to-indigo-100 transition-colors"
+                      >
+                        {amenity}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
             {/* Airbnb Specific */}
-            {(viewProperty.placeType || viewProperty.guestPlaceType || viewProperty.weekendPremiumPercent) && (
+            {(viewProperty.placeType ||
+              viewProperty.guestPlaceType ||
+              viewProperty.weekendPremiumPercent) && (
               <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border border-purple-200 p-6 shadow-sm">
                 <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                   <Home className="w-5 h-5 text-purple-600" />
@@ -1396,20 +1558,32 @@ export default function PropertiesPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {viewProperty.placeType && (
                     <div className="bg-white/60 rounded-lg p-4 border border-purple-100">
-                      <p className="text-xs font-medium text-slate-500 mb-1">Place Type</p>
-                      <p className="text-sm font-semibold text-slate-900">{viewProperty.placeType}</p>
+                      <p className="text-xs font-medium text-slate-500 mb-1">
+                        Place Type
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {viewProperty.placeType}
+                      </p>
                     </div>
                   )}
                   {viewProperty.guestPlaceType && (
                     <div className="bg-white/60 rounded-lg p-4 border border-purple-100">
-                      <p className="text-xs font-medium text-slate-500 mb-1">Guest Place Type</p>
-                      <p className="text-sm font-semibold text-slate-900">{viewProperty.guestPlaceType}</p>
+                      <p className="text-xs font-medium text-slate-500 mb-1">
+                        Guest Place Type
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {viewProperty.guestPlaceType}
+                      </p>
                     </div>
                   )}
                   {viewProperty.weekendPremiumPercent && (
                     <div className="bg-white/60 rounded-lg p-4 border border-purple-100">
-                      <p className="text-xs font-medium text-slate-500 mb-1">Weekend Premium</p>
-                      <p className="text-sm font-semibold text-slate-900">{viewProperty.weekendPremiumPercent}%</p>
+                      <p className="text-xs font-medium text-slate-500 mb-1">
+                        Weekend Premium
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {viewProperty.weekendPremiumPercent}%
+                      </p>
                     </div>
                   )}
                 </div>
@@ -1418,7 +1592,11 @@ export default function PropertiesPage() {
 
             {/* Hotel Specific */}
             {(() => {
-              const modelType = viewProperty.modelType || (viewProperty.propertyType?.toLowerCase() === "hotel" ? "hotel" : "airbnb");
+              const modelType =
+                viewProperty.modelType ||
+                (viewProperty.propertyType?.toLowerCase() === "hotel"
+                  ? "hotel"
+                  : "airbnb");
               const isHotel = modelType === "hotel";
 
               if (!isHotel) return null;
@@ -1426,7 +1604,11 @@ export default function PropertiesPage() {
               return (
                 <>
                   {/* Hotel Policies */}
-                  {(viewProperty.checkInTime || viewProperty.checkOutTime || viewProperty.smokingPolicy || viewProperty.petPolicy || viewProperty.cancellationPolicy) && (
+                  {(viewProperty.checkInTime ||
+                    viewProperty.checkOutTime ||
+                    viewProperty.smokingPolicy ||
+                    viewProperty.petPolicy ||
+                    viewProperty.cancellationPolicy) && (
                     <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl border border-blue-200 p-6 shadow-sm">
                       <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                         <Calendar className="w-5 h-5 text-blue-600" />
@@ -1437,28 +1619,40 @@ export default function PropertiesPage() {
                           <div className="bg-white/60 rounded-lg p-4 border border-blue-100">
                             <div className="flex items-center gap-2 mb-2">
                               <Clock className="w-4 h-4 text-blue-600" />
-                              <p className="text-xs font-medium text-slate-500">Check-in Time</p>
+                              <p className="text-xs font-medium text-slate-500">
+                                Check-in Time
+                              </p>
                             </div>
-                            <p className="text-sm font-semibold text-slate-900">{viewProperty.checkInTime}</p>
+                            <p className="text-sm font-semibold text-slate-900">
+                              {viewProperty.checkInTime}
+                            </p>
                           </div>
                         )}
                         {viewProperty.checkOutTime && (
                           <div className="bg-white/60 rounded-lg p-4 border border-blue-100">
                             <div className="flex items-center gap-2 mb-2">
                               <Clock className="w-4 h-4 text-blue-600" />
-                              <p className="text-xs font-medium text-slate-500">Check-out Time</p>
+                              <p className="text-xs font-medium text-slate-500">
+                                Check-out Time
+                              </p>
                             </div>
-                            <p className="text-sm font-semibold text-slate-900">{viewProperty.checkOutTime}</p>
+                            <p className="text-sm font-semibold text-slate-900">
+                              {viewProperty.checkOutTime}
+                            </p>
                           </div>
                         )}
                         {viewProperty.smokingPolicy && (
                           <div className="bg-white/60 rounded-lg p-4 border border-blue-100">
                             <div className="flex items-center gap-2 mb-2">
                               <Ban className="w-4 h-4 text-blue-600" />
-                              <p className="text-xs font-medium text-slate-500">Smoking Policy</p>
+                              <p className="text-xs font-medium text-slate-500">
+                                Smoking Policy
+                              </p>
                             </div>
                             <p className="text-sm font-semibold text-slate-900">
-                              {viewProperty.smokingPolicy.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                              {viewProperty.smokingPolicy
+                                .replace("_", " ")
+                                .replace(/\b\w/g, (l) => l.toUpperCase())}
                             </p>
                           </div>
                         )}
@@ -1466,10 +1660,14 @@ export default function PropertiesPage() {
                           <div className="bg-white/60 rounded-lg p-4 border border-blue-100">
                             <div className="flex items-center gap-2 mb-2">
                               <Dog className="w-4 h-4 text-blue-600" />
-                              <p className="text-xs font-medium text-slate-500">Pet Policy</p>
+                              <p className="text-xs font-medium text-slate-500">
+                                Pet Policy
+                              </p>
                             </div>
                             <p className="text-sm font-semibold text-slate-900">
-                              {viewProperty.petPolicy.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                              {viewProperty.petPolicy
+                                .replace("_", " ")
+                                .replace(/\b\w/g, (l) => l.toUpperCase())}
                             </p>
                           </div>
                         )}
@@ -1477,10 +1675,15 @@ export default function PropertiesPage() {
                           <div className="bg-white/60 rounded-lg p-4 border border-blue-100">
                             <div className="flex items-center gap-2 mb-2">
                               <FileText className="w-4 h-4 text-blue-600" />
-                              <p className="text-xs font-medium text-slate-500">Cancellation Policy</p>
+                              <p className="text-xs font-medium text-slate-500">
+                                Cancellation Policy
+                              </p>
                             </div>
                             <p className="text-sm font-semibold text-slate-900">
-                              {viewProperty.cancellationPolicy.charAt(0).toUpperCase() + viewProperty.cancellationPolicy.slice(1)}
+                              {viewProperty.cancellationPolicy
+                                .charAt(0)
+                                .toUpperCase() +
+                                viewProperty.cancellationPolicy.slice(1)}
                             </p>
                           </div>
                         )}
@@ -1491,7 +1694,9 @@ export default function PropertiesPage() {
                   {/* Room Types */}
                   {isLoadingRoomData ? (
                     <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-                      <p className="text-sm text-slate-500">Loading room data...</p>
+                      <p className="text-sm text-slate-500">
+                        Loading room data...
+                      </p>
                     </div>
                   ) : viewPropertyRoomTypes.length > 0 ? (
                     <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-200 p-6 shadow-sm">
@@ -1501,14 +1706,24 @@ export default function PropertiesPage() {
                       </h3>
                       <div className="space-y-3">
                         {viewPropertyRoomTypes.map((roomType) => (
-                          <div key={roomType.id || roomType._id} className="bg-white/80 rounded-lg p-4 border border-indigo-100">
+                          <div
+                            key={roomType.id || roomType._id}
+                            className="bg-white/80 rounded-lg p-4 border border-indigo-100"
+                          >
                             <div className="flex items-start justify-between mb-2">
                               <div className="flex-1">
-                                <h4 className="text-sm font-semibold text-slate-900 mb-1">{roomType.name}</h4>
+                                <h4 className="text-sm font-semibold text-slate-900 mb-1">
+                                  {roomType.name}
+                                </h4>
                                 <div className="flex flex-wrap gap-2 text-xs text-slate-600">
-                                  <span>{roomType.bedCount || 1} x {roomType.bedType || "King"}</span>
+                                  <span>
+                                    {roomType.bedCount || 1} x{" "}
+                                    {roomType.bedType || "King"}
+                                  </span>
                                   <span>•</span>
-                                  <span>Max {roomType.maxOccupancy || 2} guests</span>
+                                  <span>
+                                    Max {roomType.maxOccupancy || 2} guests
+                                  </span>
                                   {roomType.size && (
                                     <>
                                       <span>•</span>
@@ -1519,29 +1734,39 @@ export default function PropertiesPage() {
                               </div>
                               <div className="text-right">
                                 <p className="text-sm font-bold text-indigo-900">
-                                  {formatCurrency(roomType.price || 0, viewProperty.currency || "USD")}/night
+                                  {formatCurrency(
+                                    roomType.price || 0,
+                                    viewProperty.currency || "USD",
+                                  )}
+                                  /night
                                 </p>
-                                <p className="text-xs text-slate-500">Inventory: {roomType.inventory || 0}</p>
+                                <p className="text-xs text-slate-500">
+                                  Inventory: {roomType.inventory || 0}
+                                </p>
                               </div>
                             </div>
-                            {roomType.amenities && Array.isArray(roomType.amenities) && roomType.amenities.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5 mt-2">
-                                {roomType.amenities.map((amenity, idx) => (
-                                  <span
-                                    key={idx}
-                                    className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-medium"
-                                  >
-                                    {amenity}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
+                            {roomType.amenities &&
+                              Array.isArray(roomType.amenities) &&
+                              roomType.amenities.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                  {roomType.amenities.map((amenity, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-medium"
+                                    >
+                                      {amenity}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                           </div>
                         ))}
                       </div>
                       {viewPropertyRooms.length > 0 && (
                         <p className="text-xs text-slate-500 mt-4">
-                          {viewPropertyRooms.length} individual room{viewPropertyRooms.length !== 1 ? 's' : ''} created from room types
+                          {viewPropertyRooms.length} individual room
+                          {viewPropertyRooms.length !== 1 ? "s" : ""} created
+                          from room types
                         </p>
                       )}
                     </div>

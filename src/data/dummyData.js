@@ -104,18 +104,18 @@ export const roleMenus = {
       permission: null,
     },
     {
-      label: "Properties",
-      href: "/properties",
-      icon: "LayoutDashboard",
-      section: "Core Features",
-      permission: null, // Hosts always have access to core features
-    },
-    {
       label: "Bookings",
       href: "/bookings",
       icon: "Calendar",
       section: "Core Features",
       permission: null,
+    },
+    {
+      label: "Properties",
+      href: "/properties",
+      icon: "LayoutDashboard",
+      section: "Core Features",
+      permission: null, // Hosts always have access to core features
     },
     {
       label: "Check-In / Out",
@@ -198,16 +198,16 @@ export const roleMenus = {
       permission: null,
     },
     {
-      label: "Properties",
-      href: "/properties",
-      icon: "LayoutDashboard",
+      label: "Bookings",
+      href: "/bookings",
+      icon: "Calendar",
       section: "Core Features",
       permission: null,
     },
     {
-      label: "Bookings",
-      href: "/bookings",
-      icon: "Calendar",
+      label: "Properties",
+      href: "/properties",
+      icon: "LayoutDashboard",
       section: "Core Features",
       permission: null,
     },

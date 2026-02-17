@@ -1,8 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { UserPlus, X, Calendar, Eye, User, Building2, Bed, Calendar as CalendarIcon, DollarSign, CreditCard, FileText, CheckCircle2, AlertCircle, Info } from "lucide-react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import {
+  UserPlus,
+  X,
+  Calendar,
+  Eye,
+  User,
+  Building2,
+  Bed,
+  Calendar as CalendarIcon,
+  DollarSign,
+  CreditCard,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
+  Info,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import DataTable from "@/components/common/DataTable";
 import Modal from "@/components/common/Modal";
@@ -27,7 +42,11 @@ import {
   getRoomTypes,
   getPropertyById,
 } from "@/lib/api";
-import { getDefaultCurrency, formatCurrency, getCurrencyMap } from "@/utils/currencyUtils";
+import {
+  getDefaultCurrency,
+  formatCurrency,
+  getCurrencyMap,
+} from "@/utils/currencyUtils";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
 
@@ -99,8 +118,9 @@ const calculatePeriod = (startDate, endDate) => {
   if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks`;
   if (diffDays < 60) return "1 month";
   if (diffDays < 365) return `${Math.floor(diffDays / 30)} months`;
-  return `${Math.floor(diffDays / 365)} year${Math.floor(diffDays / 365) > 1 ? "s" : ""
-    }`;
+  return `${Math.floor(diffDays / 365)} year${
+    Math.floor(diffDays / 365) > 1 ? "s" : ""
+  }`;
 };
 
 const calculateNights = (startDate, endDate) => {
@@ -199,13 +219,17 @@ const generateCalendarData = (bookingsData) => {
 
 export default function BookingsPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { isAuthenticated, isLoading: authLoading } = useRequireAuth();
 
   // SEO
   useSEO({
     title: "Bookings | Zuha Host",
-    description: "Manage all your property bookings. View, create, and update reservations for your listings.",
-    keywords: "bookings, reservations, guest bookings, manage bookings, booking calendar",
+    description:
+      "Manage all your property bookings. View, create, and update reservations for your listings.",
+    keywords:
+      "bookings, reservations, guest bookings, manage bookings, booking calendar",
   });
 
   const [selectedBooking, setSelectedBooking] = useState(null);
@@ -217,7 +241,7 @@ export default function BookingsPage() {
   const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState(() => {
     // Default to table on desktop, cards on mobile
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       return window.innerWidth >= 768 ? "table" : "cards";
     }
     return "table";
@@ -246,10 +270,28 @@ export default function BookingsPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [currencies, setCurrencies] = useState([]);
   const [createSelectedProperty, setCreateSelectedProperty] = useState(null);
-  const [createSelectedRoomTypeId, setCreateSelectedRoomTypeId] = useState(null);
+  const [createSelectedRoomTypeId, setCreateSelectedRoomTypeId] =
+    useState(null);
   const [editSelectedProperty, setEditSelectedProperty] = useState(null);
   const [editSelectedRoomTypeId, setEditSelectedRoomTypeId] = useState(null);
   const [isInitializingEdit, setIsInitializingEdit] = useState(false);
+
+  // Sync period filter with URL query (?period=...) and route
+  useEffect(() => {
+    if (!searchParams) return;
+
+    // Only apply on bookings routes
+    if (!pathname.startsWith("/bookings")) return;
+
+    const periodFromUrl = searchParams.get("period");
+
+    // Default: /bookings without period is treated as "today"
+    const normalizedPeriod = periodFromUrl || "today";
+
+    setFilterPeriod((prev) =>
+      prev === normalizedPeriod ? prev : normalizedPeriod,
+    );
+  }, [pathname, searchParams]);
 
   // Helpers to work with properties
   const getPropertyById = (id) =>
@@ -259,23 +301,39 @@ export default function BookingsPage() {
     if (!id) return false;
     // First check the selected property (has full details with roomTypes)
     const selectedProperty = createSelectedProperty || editSelectedProperty;
-    if (selectedProperty && (selectedProperty._id === id || selectedProperty.id === id)) {
-      return selectedProperty?.propertyType === "hotel" || selectedProperty?.modelType === "hotel";
+    if (
+      selectedProperty &&
+      (selectedProperty._id === id || selectedProperty.id === id)
+    ) {
+      return (
+        selectedProperty?.propertyType === "hotel" ||
+        selectedProperty?.modelType === "hotel"
+      );
     }
     // Fallback to properties list
     const property = getPropertyById(id);
-    return property?.propertyType === "hotel" || property?.modelType === "hotel";
+    return (
+      property?.propertyType === "hotel" || property?.modelType === "hotel"
+    );
   };
 
   // Clear roomId when property changes to a non-hotel (avoid stale room selection)
   useEffect(() => {
-    if (createForm.property_id && !isHotelProperty(createForm.property_id) && createForm.roomId) {
+    if (
+      createForm.property_id &&
+      !isHotelProperty(createForm.property_id) &&
+      createForm.roomId
+    ) {
       setCreateForm((prev) => ({ ...prev, roomId: "" }));
     }
   }, [createForm.property_id]);
 
   useEffect(() => {
-    if (editForm.property_id && !isHotelProperty(editForm.property_id) && editForm.roomId) {
+    if (
+      editForm.property_id &&
+      !isHotelProperty(editForm.property_id) &&
+      editForm.roomId
+    ) {
       setEditForm((prev) => ({ ...prev, roomId: "" }));
     }
   }, [editForm.property_id]);
@@ -338,7 +396,8 @@ export default function BookingsPage() {
         console.log("Fetched property for create:", property);
 
         // Check if it's a hotel property
-        const isHotel = property?.modelType === 'hotel' || property?.propertyType === 'hotel';
+        const isHotel =
+          property?.modelType === "hotel" || property?.propertyType === "hotel";
 
         if (isHotel) {
           // For hotel properties, fetch rooms and room types separately (same as property page)
@@ -346,7 +405,9 @@ export default function BookingsPage() {
           const endDate = createForm.end_date;
 
           const [roomsData, roomTypesData] = await Promise.all([
-            getRooms(createForm.property_id, startDate, endDate).catch(() => []),
+            getRooms(createForm.property_id, startDate, endDate).catch(
+              () => [],
+            ),
             getRoomTypes(createForm.property_id).catch(() => []),
           ]);
 
@@ -359,7 +420,7 @@ export default function BookingsPage() {
           setCreateSelectedProperty({
             ...property,
             roomTypes: roomTypes,
-            rooms: rooms
+            rooms: rooms,
           });
           setCreateRooms(rooms);
         } else {
@@ -370,7 +431,7 @@ export default function BookingsPage() {
             setCreateSelectedProperty({
               ...property,
               roomTypes: [],
-              rooms: []
+              rooms: [],
             });
           } catch (roomError) {
             console.error("Error fetching rooms separately:", roomError);
@@ -378,19 +439,19 @@ export default function BookingsPage() {
             setCreateSelectedProperty({
               ...property,
               roomTypes: [],
-              rooms: []
+              rooms: [],
             });
           }
         }
 
         setCreateSelectedRoomTypeId(null);
-        setCreateForm(prev => ({ ...prev, roomId: "" }));
+        setCreateForm((prev) => ({ ...prev, roomId: "" }));
       } catch (error) {
         console.error("Error fetching property/rooms:", error);
         const errorMsg = formatErrorMessage(error);
         toast.error(`Failed to load property details: ${errorMsg}`, {
           duration: 4000,
-          icon: '⚠️'
+          icon: "⚠️",
         });
         setCreateSelectedProperty(null);
         setCreateRooms([]);
@@ -427,7 +488,8 @@ export default function BookingsPage() {
         console.log("Fetched property for edit:", property);
 
         // Check if it's a hotel property
-        const isHotel = property?.modelType === 'hotel' || property?.propertyType === 'hotel';
+        const isHotel =
+          property?.modelType === "hotel" || property?.propertyType === "hotel";
         let rooms = [];
         let roomTypes = [];
 
@@ -435,7 +497,9 @@ export default function BookingsPage() {
           // For hotel properties, fetch rooms and room types separately (same as property page)
           const startDate = editForm.start_date;
           const endDate = editForm.end_date;
-          const currentRoomId = editForm.roomId ? String(editForm.roomId) : null;
+          const currentRoomId = editForm.roomId
+            ? String(editForm.roomId)
+            : null;
 
           const [roomsData, roomTypesData] = await Promise.all([
             getRooms(editForm.property_id, startDate, endDate).catch(() => []),
@@ -446,11 +510,16 @@ export default function BookingsPage() {
           roomTypes = Array.isArray(roomTypesData) ? roomTypesData : [];
 
           // For edit mode, always include the current room even if it's not in the available list
-          if (currentRoomId && !rooms.find(r => String(r.id || r._id) === currentRoomId)) {
+          if (
+            currentRoomId &&
+            !rooms.find((r) => String(r.id || r._id) === currentRoomId)
+          ) {
             try {
               // Fetch all rooms without date filter to get the current room
               const allRooms = await getRooms(editForm.property_id);
-              const currentRoom = Array.isArray(allRooms) ? allRooms.find(r => String(r.id || r._id) === currentRoomId) : null;
+              const currentRoom = Array.isArray(allRooms)
+                ? allRooms.find((r) => String(r.id || r._id) === currentRoomId)
+                : null;
               if (currentRoom) {
                 rooms = [currentRoom, ...rooms]; // Add current room at the beginning
               }
@@ -465,7 +534,7 @@ export default function BookingsPage() {
           setEditSelectedProperty({
             ...property,
             roomTypes: roomTypes,
-            rooms: rooms
+            rooms: rooms,
           });
         } else {
           // Non-hotel properties: fetch rooms separately (apartments, etc.)
@@ -475,7 +544,7 @@ export default function BookingsPage() {
             setEditSelectedProperty({
               ...property,
               roomTypes: [],
-              rooms: []
+              rooms: [],
             });
           } catch (roomError) {
             console.error("Error fetching rooms separately:", roomError);
@@ -483,7 +552,7 @@ export default function BookingsPage() {
             setEditSelectedProperty({
               ...property,
               roomTypes: [],
-              rooms: []
+              rooms: [],
             });
           }
         }
@@ -496,9 +565,15 @@ export default function BookingsPage() {
 
         // If we have a roomId, try to find its room type, but don't clear if already set
         if (currentRoomId && rooms.length > 0) {
-          const currentRoom = rooms.find(r => String(r.id || r._id) === currentRoomId);
+          const currentRoom = rooms.find(
+            (r) => String(r.id || r._id) === currentRoomId,
+          );
           if (currentRoom && currentRoom.roomTypeId) {
-            const rtId = String(currentRoom.roomTypeId?.id || currentRoom.roomTypeId?._id || currentRoom.roomTypeId);
+            const rtId = String(
+              currentRoom.roomTypeId?.id ||
+                currentRoom.roomTypeId?._id ||
+                currentRoom.roomTypeId,
+            );
             // Only set if not already set, or if it's different (user might have changed it)
             if (!currentRoomTypeId || currentRoomTypeId !== rtId) {
               setEditSelectedRoomTypeId(rtId);
@@ -513,7 +588,7 @@ export default function BookingsPage() {
         const errorMsg = formatErrorMessage(error);
         toast.error(`Failed to load property details: ${errorMsg}`, {
           duration: 4000,
-          icon: '⚠️'
+          icon: "⚠️",
         });
         setEditSelectedProperty(null);
         setEditRooms([]);
@@ -521,7 +596,12 @@ export default function BookingsPage() {
     };
 
     fetchPropertyAndRooms();
-  }, [editForm.property_id, editForm.start_date, editForm.end_date, isInitializingEdit]);
+  }, [
+    editForm.property_id,
+    editForm.start_date,
+    editForm.end_date,
+    isInitializingEdit,
+  ]);
 
   // Auto-calculate amount for create form
   useEffect(() => {
@@ -531,13 +611,13 @@ export default function BookingsPage() {
     let pricePerNight = 0;
     if (createForm.roomId && createRooms.length > 0) {
       const selectedRoom = createRooms.find(
-        (r) => (r._id || r.id) === createForm.roomId
+        (r) => (r._id || r.id) === createForm.roomId,
       );
       pricePerNight = selectedRoom?.basePrice ?? selectedRoom?.price ?? 0;
     }
     if (!pricePerNight) {
       const property = propertiesData.find(
-        (p) => (p._id || p.id) === createForm.property_id
+        (p) => (p._id || p.id) === createForm.property_id,
       );
       pricePerNight = property?.price ?? property?.basePrice ?? 0;
     }
@@ -553,7 +633,15 @@ export default function BookingsPage() {
       setCreateForm((prev) => ({ ...prev, amount: finalAmount }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [createForm.property_id, createForm.roomId, createForm.start_date, createForm.end_date, createForm.discount, propertiesData, createRooms]);
+  }, [
+    createForm.property_id,
+    createForm.roomId,
+    createForm.start_date,
+    createForm.end_date,
+    createForm.discount,
+    propertiesData,
+    createRooms,
+  ]);
 
   // Auto-calculate amount for edit form
   useEffect(() => {
@@ -562,13 +650,13 @@ export default function BookingsPage() {
     let pricePerNight = 0;
     if (editForm.roomId && editRooms.length > 0) {
       const selectedRoom = editRooms.find(
-        (r) => (r._id || r.id) === editForm.roomId
+        (r) => (r._id || r.id) === editForm.roomId,
       );
       pricePerNight = selectedRoom?.basePrice ?? selectedRoom?.price ?? 0;
     }
     if (!pricePerNight) {
       const property = propertiesData.find(
-        (p) => (p._id || p.id) === editForm.property_id
+        (p) => (p._id || p.id) === editForm.property_id,
       );
       pricePerNight = property?.price ?? property?.basePrice ?? 0;
     }
@@ -584,7 +672,15 @@ export default function BookingsPage() {
       setEditForm((prev) => ({ ...prev, amount: finalAmount }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editForm.property_id, editForm.roomId, editForm.start_date, editForm.end_date, editForm.discount, propertiesData, editRooms]);
+  }, [
+    editForm.property_id,
+    editForm.roomId,
+    editForm.start_date,
+    editForm.end_date,
+    editForm.discount,
+    propertiesData,
+    editRooms,
+  ]);
 
   const loadData = async () => {
     try {
@@ -612,7 +708,9 @@ export default function BookingsPage() {
 
       // Load currencies from local storage for edit modal
       const currencyMap = getCurrencyMap();
-      setCurrencies(Object.entries(currencyMap).map(([code, name]) => ({ code, name })));
+      setCurrencies(
+        Object.entries(currencyMap).map(([code, name]) => ({ code, name })),
+      );
 
       // Set default currency from local storage (ensure it's current)
       const defaultCurrency = getDefaultCurrency();
@@ -625,7 +723,7 @@ export default function BookingsPage() {
       setError(errorMsg);
       toast.error(`Failed to load bookings: ${errorMsg}`, {
         duration: 5000,
-        icon: '❌'
+        icon: "❌",
       });
     } finally {
       setIsLoading(false);
@@ -644,13 +742,17 @@ export default function BookingsPage() {
       let guestId = createForm.guest_id || "";
 
       // If no guest selected but user entered name and phone (new guest creation)
-      if (!guestId && (createForm.guest_name?.trim() || createForm.guest_phone?.trim())) {
+      if (
+        !guestId &&
+        (createForm.guest_name?.trim() || createForm.guest_phone?.trim())
+      ) {
         const name = (createForm.guest_name || "").trim();
         const phone = (createForm.guest_phone || "").trim();
         const idCard = (createForm.guest_id_card || "").trim();
 
         if (!name || !phone) {
-          const errorMsg = "When creating a new guest, both Name and Phone are required";
+          const errorMsg =
+            "When creating a new guest, both Name and Phone are required";
           setError(errorMsg);
           toast.error(errorMsg, { id: toastId });
           return;
@@ -696,7 +798,9 @@ export default function BookingsPage() {
       // If a guest is selected and their name/phone were changed in the quick inputs,
       // update the guest record before creating the booking.
       try {
-        const selectedGuest = guestId ? guestsData.find((g) => getBookingId(g) === guestId) : null;
+        const selectedGuest = guestId
+          ? guestsData.find((g) => getBookingId(g) === guestId)
+          : null;
         if (selectedGuest) {
           const updateData = {};
           if ((createForm.guest_name || "") !== (selectedGuest.name || "")) {
@@ -708,7 +812,11 @@ export default function BookingsPage() {
           if (Object.keys(updateData).length > 0) {
             try {
               const updated = await updateGuest(guestId, updateData);
-              setGuestsData((prev) => prev.map((g) => (getBookingId(g) === guestId ? { ...g, ...updated } : g)));
+              setGuestsData((prev) =>
+                prev.map((g) =>
+                  getBookingId(g) === guestId ? { ...g, ...updated } : g,
+                ),
+              );
             } catch (uErr) {
               console.error("Failed to update guest before booking:", uErr);
               // Do not block booking creation on guest update failure
@@ -733,7 +841,7 @@ export default function BookingsPage() {
         formData.append("currency", getDefaultCurrency());
         formData.append(
           "payment_status",
-          createForm.payment_status || "unpaid"
+          createForm.payment_status || "unpaid",
         );
         formData.append("numberOfGuests", numberOfGuests.toString());
 
@@ -763,7 +871,7 @@ export default function BookingsPage() {
                   Authorization: `Bearer ${token}`,
                 },
                 body: guestFormData,
-              }
+              },
             );
 
             if (response.ok) {
@@ -798,7 +906,7 @@ export default function BookingsPage() {
       toast.success("Booking created successfully! 🎉", {
         id: toastId,
         duration: 4000,
-        icon: '✅'
+        icon: "✅",
       });
       setCreateOpen(false);
       setCreateForm(getInitialFormState());
@@ -811,7 +919,7 @@ export default function BookingsPage() {
       toast.error(`Failed to create booking: ${errorMsg}`, {
         id: toastId,
         duration: 5000,
-        icon: '❌'
+        icon: "❌",
       });
     }
   };
@@ -863,8 +971,8 @@ export default function BookingsPage() {
         const updatedBooking = await updateBooking(bookingId, formData);
         setBookingsData((prev) =>
           prev.map((booking) =>
-            getBookingId(booking) === bookingId ? updatedBooking : booking
-          )
+            getBookingId(booking) === bookingId ? updatedBooking : booking,
+          ),
         );
 
         // Update guest's idCard with the first ID card file
@@ -885,7 +993,7 @@ export default function BookingsPage() {
                   Authorization: `Bearer ${token}`,
                 },
                 body: guestFormData,
-              }
+              },
             );
 
             if (response.ok) {
@@ -920,15 +1028,15 @@ export default function BookingsPage() {
         const updatedBooking = await updateBooking(bookingId, payload);
         setBookingsData((prev) =>
           prev.map((booking) =>
-            getBookingId(booking) === bookingId ? updatedBooking : booking
-          )
+            getBookingId(booking) === bookingId ? updatedBooking : booking,
+          ),
         );
       }
 
       toast.success("Booking updated successfully! ✨", {
         id: toastId,
         duration: 4000,
-        icon: '✅'
+        icon: "✅",
       });
       setSelectedBooking(null);
       setEditForm(getInitialFormState());
@@ -941,7 +1049,7 @@ export default function BookingsPage() {
       toast.error(`Failed to update booking: ${errorMsg}`, {
         id: toastId,
         duration: 5000,
-        icon: '❌'
+        icon: "❌",
       });
     } finally {
       setIsUpdating(false);
@@ -957,12 +1065,12 @@ export default function BookingsPage() {
       setError(null);
       await deleteBooking(bookingId);
       setBookingsData((prev) =>
-        prev.filter((booking) => getBookingId(booking) !== bookingId)
+        prev.filter((booking) => getBookingId(booking) !== bookingId),
       );
       toast.success("Booking deleted successfully!", {
         id: toastId,
         duration: 3000,
-        icon: '🗑️'
+        icon: "🗑️",
       });
     } catch (err) {
       const errorMsg = formatErrorMessage(err);
@@ -970,7 +1078,7 @@ export default function BookingsPage() {
       toast.error(`Failed to delete booking: ${errorMsg}`, {
         id: toastId,
         duration: 5000,
-        icon: '❌'
+        icon: "❌",
       });
     }
   };
@@ -990,8 +1098,8 @@ export default function BookingsPage() {
         prev.map((booking) =>
           getBookingId(booking) === bookingId
             ? { ...booking, ...updatedBooking }
-            : booking
-        )
+            : booking,
+        ),
       );
       const statusLabels = {
         pending: "Pending",
@@ -999,20 +1107,23 @@ export default function BookingsPage() {
         checked_in: "Checked In",
         checked_out: "Checked Out",
         cancelled: "Cancelled",
-        no_show: "No Show"
+        no_show: "No Show",
       };
-      toast.success(`Booking status updated to "${statusLabels[newStatus] || newStatus}"!`, {
-        id: toastId,
-        duration: 3000,
-        icon: '✅'
-      });
+      toast.success(
+        `Booking status updated to "${statusLabels[newStatus] || newStatus}"!`,
+        {
+          id: toastId,
+          duration: 3000,
+          icon: "✅",
+        },
+      );
     } catch (err) {
       const errorMsg = formatErrorMessage(err);
       setError(errorMsg);
       toast.error(`Failed to update status: ${errorMsg}`, {
         id: toastId,
         duration: 5000,
-        icon: '❌'
+        icon: "❌",
       });
     }
   };
@@ -1027,27 +1138,30 @@ export default function BookingsPage() {
         prev.map((booking) =>
           getBookingId(booking) === bookingId
             ? { ...booking, payment_status: newPaymentStatus }
-            : booking
-        )
+            : booking,
+        ),
       );
       const paymentLabels = {
         unpaid: "Unpaid",
         "partially-paid": "Partially Paid",
         paid: "Paid",
-        refunded: "Refunded"
+        refunded: "Refunded",
       };
-      toast.success(`Payment status updated to "${paymentLabels[newPaymentStatus] || newPaymentStatus}"!`, {
-        id: toastId,
-        duration: 3000,
-        icon: '💳'
-      });
+      toast.success(
+        `Payment status updated to "${paymentLabels[newPaymentStatus] || newPaymentStatus}"!`,
+        {
+          id: toastId,
+          duration: 3000,
+          icon: "💳",
+        },
+      );
     } catch (err) {
       const errorMsg = formatErrorMessage(err);
       setError(errorMsg);
       toast.error(`Failed to update payment status: ${errorMsg}`, {
         id: toastId,
         duration: 5000,
-        icon: '❌'
+        icon: "❌",
       });
     }
   };
@@ -1058,11 +1172,14 @@ export default function BookingsPage() {
 
     setSelectedBooking(booking);
     const guest = booking.guest_id;
-    const propertyId = booking.property_id?.id || booking.property_id?._id || "";
-    const roomId = booking.roomId?.id || booking.roomId?._id || booking.roomId || "";
+    const propertyId =
+      booking.property_id?.id || booking.property_id?._id || "";
+    const roomId =
+      booking.roomId?.id || booking.roomId?._id || booking.roomId || "";
 
     // Extract room type ID from booking (could be nested in roomId.roomTypeId)
-    const roomTypeIdFromBooking = booking.roomId?.roomTypeId?.id ||
+    const roomTypeIdFromBooking =
+      booking.roomId?.roomTypeId?.id ||
       booking.roomId?.roomTypeId?._id ||
       booking.roomId?.roomTypeId ||
       null;
@@ -1080,7 +1197,12 @@ export default function BookingsPage() {
       numberOfGuests: booking.numberOfGuests || "1",
       guest_name: guest?.name || "",
       guest_phone: guest?.phone || "",
-      guest_id_card: guest?.idCardNumber || guest?.id_card || guest?.idCard || guest?.idNumber || "",
+      guest_id_card:
+        guest?.idCardNumber ||
+        guest?.id_card ||
+        guest?.idCard ||
+        guest?.idNumber ||
+        "",
     });
     setEditIdCardFiles([]);
 
@@ -1091,8 +1213,11 @@ export default function BookingsPage() {
     // If property is set, fetch property details and rooms/room types
     if (propertyId) {
       try {
-        const property = await getPropertyById(`${propertyId}?t=${new Date().getTime()}`);
-        const isHotel = property?.propertyType === "hotel" || property?.modelType === "hotel";
+        const property = await getPropertyById(
+          `${propertyId}?t=${new Date().getTime()}`,
+        );
+        const isHotel =
+          property?.propertyType === "hotel" || property?.modelType === "hotel";
 
         if (isHotel) {
           // For hotel properties, fetch rooms and room types separately (same as create modal)
@@ -1109,11 +1234,16 @@ export default function BookingsPage() {
 
           // For edit mode, include the current room even if it's not in the available list
           // (because it's already booked for these dates)
-          if (roomId && !rooms.find(r => String(r.id || r._id) === String(roomId))) {
+          if (
+            roomId &&
+            !rooms.find((r) => String(r.id || r._id) === String(roomId))
+          ) {
             try {
               // Fetch all rooms without date filter to get the current room
               const allRooms = await getRooms(propertyId);
-              const currentRoom = Array.isArray(allRooms) ? allRooms.find(r => String(r.id || r._id) === String(roomId)) : null;
+              const currentRoom = Array.isArray(allRooms)
+                ? allRooms.find((r) => String(r.id || r._id) === String(roomId))
+                : null;
               if (currentRoom) {
                 rooms = [currentRoom, ...rooms]; // Add current room at the beginning
               }
@@ -1125,15 +1255,21 @@ export default function BookingsPage() {
           setEditSelectedProperty({
             ...property,
             roomTypes: roomTypes,
-            rooms: rooms
+            rooms: rooms,
           });
           setEditRooms(rooms);
 
           // Ensure room type is set (preserve if already set, or set from room)
           if (!rtId && roomId && rooms.length > 0) {
-            const currentRoom = rooms.find(r => String(r.id || r._id) === String(roomId));
+            const currentRoom = rooms.find(
+              (r) => String(r.id || r._id) === String(roomId),
+            );
             if (currentRoom && currentRoom.roomTypeId) {
-              const roomTypeId = String(currentRoom.roomTypeId?.id || currentRoom.roomTypeId?._id || currentRoom.roomTypeId);
+              const roomTypeId = String(
+                currentRoom.roomTypeId?.id ||
+                  currentRoom.roomTypeId?._id ||
+                  currentRoom.roomTypeId,
+              );
               setEditSelectedRoomTypeId(roomTypeId);
               console.log("Set room type from room:", roomTypeId);
             }
@@ -1145,7 +1281,7 @@ export default function BookingsPage() {
 
           // Ensure roomId is set
           if (roomId) {
-            setEditForm(prev => ({ ...prev, roomId: String(roomId) }));
+            setEditForm((prev) => ({ ...prev, roomId: String(roomId) }));
           }
 
           // Clear initialization flag after a longer delay to ensure state is fully settled
@@ -1158,7 +1294,7 @@ export default function BookingsPage() {
           setEditSelectedProperty({
             ...property,
             roomTypes: [],
-            rooms: []
+            rooms: [],
           });
           setEditRooms(Array.isArray(rooms) ? rooms : []);
         }
@@ -1172,7 +1308,7 @@ export default function BookingsPage() {
         const errorMsg = formatErrorMessage(error);
         toast.error(`Failed to load property details: ${errorMsg}`, {
           duration: 4000,
-          icon: '⚠️'
+          icon: "⚠️",
         });
         setIsInitializingEdit(false);
       }
@@ -1249,9 +1385,13 @@ export default function BookingsPage() {
           <div className="font-medium">{propertyTitle}</div>
           {booking.roomId && (
             <div className="text-xs text-slate-500 mt-0.5">
-              Room {booking.roomId.roomNumber || booking.roomId.roomNumber || "N/A"}
-              {booking.roomId.roomTypeId?.name && ` • ${booking.roomId.roomTypeId.name}`}
-              {!booking.roomId.roomTypeId?.name && booking.roomId.roomType && ` • ${booking.roomId.roomType}`}
+              Room{" "}
+              {booking.roomId.roomNumber || booking.roomId.roomNumber || "N/A"}
+              {booking.roomId.roomTypeId?.name &&
+                ` • ${booking.roomId.roomTypeId.name}`}
+              {!booking.roomId.roomTypeId?.name &&
+                booking.roomId.roomType &&
+                ` • ${booking.roomId.roomType}`}
             </div>
           )}
         </div>,
@@ -1285,20 +1425,22 @@ export default function BookingsPage() {
         <div key={`status-${bookingId}`}>
           <select
             className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(
-              booking.status || "pending"
+              booking.status || "pending",
             )}`}
             value={booking.status || "pending"}
             onChange={(e) => handleStatusChange(bookingId, e.target.value)}
           >
             {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
             ))}
           </select>
         </div>,
         <div key={`payment-${bookingId}`}>
           <select
             className={`rounded-full px-3 py-1 text-xs font-medium ${getPaymentStatusColor(
-              booking.payment_status || "unpaid"
+              booking.payment_status || "unpaid",
             )}`}
             value={booking.payment_status || "unpaid"}
             onChange={(e) =>
@@ -1343,7 +1485,7 @@ export default function BookingsPage() {
   });
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
+    <div className="w-full space-y-8">
       {error && (
         <div className="rounded-2xl border border-rose-100 bg-rose-50/80 p-4 text-sm text-rose-600">
           {error}
@@ -1357,8 +1499,18 @@ export default function BookingsPage() {
               onClick={() => router.back()}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0 lg:hidden"
             >
-              <svg className="w-6 h-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              <svg
+                className="w-6 h-6 text-slate-900"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
               </svg>
             </button>
             <h1 className="mt-2 text-3xl font-semibold text-slate-900">
@@ -1389,7 +1541,11 @@ export default function BookingsPage() {
               Filters
               {(filterPeriod || filterStatus || filterPaymentStatus) && (
                 <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-slate-900 rounded-full">
-                  {[filterPeriod, filterStatus, filterPaymentStatus].filter(Boolean).length}
+                  {
+                    [filterPeriod, filterStatus, filterPaymentStatus].filter(
+                      Boolean,
+                    ).length
+                  }
                 </span>
               )}
             </button>
@@ -1397,10 +1553,11 @@ export default function BookingsPage() {
             {/* View Mode Toggle */}
             <div className="flex rounded-full border border-slate-200 p-1">
               <button
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "cards"
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:bg-slate-50"
-                  }`}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                  viewMode === "cards"
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-600 hover:bg-slate-50"
+                }`}
                 onClick={() => setViewMode("cards")}
               >
                 <svg
@@ -1419,10 +1576,11 @@ export default function BookingsPage() {
                 </svg>
               </button>
               <button
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "table"
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:bg-slate-50"
-                  }`}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                  viewMode === "table"
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-600 hover:bg-slate-50"
+                }`}
                 onClick={() => setViewMode("table")}
               >
                 <svg
@@ -1511,7 +1669,9 @@ export default function BookingsPage() {
                 >
                   <option value="">All Status</option>
                   {STATUS_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -1590,10 +1750,14 @@ export default function BookingsPage() {
                         <div className="text-lg font-bold text-slate-900">
                           {formatAmount(booking.amount, booking.currency)}
                         </div>
-                        <div className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${getPaymentStatusColor(
-                          booking.payment_status || "unpaid"
-                        )}`}>
-                          {booking.payment_status === "partially-paid" ? "Partial" : booking.payment_status || "unpaid"}
+                        <div
+                          className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${getPaymentStatusColor(
+                            booking.payment_status || "unpaid",
+                          )}`}
+                        >
+                          {booking.payment_status === "partially-paid"
+                            ? "Partial"
+                            : booking.payment_status || "unpaid"}
                         </div>
                       </div>
                     </div>
@@ -1609,15 +1773,21 @@ export default function BookingsPage() {
                     <div className="flex items-center gap-2 text-sm">
                       <div className="flex items-center gap-1.5">
                         <span className="text-slate-400">📅</span>
-                        <span className="font-medium text-slate-700">{startDate}</span>
+                        <span className="font-medium text-slate-700">
+                          {startDate}
+                        </span>
                       </div>
                       <span className="text-slate-300">→</span>
-                      <span className="font-medium text-slate-700">{endDate}</span>
+                      <span className="font-medium text-slate-700">
+                        {endDate}
+                      </span>
                     </div>
                     <div className="flex items-center gap-3 text-sm">
                       <div className="flex items-center gap-1">
                         <span className="text-slate-400">👥</span>
-                        <span className="font-medium text-slate-700">{numberOfGuests}</span>
+                        <span className="font-medium text-slate-700">
+                          {numberOfGuests}
+                        </span>
                       </div>
                       {idCardsCount > 0 && (
                         <div className="flex items-center gap-1 text-blue-600">
@@ -1630,9 +1800,11 @@ export default function BookingsPage() {
 
                   {/* Status Badge & Edit Button */}
                   <div className="mt-2 flex items-center justify-between gap-2">
-                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                      booking.status || "pending"
-                    )}`}>
+                    <span
+                      className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                        booking.status || "pending",
+                      )}`}
+                    >
                       {getStatusLabel(booking.status)}
                     </span>
 
@@ -1645,8 +1817,18 @@ export default function BookingsPage() {
                       className="flex items-center gap-1 text-slate-600 hover:text-slate-900 transition-colors"
                       title="Edit booking"
                     >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
                       </svg>
                       <span className="text-xs font-medium">Edit</span>
                     </button>
@@ -1704,17 +1886,35 @@ export default function BookingsPage() {
                       guest_id: value,
                       guest_name: sel.name || "",
                       guest_phone: sel.phone || "",
-                      guest_id_card: sel.idCardNumber || sel.id_card || sel.idCard || sel.idNumber || "",
+                      guest_id_card:
+                        sel.idCardNumber ||
+                        sel.id_card ||
+                        sel.idCard ||
+                        sel.idNumber ||
+                        "",
                     });
                   } else {
-                    setEditForm({ ...editForm, guest_id: value, guest_name: "", guest_phone: "", guest_id_card: "" });
+                    setEditForm({
+                      ...editForm,
+                      guest_id: value,
+                      guest_name: "",
+                      guest_phone: "",
+                      guest_id_card: "",
+                    });
                   }
                 }}
                 freeTextValue={editForm.guest_id_card}
-                onInputChange={(text) => setEditForm((prev) => ({ ...prev, guest_id_card: text }))}
+                onInputChange={(text) =>
+                  setEditForm((prev) => ({ ...prev, guest_id_card: text }))
+                }
                 options={guestsData}
                 getOptionLabel={(guest) =>
-                  guest.idCardNumber || guest.id_card || guest.idCard || guest.idNumber || guest.name || ""
+                  guest.idCardNumber ||
+                  guest.id_card ||
+                  guest.idCard ||
+                  guest.idNumber ||
+                  guest.name ||
+                  ""
                 }
                 getOptionValue={(guest) => getBookingId(guest)}
                 placeholder="Search by ID card or enter full ID card number"
@@ -1723,26 +1923,36 @@ export default function BookingsPage() {
                 hideChevron
                 disabled={isUpdating}
               />
-              <p className="mt-1 text-xs text-slate-500">Select a guest to auto-fill below</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Select a guest to auto-fill below
+              </p>
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Name
+                  </label>
                   <input
                     type="text"
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     value={editForm.guest_name}
-                    onChange={(e) => setEditForm({ ...editForm, guest_name: e.target.value })}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, guest_name: e.target.value })
+                    }
                     placeholder="Guest full name"
                     disabled={isUpdating}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Phone No</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Phone No
+                  </label>
                   <input
                     type="text"
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     value={editForm.guest_phone}
-                    onChange={(e) => setEditForm({ ...editForm, guest_phone: e.target.value })}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, guest_phone: e.target.value })
+                    }
                     placeholder="123 456 7890"
                     disabled={isUpdating}
                   />
@@ -1794,126 +2004,174 @@ export default function BookingsPage() {
           </div>
 
           {/* Hotel Room Type Category Selection */}
-          {editForm.property_id && isHotelProperty(editForm.property_id) && editSelectedProperty && (
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Room Type Category *
-              </label>
-              {(() => {
-                const roomTypes = editSelectedProperty.roomTypes || [];
+          {editForm.property_id &&
+            isHotelProperty(editForm.property_id) &&
+            editSelectedProperty && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Room Type Category *
+                </label>
+                {(() => {
+                  const roomTypes = editSelectedProperty.roomTypes || [];
 
-                if (roomTypes.length === 0) {
-                  return (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                      This property has no room types configured.
-                    </div>
-                  );
-                }
-
-
-                // For edit mode, show ALL room types (not just those with available rooms)
-                // because the current booking's room might not be in the available list
-                // Also include the current room's room type even if no rooms are available
-                const currentRoomTypeId = editSelectedRoomTypeId ? String(editSelectedRoomTypeId) : null;
-                const allRoomTypes = roomTypes;
-
-                // Ensure current room type is included even if no available rooms
-                const roomTypesToShow = allRoomTypes.filter(rt => {
-                  const rtId = String(rt.id || rt._id);
-                  // Always include the current room type
-                  if (currentRoomTypeId && rtId === currentRoomTypeId) {
-                    return true;
+                  if (roomTypes.length === 0) {
+                    return (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                        This property has no room types configured.
+                      </div>
+                    );
                   }
-                  // For other room types, only show if they have available rooms
-                  const roomsInCategory = editRooms.filter(r => {
-                    const rRoomTypeId = String(r.roomTypeId?.id || r.roomTypeId?._id || r.roomTypeId || "");
-                    return rRoomTypeId === rtId;
+
+                  // For edit mode, show ALL room types (not just those with available rooms)
+                  // because the current booking's room might not be in the available list
+                  // Also include the current room's room type even if no rooms are available
+                  const currentRoomTypeId = editSelectedRoomTypeId
+                    ? String(editSelectedRoomTypeId)
+                    : null;
+                  const allRoomTypes = roomTypes;
+
+                  // Ensure current room type is included even if no available rooms
+                  const roomTypesToShow = allRoomTypes.filter((rt) => {
+                    const rtId = String(rt.id || rt._id);
+                    // Always include the current room type
+                    if (currentRoomTypeId && rtId === currentRoomTypeId) {
+                      return true;
+                    }
+                    // For other room types, only show if they have available rooms
+                    const roomsInCategory = editRooms.filter((r) => {
+                      const rRoomTypeId = String(
+                        r.roomTypeId?.id ||
+                          r.roomTypeId?._id ||
+                          r.roomTypeId ||
+                          "",
+                      );
+                      return rRoomTypeId === rtId;
+                    });
+                    return roomsInCategory.length > 0;
                   });
-                  return roomsInCategory.length > 0;
-                });
 
-                if (roomTypesToShow.length === 0) {
+                  if (roomTypesToShow.length === 0) {
+                    return (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                        No room types available for the selected dates.
+                      </div>
+                    );
+                  }
+
                   return (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                      No room types available for the selected dates.
-                    </div>
-                  );
-                }
+                    <select
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      value={editSelectedRoomTypeId || ""}
+                      onChange={(e) => {
+                        const newRoomTypeId = e.target.value;
+                        setEditSelectedRoomTypeId(newRoomTypeId);
 
-                return (
-                  <select
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                    value={editSelectedRoomTypeId || ""}
-                    onChange={(e) => {
-                      const newRoomTypeId = e.target.value;
-                      setEditSelectedRoomTypeId(newRoomTypeId);
-
-                      // Check if current roomId is still valid for the new room type
-                      const currentRoomId = editForm.roomId;
-                      if (currentRoomId) {
-                        const currentRoom = editRooms.find(r => String(r.id || r._id) === String(currentRoomId));
-                        if (currentRoom) {
-                          const rRoomTypeId = String(currentRoom.roomTypeId?.id || currentRoom.roomTypeId?._id || currentRoom.roomTypeId || "");
-                          // If the current room belongs to the new room type, keep it; otherwise clear it
-                          if (rRoomTypeId !== newRoomTypeId) {
+                        // Check if current roomId is still valid for the new room type
+                        const currentRoomId = editForm.roomId;
+                        if (currentRoomId) {
+                          const currentRoom = editRooms.find(
+                            (r) =>
+                              String(r.id || r._id) === String(currentRoomId),
+                          );
+                          if (currentRoom) {
+                            const rRoomTypeId = String(
+                              currentRoom.roomTypeId?.id ||
+                                currentRoom.roomTypeId?._id ||
+                                currentRoom.roomTypeId ||
+                                "",
+                            );
+                            // If the current room belongs to the new room type, keep it; otherwise clear it
+                            if (rRoomTypeId !== newRoomTypeId) {
+                              setEditForm({ ...editForm, roomId: "" });
+                            }
+                            // Otherwise, keep the current roomId
+                          } else {
                             setEditForm({ ...editForm, roomId: "" });
                           }
-                          // Otherwise, keep the current roomId
                         } else {
                           setEditForm({ ...editForm, roomId: "" });
                         }
-                      } else {
-                        setEditForm({ ...editForm, roomId: "" });
-                      }
-                    }}
-                    disabled={isUpdating}
-                    required
-                  >
-                    <option value="">Select a room type category</option>
-                    {roomTypesToShow.map((rt) => {
-                      const rtId = String(rt.id || rt._id);
-                      const roomsInCategory = editRooms.filter(r => {
-                        const rRoomTypeId = String(r.roomTypeId?.id || r.roomTypeId?._id || r.roomTypeId || "");
-                        return rRoomTypeId === rtId;
-                      });
-                      // For current room type, show count or "Current booking" if no available rooms
-                      const roomCount = roomsInCategory.length;
-                      const isCurrentType = currentRoomTypeId && rtId === currentRoomTypeId;
-                      return (
-                        <option key={rtId} value={rtId}>
-                          {rt.name} ({rt.bedCount || 1}x {rt.bedType || "—"}) - {roomCount > 0 ? `${roomCount} rooms` : (isCurrentType ? "Current booking" : "0 rooms")}
-                        </option>
-                      );
-                    })}
-                  </select>
-                );
-              })()}
-            </div>
-          )}
+                      }}
+                      disabled={isUpdating}
+                      required
+                    >
+                      <option value="">Select a room type category</option>
+                      {roomTypesToShow.map((rt) => {
+                        const rtId = String(rt.id || rt._id);
+                        const roomsInCategory = editRooms.filter((r) => {
+                          const rRoomTypeId = String(
+                            r.roomTypeId?.id ||
+                              r.roomTypeId?._id ||
+                              r.roomTypeId ||
+                              "",
+                          );
+                          return rRoomTypeId === rtId;
+                        });
+                        // For current room type, show count or "Current booking" if no available rooms
+                        const roomCount = roomsInCategory.length;
+                        const isCurrentType =
+                          currentRoomTypeId && rtId === currentRoomTypeId;
+                        return (
+                          <option key={rtId} value={rtId}>
+                            {rt.name} ({rt.bedCount || 1}x {rt.bedType || "—"})
+                            -{" "}
+                            {roomCount > 0
+                              ? `${roomCount} rooms`
+                              : isCurrentType
+                                ? "Current booking"
+                                : "0 rooms"}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  );
+                })()}
+              </div>
+            )}
 
           {/* Room Selection (only for hotel properties after category selection) */}
-          {editForm.property_id && isHotelProperty(editForm.property_id) && (
-            editSelectedRoomTypeId ? (
+          {editForm.property_id &&
+            isHotelProperty(editForm.property_id) &&
+            (editSelectedRoomTypeId ? (
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
                   Room *
                 </label>
                 {(() => {
-                  const currentRoomId = editForm.roomId ? String(editForm.roomId) : null;
+                  const currentRoomId = editForm.roomId
+                    ? String(editForm.roomId)
+                    : null;
 
                   // Filter rooms by room type
-                  let roomsInCategory = editRooms.filter(r => {
-                    const rRoomTypeId = String(r.roomTypeId?.id || r.roomTypeId?._id || r.roomTypeId || "");
+                  let roomsInCategory = editRooms.filter((r) => {
+                    const rRoomTypeId = String(
+                      r.roomTypeId?.id ||
+                        r.roomTypeId?._id ||
+                        r.roomTypeId ||
+                        "",
+                    );
                     return rRoomTypeId === String(editSelectedRoomTypeId);
                   });
 
                   // For edit mode, always include the current room even if it's not in the filtered list
                   // (because it's already booked and might not be in available rooms)
-                  if (currentRoomId && !roomsInCategory.find(r => String(r.id || r._id) === currentRoomId)) {
-                    const currentRoom = editRooms.find(r => String(r.id || r._id) === currentRoomId);
+                  if (
+                    currentRoomId &&
+                    !roomsInCategory.find(
+                      (r) => String(r.id || r._id) === currentRoomId,
+                    )
+                  ) {
+                    const currentRoom = editRooms.find(
+                      (r) => String(r.id || r._id) === currentRoomId,
+                    );
                     if (currentRoom) {
                       // Add current room at the beginning if it's not already in the list
-                      roomsInCategory = [currentRoom, ...roomsInCategory.filter(r => String(r.id || r._id) !== currentRoomId)];
+                      roomsInCategory = [
+                        currentRoom,
+                        ...roomsInCategory.filter(
+                          (r) => String(r.id || r._id) !== currentRoomId,
+                        ),
+                      ];
                     }
                   }
 
@@ -1938,10 +2196,13 @@ export default function BookingsPage() {
                       <option value="">Select a room</option>
                       {roomsInCategory.map((room) => {
                         const rId = String(room.id || room._id);
-                        const isCurrentRoom = currentRoomId && rId === currentRoomId;
+                        const isCurrentRoom =
+                          currentRoomId && rId === currentRoomId;
                         return (
                           <option key={rId} value={rId}>
-                            Room {room.roomNumber} — ${room.basePrice ?? room.price ?? 0}/night{isCurrentRoom ? " (Current)" : ""}
+                            Room {room.roomNumber} — $
+                            {room.basePrice ?? room.price ?? 0}/night
+                            {isCurrentRoom ? " (Current)" : ""}
                           </option>
                         );
                       })}
@@ -1953,8 +2214,7 @@ export default function BookingsPage() {
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
                 Please select a room type category first.
               </div>
-            )
-          )}
+            ))}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -1971,7 +2231,10 @@ export default function BookingsPage() {
                     ...editForm,
                     start_date: selectedDate,
                     // Reset end_date if it's before or equal to the new start_date
-                    end_date: editForm.end_date && editForm.end_date <= selectedDate ? "" : editForm.end_date
+                    end_date:
+                      editForm.end_date && editForm.end_date <= selectedDate
+                        ? ""
+                        : editForm.end_date,
                   });
                 }}
                 min="1900-01-01"
@@ -1991,8 +2254,13 @@ export default function BookingsPage() {
                 onChange={(e) => {
                   const selectedDate = e.target.value;
                   // Validate: end date must be after start date
-                  if (editForm.start_date && selectedDate <= editForm.start_date) {
-                    toast.error("End date must be at least one day after start date");
+                  if (
+                    editForm.start_date &&
+                    selectedDate <= editForm.start_date
+                  ) {
+                    toast.error(
+                      "End date must be at least one day after start date",
+                    );
                     return;
                   }
                   setEditForm({ ...editForm, end_date: selectedDate });
@@ -2000,13 +2268,16 @@ export default function BookingsPage() {
                 min={
                   editForm.start_date
                     ? (() => {
-                      const start = new Date(editForm.start_date);
-                      start.setDate(start.getDate() + 1);
-                      const year = start.getFullYear();
-                      const month = String(start.getMonth() + 1).padStart(2, '0');
-                      const day = String(start.getDate()).padStart(2, '0');
-                      return `${year}-${month}-${day}`;
-                    })()
+                        const start = new Date(editForm.start_date);
+                        start.setDate(start.getDate() + 1);
+                        const year = start.getFullYear();
+                        const month = String(start.getMonth() + 1).padStart(
+                          2,
+                          "0",
+                        );
+                        const day = String(start.getDate()).padStart(2, "0");
+                        return `${year}-${month}-${day}`;
+                      })()
                     : "1900-01-01"
                 }
                 max="2099-12-31"
@@ -2079,7 +2350,11 @@ export default function BookingsPage() {
                 editIdCardPreviews.forEach((u) => u && URL.revokeObjectURL(u));
                 if (file) {
                   setEditIdCardFiles([file]);
-                  setEditIdCardPreviews([file.type.startsWith("image/") ? URL.createObjectURL(file) : null]);
+                  setEditIdCardPreviews([
+                    file.type.startsWith("image/")
+                      ? URL.createObjectURL(file)
+                      : null,
+                  ]);
                 } else {
                   setEditIdCardFiles([]);
                   setEditIdCardPreviews([]);
@@ -2087,7 +2362,9 @@ export default function BookingsPage() {
               }}
               disabled={isUpdating}
             />
-            <p className="mt-1 text-xs text-slate-500">JPEG, PNG, GIF, PDF (max 5MB)</p>
+            <p className="mt-1 text-xs text-slate-500">
+              JPEG, PNG, GIF, PDF (max 5MB)
+            </p>
             {editIdCardPreviews[0] && (
               <div className="mt-2">
                 <img
@@ -2095,14 +2372,20 @@ export default function BookingsPage() {
                   alt="ID Card Preview"
                   className="w-full h-32 object-contain border border-slate-200 rounded-lg bg-slate-50"
                 />
-                <p className="mt-1 text-xs text-green-600">✓ New ID card selected</p>
+                <p className="mt-1 text-xs text-green-600">
+                  ✓ New ID card selected
+                </p>
               </div>
             )}
             {editIdCardFiles.length > 0 && !editIdCardPreviews[0] && (
-              <p className="mt-2 text-xs text-green-600">✓ PDF file selected: {editIdCardFiles[0].name}</p>
+              <p className="mt-2 text-xs text-green-600">
+                ✓ PDF file selected: {editIdCardFiles[0].name}
+              </p>
             )}
             {editIdCardFiles.length > 0 && (
-              <p className="mt-2 text-xs text-amber-600 font-medium">⚠️ Uploading a new ID card will replace existing ones</p>
+              <p className="mt-2 text-xs text-amber-600 font-medium">
+                ⚠️ Uploading a new ID card will replace existing ones
+              </p>
             )}
           </div>
         </form>
@@ -2148,23 +2431,45 @@ export default function BookingsPage() {
                       guest_id: value,
                       guest_name: sel.name || "",
                       guest_phone: sel.phone || "",
-                      guest_id_card: sel.idCardNumber || sel.id_card || sel.idCard || sel.idNumber || "",
+                      guest_id_card:
+                        sel.idCardNumber ||
+                        sel.id_card ||
+                        sel.idCard ||
+                        sel.idNumber ||
+                        "",
                     });
                   } else {
                     // No guest selected
                     setSelectedExistingGuest(null);
                     setShowCreateGuestFields(false);
-                    setCreateForm({ ...createForm, guest_id: value || "", guest_name: "", guest_phone: "" });
+                    setCreateForm({
+                      ...createForm,
+                      guest_id: value || "",
+                      guest_name: "",
+                      guest_phone: "",
+                    });
                   }
                 }}
                 freeTextValue={createForm.guest_id_card}
                 onInputChange={(text) => {
-                  setCreateForm((prev) => ({ ...prev, guest_id_card: text, guest_id: "" }));
+                  setCreateForm((prev) => ({
+                    ...prev,
+                    guest_id_card: text,
+                    guest_id: "",
+                  }));
 
                   // Check if any guest matches this ID card
-                  const matchingGuest = guestsData.find(g => {
-                    const idCard = g.idCardNumber || g.id_card || g.idCard || g.idNumber || "";
-                    return idCard.toLowerCase().includes(text.toLowerCase()) || text.toLowerCase().includes(idCard.toLowerCase());
+                  const matchingGuest = guestsData.find((g) => {
+                    const idCard =
+                      g.idCardNumber ||
+                      g.id_card ||
+                      g.idCard ||
+                      g.idNumber ||
+                      "";
+                    return (
+                      idCard.toLowerCase().includes(text.toLowerCase()) ||
+                      text.toLowerCase().includes(idCard.toLowerCase())
+                    );
                   });
 
                   if (matchingGuest && text.trim()) {
@@ -2182,9 +2487,16 @@ export default function BookingsPage() {
                 }}
                 options={guestsData}
                 getOptionLabel={(guest) => {
-                  const idCard = guest.idCardNumber || guest.id_card || guest.idCard || guest.idNumber || "";
+                  const idCard =
+                    guest.idCardNumber ||
+                    guest.id_card ||
+                    guest.idCard ||
+                    guest.idNumber ||
+                    "";
                   const name = guest.name || "";
-                  return idCard ? `${idCard}${name ? ` - ${name}` : ""}` : name || "";
+                  return idCard
+                    ? `${idCard}${name ? ` - ${name}` : ""}`
+                    : name || "";
                 }}
                 getOptionValue={(guest) => getBookingId(guest)}
                 placeholder="Search by ID card or enter full ID card number"
@@ -2195,49 +2507,73 @@ export default function BookingsPage() {
 
               {selectedExistingGuest && (
                 <div className="mt-2 rounded-lg border border-green-200 bg-green-50 p-3">
-                  <p className="text-xs text-green-700 font-medium mb-1">✓ Existing guest selected</p>
+                  <p className="text-xs text-green-700 font-medium mb-1">
+                    ✓ Existing guest selected
+                  </p>
                   <p className="text-sm text-green-800">
-                    {selectedExistingGuest.name || "N/A"} • {selectedExistingGuest.phone || "N/A"}
+                    {selectedExistingGuest.name || "N/A"} •{" "}
+                    {selectedExistingGuest.phone || "N/A"}
                   </p>
                 </div>
               )}
 
-              {(showCreateGuestFields || (createForm.guest_id_card && !createForm.guest_id && !selectedExistingGuest)) && !selectedExistingGuest && createForm.guest_id_card && (
-                <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
-                  <p className="text-xs text-blue-700 font-medium mb-2">Create new guest with ID card: {createForm.guest_id_card}</p>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Name *</label>
-                      <input
-                        type="text"
-                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                        value={createForm.guest_name}
-                        onChange={(e) => setCreateForm({ ...createForm, guest_name: e.target.value })}
-                        placeholder="Guest full name"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Phone No *</label>
-                      <input
-                        type="text"
-                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                        value={createForm.guest_phone}
-                        onChange={(e) => setCreateForm({ ...createForm, guest_phone: e.target.value })}
-                        placeholder="123 456 7890"
-                        required
-                      />
+              {(showCreateGuestFields ||
+                (createForm.guest_id_card &&
+                  !createForm.guest_id &&
+                  !selectedExistingGuest)) &&
+                !selectedExistingGuest &&
+                createForm.guest_id_card && (
+                  <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                    <p className="text-xs text-blue-700 font-medium mb-2">
+                      Create new guest with ID card: {createForm.guest_id_card}
+                    </p>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                          Name *
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                          value={createForm.guest_name}
+                          onChange={(e) =>
+                            setCreateForm({
+                              ...createForm,
+                              guest_name: e.target.value,
+                            })
+                          }
+                          placeholder="Guest full name"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                          Phone No *
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                          value={createForm.guest_phone}
+                          onChange={(e) =>
+                            setCreateForm({
+                              ...createForm,
+                              guest_phone: e.target.value,
+                            })
+                          }
+                          placeholder="123 456 7890"
+                          required
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {!selectedExistingGuest && !showCreateGuestFields && (
                 <p className="mt-1 text-xs text-slate-500">
-                  Enter an ID card number to search for existing guests or create a new one
+                  Enter an ID card number to search for existing guests or
+                  create a new one
                 </p>
               )}
-
             </div>
 
             <div>
@@ -2281,7 +2617,10 @@ export default function BookingsPage() {
                     property_id: "",
                     roomId: "",
                     // Reset end_date if it's before or equal to the new start_date
-                    end_date: createForm.end_date && createForm.end_date <= selectedDate ? "" : createForm.end_date
+                    end_date:
+                      createForm.end_date && createForm.end_date <= selectedDate
+                        ? ""
+                        : createForm.end_date,
                   });
                   setCreateSelectedProperty(null);
                   setCreateSelectedRoomTypeId(null);
@@ -2303,8 +2642,13 @@ export default function BookingsPage() {
                 onChange={(e) => {
                   const selectedDate = e.target.value;
                   // Validate: end date must be after start date
-                  if (createForm.start_date && selectedDate <= createForm.start_date) {
-                    toast.error("End date must be at least one day after start date");
+                  if (
+                    createForm.start_date &&
+                    selectedDate <= createForm.start_date
+                  ) {
+                    toast.error(
+                      "End date must be at least one day after start date",
+                    );
                     return;
                   }
                   setCreateForm({
@@ -2312,7 +2656,7 @@ export default function BookingsPage() {
                     end_date: selectedDate,
                     // Reset property and room selections when dates change
                     property_id: "",
-                    roomId: ""
+                    roomId: "",
                   });
                   setCreateSelectedProperty(null);
                   setCreateSelectedRoomTypeId(null);
@@ -2321,13 +2665,16 @@ export default function BookingsPage() {
                 min={
                   createForm.start_date
                     ? (() => {
-                      const start = new Date(createForm.start_date);
-                      start.setDate(start.getDate() + 1);
-                      const year = start.getFullYear();
-                      const month = String(start.getMonth() + 1).padStart(2, '0');
-                      const day = String(start.getDate()).padStart(2, '0');
-                      return `${year}-${month}-${day}`;
-                    })()
+                        const start = new Date(createForm.start_date);
+                        start.setDate(start.getDate() + 1);
+                        const year = start.getFullYear();
+                        const month = String(start.getMonth() + 1).padStart(
+                          2,
+                          "0",
+                        );
+                        const day = String(start.getDate()).padStart(2, "0");
+                        return `${year}-${month}-${day}`;
+                      })()
                     : "1900-01-01"
                 }
                 max="2099-12-31"
@@ -2344,7 +2691,11 @@ export default function BookingsPage() {
             <Combobox
               value={createForm.property_id}
               onChange={(value) => {
-                setCreateForm({ ...createForm, property_id: value, roomId: "" });
+                setCreateForm({
+                  ...createForm,
+                  property_id: value,
+                  roomId: "",
+                });
                 setCreateSelectedRoomTypeId(null);
               }}
               options={propertiesData}
@@ -2366,87 +2717,96 @@ export default function BookingsPage() {
           </div>
 
           {/* Hotel Room Type Category Selection */}
-          {createForm.property_id && isHotelProperty(createForm.property_id) && (
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Room Type Category *
-              </label>
-              {!createSelectedProperty ? (
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
-                  Loading property details...
-                </div>
-              ) : (() => {
-                const roomTypes = createSelectedProperty.roomTypes || [];
-                console.log("Checking roomTypes:", {
-                  property: createSelectedProperty,
-                  roomTypes: roomTypes,
-                  roomTypesLength: roomTypes.length
-                });
+          {createForm.property_id &&
+            isHotelProperty(createForm.property_id) && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Room Type Category *
+                </label>
+                {!createSelectedProperty ? (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+                    Loading property details...
+                  </div>
+                ) : (
+                  (() => {
+                    const roomTypes = createSelectedProperty.roomTypes || [];
+                    console.log("Checking roomTypes:", {
+                      property: createSelectedProperty,
+                      roomTypes: roomTypes,
+                      roomTypesLength: roomTypes.length,
+                    });
 
-                if (!Array.isArray(roomTypes) || roomTypes.length === 0) {
-                  return (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                      This property has no room types configured.
-                    </div>
-                  );
-                }
+                    if (!Array.isArray(roomTypes) || roomTypes.length === 0) {
+                      return (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                          This property has no room types configured.
+                        </div>
+                      );
+                    }
 
-                // Filter room types to only show those with available rooms
-                const availableRoomTypes = roomTypes.filter(rt => {
-                  const rtId = String(rt.id || rt._id);
-                  const roomsInCategory = createRooms.filter(r => {
-                    const rRoomTypeId = String(r.roomTypeId || r.roomTypeId);
-                    return rRoomTypeId === rtId;
-                  });
-                  return roomsInCategory.length > 0;
-                });
-
-                if (availableRoomTypes.length === 0) {
-                  return (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                      No room types available for the selected dates.
-                    </div>
-                  );
-                }
-
-                return (
-                  <select
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    value={createSelectedRoomTypeId || ""}
-                    onChange={(e) => {
-                      setCreateSelectedRoomTypeId(e.target.value);
-                      setCreateForm({ ...createForm, roomId: "" });
-                    }}
-                    required
-                  >
-                    <option value="">Select a room type category</option>
-                    {availableRoomTypes.map((rt) => {
+                    // Filter room types to only show those with available rooms
+                    const availableRoomTypes = roomTypes.filter((rt) => {
                       const rtId = String(rt.id || rt._id);
-                      const roomsInCategory = createRooms.filter(r => {
-                        const rRoomTypeId = String(r.roomTypeId || r.roomTypeId);
+                      const roomsInCategory = createRooms.filter((r) => {
+                        const rRoomTypeId = String(
+                          r.roomTypeId || r.roomTypeId,
+                        );
                         return rRoomTypeId === rtId;
                       });
+                      return roomsInCategory.length > 0;
+                    });
+
+                    if (availableRoomTypes.length === 0) {
                       return (
-                        <option key={rtId} value={rtId}>
-                          {rt.name} ({rt.bedCount || 1}x {rt.bedType || "—"}) - {roomsInCategory.length} rooms
-                        </option>
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                          No room types available for the selected dates.
+                        </div>
                       );
-                    })}
-                  </select>
-                );
-              })()}
-            </div>
-          )}
+                    }
+
+                    return (
+                      <select
+                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                        value={createSelectedRoomTypeId || ""}
+                        onChange={(e) => {
+                          setCreateSelectedRoomTypeId(e.target.value);
+                          setCreateForm({ ...createForm, roomId: "" });
+                        }}
+                        required
+                      >
+                        <option value="">Select a room type category</option>
+                        {availableRoomTypes.map((rt) => {
+                          const rtId = String(rt.id || rt._id);
+                          const roomsInCategory = createRooms.filter((r) => {
+                            const rRoomTypeId = String(
+                              r.roomTypeId || r.roomTypeId,
+                            );
+                            return rRoomTypeId === rtId;
+                          });
+                          return (
+                            <option key={rtId} value={rtId}>
+                              {rt.name} ({rt.bedCount || 1}x {rt.bedType || "—"}
+                              ) - {roomsInCategory.length} rooms
+                            </option>
+                          );
+                        })}
+                      </select>
+                    );
+                  })()
+                )}
+              </div>
+            )}
 
           {/* Room Selection (only for hotel properties after category selection) */}
-          {createForm.property_id && isHotelProperty(createForm.property_id) && (
-            createSelectedRoomTypeId ? (
+          {createForm.property_id &&
+            isHotelProperty(createForm.property_id) &&
+            (createSelectedRoomTypeId ? (
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
                   Room *
                 </label>
                 {(() => {
-                  const roomsInCategory = createRooms.filter(r => {
+                  const roomsInCategory = createRooms.filter((r) => {
                     const rRoomTypeId = String(r.roomTypeId || r.roomTypeId);
                     return rRoomTypeId === String(createSelectedRoomTypeId);
                   });
@@ -2473,7 +2833,8 @@ export default function BookingsPage() {
                         const rId = String(room.id || room._id);
                         return (
                           <option key={rId} value={rId}>
-                            Room {room.roomNumber} — ${room.basePrice ?? room.price ?? 0}/night
+                            Room {room.roomNumber} — $
+                            {room.basePrice ?? room.price ?? 0}/night
                           </option>
                         );
                       })}
@@ -2485,8 +2846,7 @@ export default function BookingsPage() {
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
                 Please select a room type category first.
               </div>
-            )
-          )}
+            ))}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -2556,28 +2916,30 @@ export default function BookingsPage() {
             {(createForm.bookingSource === "airbnb" ||
               createForm.bookingSource === "bookingcom" ||
               createForm.bookingSource === "other") && (
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
-                    OTA Reference / Booking ID
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    value={createForm.otaReference}
-                    onChange={(e) =>
-                      setCreateForm({
-                        ...createForm,
-                        otaReference: e.target.value,
-                      })
-                    }
-                    placeholder="e.g. HMABCD1234"
-                  />
-                </div>
-              )}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  OTA Reference / Booking ID
+                </label>
+                <input
+                  type="text"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={createForm.otaReference}
+                  onChange={(e) =>
+                    setCreateForm({
+                      ...createForm,
+                      otaReference: e.target.value,
+                    })
+                  }
+                  placeholder="e.g. HMABCD1234"
+                />
+              </div>
+            )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Guest ID card</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Guest ID card
+            </label>
             <input
               type="file"
               accept="image/*,.pdf"
@@ -2585,17 +2947,25 @@ export default function BookingsPage() {
               onChange={(e) => {
                 const file = e.target.files?.[0] || null;
                 // revoke previous previews
-                createIdCardPreviews.forEach((u) => u && URL.revokeObjectURL(u));
+                createIdCardPreviews.forEach(
+                  (u) => u && URL.revokeObjectURL(u),
+                );
                 if (file) {
                   setCreateIdCardFiles([file]);
-                  setCreateIdCardPreviews([file.type.startsWith("image/") ? URL.createObjectURL(file) : null]);
+                  setCreateIdCardPreviews([
+                    file.type.startsWith("image/")
+                      ? URL.createObjectURL(file)
+                      : null,
+                  ]);
                 } else {
                   setCreateIdCardFiles([]);
                   setCreateIdCardPreviews([]);
                 }
               }}
             />
-            <p className="mt-1 text-xs text-slate-500">Upload an ID card. JPG, PNG, GIF, PDF accepted. Max 5MB.</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Upload an ID card. JPG, PNG, GIF, PDF accepted. Max 5MB.
+            </p>
             {createIdCardPreviews[0] && (
               <div className="mt-2">
                 <img
@@ -2603,11 +2973,15 @@ export default function BookingsPage() {
                   alt="ID Card Preview"
                   className="w-full h-32 object-contain border border-slate-200 rounded-lg bg-slate-50"
                 />
-                <p className="mt-1 text-xs text-green-600">✓ ID card ready to upload</p>
+                <p className="mt-1 text-xs text-green-600">
+                  ✓ ID card ready to upload
+                </p>
               </div>
             )}
             {createIdCardFiles.length > 0 && !createIdCardPreviews[0] && (
-              <p className="mt-2 text-xs text-green-600">✓ PDF file selected: {createIdCardFiles[0].name}</p>
+              <p className="mt-2 text-xs text-green-600">
+                ✓ PDF file selected: {createIdCardFiles[0].name}
+              </p>
             )}
           </div>
         </form>
@@ -2635,19 +3009,25 @@ export default function BookingsPage() {
                 </div>
                 <div className="space-y-3">
                   <div>
-                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Name</span>
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                      Name
+                    </span>
                     <p className="text-sm font-semibold text-slate-900 mt-1">
                       {viewBooking.guest_id?.name || "N/A"}
                     </p>
                   </div>
                   <div>
-                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Email</span>
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                      Email
+                    </span>
                     <p className="text-sm text-slate-700 mt-1">
                       {viewBooking.guest_id?.email || "N/A"}
                     </p>
                   </div>
                   <div>
-                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Phone</span>
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                      Phone
+                    </span>
                     <p className="text-sm text-slate-700 mt-1">
                       {viewBooking.guest_id?.phone || "N/A"}
                     </p>
@@ -2666,13 +3046,17 @@ export default function BookingsPage() {
                 </div>
                 <div className="space-y-3">
                   <div>
-                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Property</span>
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                      Property
+                    </span>
                     <p className="text-sm font-semibold text-slate-900 mt-1">
                       {viewBooking.property_id?.title || "N/A"}
                     </p>
                   </div>
                   <div>
-                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Location</span>
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                      Location
+                    </span>
                     <p className="text-sm text-slate-700 mt-1">
                       {viewBooking.property_id?.location || "N/A"}
                     </p>
@@ -2682,20 +3066,29 @@ export default function BookingsPage() {
                       <div className="pt-2 border-t border-slate-200">
                         <div className="flex items-center gap-2 mb-2">
                           <Bed className="h-3.5 w-3.5 text-slate-400" />
-                          <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Room Details</span>
+                          <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                            Room Details
+                          </span>
                         </div>
                         <div className="space-y-2 ml-5">
                           <div>
-                            <span className="text-xs text-slate-500">Room Number:</span>
+                            <span className="text-xs text-slate-500">
+                              Room Number:
+                            </span>
                             <p className="text-sm font-semibold text-slate-800">
                               {viewBooking.roomId.roomNumber || "N/A"}
                             </p>
                           </div>
-                          {(viewBooking.roomId.roomTypeId?.name || viewBooking.roomId.roomType) && (
+                          {(viewBooking.roomId.roomTypeId?.name ||
+                            viewBooking.roomId.roomType) && (
                             <div>
-                              <span className="text-xs text-slate-500">Room Type:</span>
+                              <span className="text-xs text-slate-500">
+                                Room Type:
+                              </span>
                               <p className="text-sm text-slate-700">
-                                {viewBooking.roomId.roomTypeId?.name || viewBooking.roomId.roomType || "N/A"}
+                                {viewBooking.roomId.roomTypeId?.name ||
+                                  viewBooking.roomId.roomType ||
+                                  "N/A"}
                               </p>
                             </div>
                           )}
@@ -2703,17 +3096,31 @@ export default function BookingsPage() {
                             <>
                               {viewBooking.roomId.roomTypeId.bedType && (
                                 <div>
-                                  <span className="text-xs text-slate-500">Bed Type:</span>
+                                  <span className="text-xs text-slate-500">
+                                    Bed Type:
+                                  </span>
                                   <p className="text-sm text-slate-700">
-                                    {viewBooking.roomId.roomTypeId.bedCount || viewBooking.roomId.bedCount || 1}x {viewBooking.roomId.roomTypeId.bedType || viewBooking.roomId.bedType || "N/A"}
+                                    {viewBooking.roomId.roomTypeId.bedCount ||
+                                      viewBooking.roomId.bedCount ||
+                                      1}
+                                    x{" "}
+                                    {viewBooking.roomId.roomTypeId.bedType ||
+                                      viewBooking.roomId.bedType ||
+                                      "N/A"}
                                   </p>
                                 </div>
                               )}
                               {viewBooking.roomId.maxOccupancy && (
                                 <div>
-                                  <span className="text-xs text-slate-500">Max Occupancy:</span>
+                                  <span className="text-xs text-slate-500">
+                                    Max Occupancy:
+                                  </span>
                                   <p className="text-sm text-slate-700">
-                                    {viewBooking.roomId.maxOccupancy || viewBooking.roomId.roomTypeId.maxOccupancy || "N/A"} guests
+                                    {viewBooking.roomId.maxOccupancy ||
+                                      viewBooking.roomId.roomTypeId
+                                        .maxOccupancy ||
+                                      "N/A"}{" "}
+                                    guests
                                   </p>
                                 </div>
                               )}
@@ -2741,7 +3148,9 @@ export default function BookingsPage() {
                 <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center gap-2 mb-2">
                     <CalendarIcon className="h-4 w-4 text-green-600" />
-                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Check In</span>
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                      Check In
+                    </span>
                   </div>
                   <p className="text-base font-semibold text-slate-900">
                     {formatDate(viewBooking.start_date)}
@@ -2750,7 +3159,9 @@ export default function BookingsPage() {
                 <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center gap-2 mb-2">
                     <CalendarIcon className="h-4 w-4 text-rose-600" />
-                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Check Out</span>
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                      Check Out
+                    </span>
                   </div>
                   <p className="text-base font-semibold text-slate-900">
                     {formatDate(viewBooking.end_date)}
@@ -2759,19 +3170,23 @@ export default function BookingsPage() {
                 <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center gap-2 mb-2">
                     <Info className="h-4 w-4 text-blue-600" />
-                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Duration</span>
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                      Duration
+                    </span>
                   </div>
                   <p className="text-base font-semibold text-slate-900">
                     {calculatePeriod(
                       viewBooking.start_date,
-                      viewBooking.end_date
+                      viewBooking.end_date,
                     )}
                   </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center gap-2 mb-2">
                     <User className="h-4 w-4 text-purple-600" />
-                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Guests</span>
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                      Guests
+                    </span>
                   </div>
                   <p className="text-base font-semibold text-slate-900">
                     {viewBooking.numberOfGuests || 1}{" "}
@@ -2783,7 +3198,9 @@ export default function BookingsPage() {
                 <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center gap-2 mb-2">
                     <DollarSign className="h-4 w-4 text-green-600" />
-                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Amount</span>
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                      Amount
+                    </span>
                   </div>
                   <p className="text-base font-semibold text-slate-900">
                     {formatAmount(viewBooking.amount, viewBooking.currency)}
@@ -2792,7 +3209,9 @@ export default function BookingsPage() {
                 <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center gap-2 mb-2">
                     <CreditCard className="h-4 w-4 text-amber-600" />
-                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Discount</span>
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                      Discount
+                    </span>
                   </div>
                   <p className="text-base font-semibold text-slate-900">
                     {viewBooking.discount || 0}%
@@ -2818,17 +3237,22 @@ export default function BookingsPage() {
                   </label>
                   <select
                     className={`w-full rounded-lg px-4 py-3 text-sm font-medium border-0 ${getStatusColor(
-                      viewBooking.status || "pending"
+                      viewBooking.status || "pending",
                     )}`}
                     value={viewBooking.status || "pending"}
                     onChange={(e) => {
                       const bookingId = getBookingId(viewBooking);
                       handleStatusChange(bookingId, e.target.value);
-                      setViewBooking({ ...viewBooking, status: e.target.value });
+                      setViewBooking({
+                        ...viewBooking,
+                        status: e.target.value,
+                      });
                     }}
                   >
                     {STATUS_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -2838,13 +3262,16 @@ export default function BookingsPage() {
                   </label>
                   <select
                     className={`w-full rounded-lg px-4 py-3 text-sm font-medium border-0 ${getPaymentStatusColor(
-                      viewBooking.payment_status || "unpaid"
+                      viewBooking.payment_status || "unpaid",
                     )}`}
                     value={viewBooking.payment_status || "unpaid"}
                     onChange={(e) => {
                       const bookingId = getBookingId(viewBooking);
                       handlePaymentStatusChange(bookingId, e.target.value);
-                      setViewBooking({ ...viewBooking, payment_status: e.target.value });
+                      setViewBooking({
+                        ...viewBooking,
+                        payment_status: e.target.value,
+                      });
                     }}
                   >
                     <option value="unpaid">Unpaid</option>

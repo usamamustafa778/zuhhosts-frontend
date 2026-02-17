@@ -109,28 +109,32 @@ export default function PrivacyPage() {
   );
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.back()}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors shrink-0 lg:hidden"
-          >
-            <svg className="w-6 h-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <h1 className="mt-2 text-3xl font-semibold text-slate-900">
-            Privacy
-          </h1>
-        </div>
-      </div>
+    <div className="mx-auto max-w-3xl">
+      {/* Header */}
+      <header className="mb-8 lg:max-w-4xl lg:mx-auto">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="mb-3 inline-flex items-center gap-1 text-xs font-medium text-slate-500 transition-colors hover:text-slate-900 focus:outline-none"
+          aria-label="Go back"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back
+        </button>
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900">
+          Privacy
+        </h1>
+        <p className="mt-1 text-sm text-slate-600">
+          Control what information you share and how we contact you.
+        </p>
+      </header>
 
-      <div>
-        <div className="lg:max-w-4xl lg:mx-auto">
+      <div className="lg:max-w-4xl lg:mx-auto space-y-6">
         {message && (
           <div
-            className={`mb-6 rounded-lg p-4 ${
+            className={`rounded-lg p-4 ${
               message.type === "success"
                 ? "bg-green-50 text-green-800 border border-green-200"
                 : "bg-red-50 text-red-800 border border-red-200"
@@ -140,117 +144,269 @@ export default function PrivacyPage() {
           </div>
         )}
 
-        <div className="max-w-2xl space-y-6">
-          {/* Profile Visibility */}
-          <div className="border-b border-slate-200 pb-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Profile visibility</h2>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="font-medium text-slate-900">Show email address</p>
-                  <p className="text-sm text-slate-600">Allow others to see your email</p>
-                </div>
-                <ToggleSwitch
-                  enabled={privacySettings.showEmail}
-                  onToggle={() => handleToggle("showEmail")}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="font-medium text-slate-900">Show phone number</p>
-                  <p className="text-sm text-slate-600">Allow others to see your phone</p>
-                </div>
-                <ToggleSwitch
-                  enabled={privacySettings.showPhone}
-                  onToggle={() => handleToggle("showPhone")}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Communication */}
-          <div className="border-b border-slate-200 pb-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Communication</h2>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="font-medium text-slate-900">Allow messages</p>
-                  <p className="text-sm text-slate-600">Receive messages from guests and hosts</p>
-                </div>
-                <ToggleSwitch
-                  enabled={privacySettings.allowMessages}
-                  onToggle={() => handleToggle("allowMessages")}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="font-medium text-slate-900">Marketing emails</p>
-                  <p className="text-sm text-slate-600">Receive promotional offers and updates</p>
-                </div>
-                <ToggleSwitch
-                  enabled={privacySettings.marketingEmails}
-                  onToggle={() => handleToggle("marketingEmails")}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Data Sharing */}
-          <div className="border-b border-slate-200 pb-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Data sharing</h2>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="font-medium text-slate-900">Share with partners</p>
-                  <p className="text-sm text-slate-600">Allow partners to access your data for improved services</p>
-                </div>
-                <ToggleSwitch
-                  enabled={privacySettings.shareDataWithPartners}
-                  onToggle={() => handleToggle("shareDataWithPartners")}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Data Management */}
-          <div className="pt-2">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Data management</h2>
-            <div className="space-y-3">
-              <button className="w-full flex items-center justify-between rounded-lg border border-slate-200 p-4 hover:bg-slate-50 active:bg-slate-100 transition-colors">
-                <div className="text-left">
-                  <p className="font-medium text-slate-900">Download your data</p>
-                  <p className="text-sm text-slate-600">Get a copy of all your information</p>
-                </div>
-                <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        {/* Profile visibility card */}
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4 sm:px-8">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100">
+                <svg
+                  className="h-5 w-5 text-rose-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4.5C7.305 4.5 3.314 7.36 2 12c1.314 4.64 5.305 7.5 10 7.5s8.686-2.86 10-7.5c-1.314-4.64-5.305-7.5-10-7.5z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9a3 3 0 100 6 3 3 0 000-6z"
+                  />
                 </svg>
-              </button>
-
-              <button className="w-full flex items-center justify-between rounded-lg border border-red-200 p-4 hover:bg-red-50 active:bg-red-100 transition-colors">
-                <div className="text-left">
-                  <p className="font-medium text-red-600">Delete your account</p>
-                  <p className="text-sm text-red-500">Permanently remove your account and data</p>
-                </div>
-                <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Profile visibility
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Choose what contact details are visible to others.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+          <div className="space-y-4 p-6 sm:p-8">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <p className="font-medium text-slate-900">Show email address</p>
+                <p className="text-sm text-slate-600">
+                  Allow others to see your email.
+                </p>
+              </div>
+              <ToggleSwitch
+                enabled={privacySettings.showEmail}
+                onToggle={() => handleToggle("showEmail")}
+              />
+            </div>
 
-        {/* Save Button */}
-        <div className="max-w-2xl mt-8">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <p className="font-medium text-slate-900">Show phone number</p>
+                <p className="text-sm text-slate-600">
+                  Allow others to see your phone.
+                </p>
+              </div>
+              <ToggleSwitch
+                enabled={privacySettings.showPhone}
+                onToggle={() => handleToggle("showPhone")}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Communication card */}
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4 sm:px-8">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100">
+                <svg
+                  className="h-5 w-5 text-rose-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 10h.01M12 10h.01M16 10h.01M21 12c0-4.418-4.03-8-9-8S3 7.582 3 12s4.03 8 9 8a9.84 9.84 0 003.53-.64L21 21l-.64-3.47A7.8 7.8 0 0021 12z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Communication
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Control how guests and Zuha Host contact you.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-4 p-6 sm:p-8">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <p className="font-medium text-slate-900">Allow messages</p>
+                <p className="text-sm text-slate-600">
+                  Receive messages from guests and hosts.
+                </p>
+              </div>
+              <ToggleSwitch
+                enabled={privacySettings.allowMessages}
+                onToggle={() => handleToggle("allowMessages")}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <p className="font-medium text-slate-900">Marketing emails</p>
+                <p className="text-sm text-slate-600">
+                  Receive promotional offers, tips, and product updates.
+                </p>
+              </div>
+              <ToggleSwitch
+                enabled={privacySettings.marketingEmails}
+                onToggle={() => handleToggle("marketingEmails")}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Data sharing card */}
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4 sm:px-8">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100">
+                <svg
+                  className="h-5 w-5 text-rose-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 11c1.657 0 3-1.343 3-3S13.657 5 12 5 9 6.343 9 8s1.343 3 3 3z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 21v-2a4 4 0 00-4-4H9a4 4 0 00-4 4v2m14-12h.01M4.99 9H5"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Data sharing
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Decide how your data is used to improve services.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-4 p-6 sm:p-8">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <p className="font-medium text-slate-900">
+                  Share with trusted partners
+                </p>
+                <p className="text-sm text-slate-600">
+                  Allow selected partners to access your data for analytics and
+                  product improvements.
+                </p>
+              </div>
+              <ToggleSwitch
+                enabled={privacySettings.shareDataWithPartners}
+                onToggle={() => handleToggle("shareDataWithPartners")}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Data management card */}
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4 sm:px-8">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100">
+                <svg
+                  className="h-5 w-5 text-rose-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 13h6m-3-3v6m9-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Data management
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Download your data or request account deletion.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-3 p-6 sm:p-8">
+            <button className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white p-4 text-left text-sm hover:bg-slate-50 active:bg-slate-100 transition-colors">
+              <div>
+                <p className="font-medium text-slate-900">
+                  Download your data
+                </p>
+                <p className="text-xs text-slate-600">
+                  Get a copy of the information associated with your account.
+                </p>
+              </div>
+              <svg
+                className="h-5 w-5 text-slate-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </button>
+
+            <button className="flex w-full items-center justify-between rounded-xl border border-red-200 bg-white p-4 text-left text-sm hover:bg-red-50 active:bg-red-100 transition-colors">
+              <div>
+                <p className="font-medium text-red-600">Delete your account</p>
+                <p className="text-xs text-red-500">
+                  Permanently remove your account and all associated data.
+                </p>
+              </div>
+              <svg
+                className="h-5 w-5 text-red-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </button>
+          </div>
+        </section>
+
+        {/* Save actions */}
+        <div className="flex justify-end pt-2">
           <button
             onClick={handleSave}
             disabled={saving}
-            className="w-full lg:w-auto rounded-lg bg-slate-900 px-8 py-3 text-sm font-semibold text-white hover:bg-slate-800 active:bg-slate-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-rose-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving ? "Saving..." : "Save changes"}
           </button>
-        </div>
         </div>
       </div>
     </div>

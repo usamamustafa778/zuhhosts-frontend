@@ -299,7 +299,9 @@ function DroppableColumn({
         <span className="text-xs text-slate-400">{tasks.length}</span>
       </div>
       <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-        <div className={`mt-3 space-y-3 ${safeTasks.length === 0 ? "min-h-[180px]" : ""}`}>
+        <div
+          className={`mt-3 space-y-3 ${safeTasks.length === 0 ? "min-h-[180px]" : ""}`}
+        >
           {safeTasks.map((task) => (
             <SortableTask
               key={task.id}
@@ -337,7 +339,7 @@ export default function KanbanBoard({
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   const handleDragStart = (event) => {
@@ -418,7 +420,7 @@ export default function KanbanBoard({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {columns.map((column) => (
           <DroppableColumn
             key={column}

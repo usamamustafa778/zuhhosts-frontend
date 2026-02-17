@@ -45,8 +45,10 @@ export default function AnalyticsPage() {
 
   useSEO({
     title: "Analytics | Zuha Host",
-    description: "View comprehensive analytics for your properties and bookings.",
-    keywords: "analytics, reports, occupancy, revenue, booking sources, guest trends",
+    description:
+      "View comprehensive analytics for your properties and bookings.",
+    keywords:
+      "analytics, reports, occupancy, revenue, booking sources, guest trends",
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -148,7 +150,10 @@ export default function AnalyticsPage() {
             repeatRate: data?.summary?.repeatGuestRate || 0,
             averageGuestsPerBooking: data?.summary?.avgGuestsPerBooking || 0,
             topGuests: data?.topGuests || [],
-            guestComposition: data?.guestComposition || { totalAdults: 0, totalChildren: 0 },
+            guestComposition: data?.guestComposition || {
+              totalAdults: 0,
+              totalChildren: 0,
+            },
           });
           break;
         }
@@ -186,15 +191,40 @@ export default function AnalyticsPage() {
   }
 
   const tabs = [
-    { id: "occupancy", label: "Occupancy", icon: BarChart3, activeClass: "border-blue-600 text-blue-600" },
-    { id: "revenue", label: "Revenue", icon: DollarSign, activeClass: "border-green-600 text-green-600" },
-    { id: "sources", label: "Booking Sources", icon: MapPin, activeClass: "border-purple-600 text-purple-600" },
-    { id: "guests", label: "Guest Trends", icon: Users, activeClass: "border-pink-600 text-pink-600" },
-    { id: "direct", label: "Direct Bookings", icon: Globe, activeClass: "border-indigo-600 text-indigo-600" },
+    {
+      id: "occupancy",
+      label: "Occupancy",
+      icon: BarChart3,
+      activeClass: "border-blue-600 text-blue-600",
+    },
+    {
+      id: "revenue",
+      label: "Revenue",
+      icon: DollarSign,
+      activeClass: "border-green-600 text-green-600",
+    },
+    {
+      id: "sources",
+      label: "Booking Sources",
+      icon: MapPin,
+      activeClass: "border-purple-600 text-purple-600",
+    },
+    {
+      id: "guests",
+      label: "Guest Trends",
+      icon: Users,
+      activeClass: "border-pink-600 text-pink-600",
+    },
+    {
+      id: "direct",
+      label: "Direct Bookings",
+      icon: Globe,
+      activeClass: "border-indigo-600 text-indigo-600",
+    },
   ];
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 px-4 py-6">
+    <div className="mx-auto space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -206,7 +236,9 @@ export default function AnalyticsPage() {
           </button>
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Analytics</h1>
-            <p className="text-sm text-slate-600 mt-1">Comprehensive insights into your business performance</p>
+            <p className="text-sm text-slate-600 mt-1">
+              Comprehensive insights into your business performance
+            </p>
           </div>
         </div>
 
@@ -230,10 +262,11 @@ export default function AnalyticsPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-5 py-3.5 text-sm font-semibold border-b-2 transition-all whitespace-nowrap ${isActive
-                  ? tab.activeClass
-                  : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                  }`}
+                className={`flex items-center gap-2 px-5 py-3.5 text-sm font-semibold border-b-2 transition-all whitespace-nowrap ${
+                  isActive
+                    ? tab.activeClass
+                    : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                }`}
               >
                 <Icon className="w-4 h-4" strokeWidth={2.5} />
                 {tab.label}
@@ -291,7 +324,9 @@ export default function AnalyticsPage() {
         </div>
 
         <button
-          onClick={() => setFilters({ propertyId: "", startDate: "", endDate: "" })}
+          onClick={() =>
+            setFilters({ propertyId: "", startDate: "", endDate: "" })
+          }
           className="mt-4 text-sm text-slate-600 hover:text-slate-900 underline transition-colors"
         >
           Clear filters
@@ -340,35 +375,45 @@ export default function AnalyticsPage() {
                 />
               </div>
 
-              {occupancyData.byProperty && occupancyData.byProperty.length > 0 && (
-                <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Building2 className="w-5 h-5 text-slate-600" />
-                    <h3 className="text-lg font-semibold text-slate-900">By Property</h3>
-                  </div>
-                  <div className="space-y-3">
-                    {occupancyData.byProperty.map((item) => (
-                      <div
-                        key={item.propertyId}
-                        className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-white rounded-xl border border-slate-100 hover:shadow-md transition-all"
-                      >
-                        <div>
-                          <h4 className="font-semibold text-slate-900">{item.propertyName}</h4>
-                          <p className="text-sm text-slate-600 mt-1">
-                            {item.bookings} bookings • {item.nights} nights
-                          </p>
+              {occupancyData.byProperty &&
+                occupancyData.byProperty.length > 0 && (
+                  <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Building2 className="w-5 h-5 text-slate-600" />
+                      <h3 className="text-lg font-semibold text-slate-900">
+                        By Property
+                      </h3>
+                    </div>
+                    <div className="space-y-3">
+                      {occupancyData.byProperty.map((item) => (
+                        <div
+                          key={item.propertyId}
+                          className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-white rounded-xl border border-slate-100 hover:shadow-md transition-all"
+                        >
+                          <div>
+                            <h4 className="font-semibold text-slate-900">
+                              {item.propertyName}
+                            </h4>
+                            <p className="text-sm text-slate-600 mt-1">
+                              {item.bookings} bookings • {item.nights} nights
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-2xl font-bold text-slate-900">
+                              {(
+                                (item.nights /
+                                  (occupancyData.availableRooms || 1)) *
+                                100
+                              ).toFixed(1)}
+                              %
+                            </p>
+                            <p className="text-xs text-slate-600">Occupancy</p>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-bold text-slate-900">
-                            {((item.nights / (occupancyData.availableRooms || 1)) * 100).toFixed(1)}%
-                          </p>
-                          <p className="text-xs text-slate-600">Occupancy</p>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
           )}
 
@@ -378,7 +423,10 @@ export default function AnalyticsPage() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <SummaryCard
                   title="Total Revenue"
-                  value={formatCurrency(revenueData.totalRevenue || 0, revenueData.currency)}
+                  value={formatCurrency(
+                    revenueData.totalRevenue || 0,
+                    revenueData.currency,
+                  )}
                   icon={<DollarSign className="w-6 h-6" />}
                   iconBgColor="bg-green-100"
                   iconColor="text-green-600"
@@ -386,7 +434,10 @@ export default function AnalyticsPage() {
 
                 <SummaryCard
                   title="Avg Booking Value"
-                  value={formatCurrency(revenueData.averageBookingValue || 0, revenueData.currency)}
+                  value={formatCurrency(
+                    revenueData.averageBookingValue || 0,
+                    revenueData.currency,
+                  )}
                   icon={<CreditCard className="w-6 h-6" />}
                   iconBgColor="bg-blue-100"
                   iconColor="text-blue-600"
@@ -413,13 +464,18 @@ export default function AnalyticsPage() {
                 <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
                   <div className="flex items-center gap-2 mb-4">
                     <PieChart className="w-5 h-5 text-slate-600" />
-                    <h3 className="text-lg font-semibold text-slate-900">Revenue by Property</h3>
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      Revenue by Property
+                    </h3>
                   </div>
                   <div className="space-y-3">
                     {revenueData.byProperty.map((item) => {
                       const percentage =
                         revenueData.totalRevenue > 0
-                          ? ((item.revenue / revenueData.totalRevenue) * 100).toFixed(1)
+                          ? (
+                              (item.revenue / revenueData.totalRevenue) *
+                              100
+                            ).toFixed(1)
                           : 0;
                       return (
                         <div
@@ -427,14 +483,23 @@ export default function AnalyticsPage() {
                           className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-white rounded-xl border border-slate-100 hover:shadow-md transition-all"
                         >
                           <div className="flex-1">
-                            <h4 className="font-semibold text-slate-900">{item.propertyName}</h4>
-                            <p className="text-sm text-slate-600 mt-1">{item.bookings} bookings</p>
+                            <h4 className="font-semibold text-slate-900">
+                              {item.propertyName}
+                            </h4>
+                            <p className="text-sm text-slate-600 mt-1">
+                              {item.bookings} bookings
+                            </p>
                           </div>
                           <div className="text-right">
                             <p className="text-xl font-bold text-slate-900">
-                              {formatCurrency(item.revenue, revenueData.currency)}
+                              {formatCurrency(
+                                item.revenue,
+                                revenueData.currency,
+                              )}
                             </p>
-                            <p className="text-xs text-slate-600">{percentage}% of total</p>
+                            <p className="text-xs text-slate-600">
+                              {percentage}% of total
+                            </p>
                           </div>
                         </div>
                       );
@@ -447,13 +512,18 @@ export default function AnalyticsPage() {
                 <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
                   <div className="flex items-center gap-2 mb-4">
                     <MapPin className="w-5 h-5 text-slate-600" />
-                    <h3 className="text-lg font-semibold text-slate-900">Revenue by Source</h3>
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      Revenue by Source
+                    </h3>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {revenueData.bySource.map((source) => {
                       const percentage =
                         revenueData.totalRevenue > 0
-                          ? ((source.revenue / revenueData.totalRevenue) * 100).toFixed(1)
+                          ? (
+                              (source.revenue / revenueData.totalRevenue) *
+                              100
+                            ).toFixed(1)
                           : 0;
                       return (
                         <div
@@ -464,12 +534,19 @@ export default function AnalyticsPage() {
                             <span className="text-sm font-medium text-slate-700 capitalize">
                               {source.source.replace("_", " ")}
                             </span>
-                            <span className="text-xs text-slate-500">{percentage}%</span>
+                            <span className="text-xs text-slate-500">
+                              {percentage}%
+                            </span>
                           </div>
                           <p className="text-2xl font-bold text-slate-900">
-                            {formatCurrency(source.revenue, revenueData.currency)}
+                            {formatCurrency(
+                              source.revenue,
+                              revenueData.currency,
+                            )}
                           </p>
-                          <p className="text-xs text-slate-600 mt-1">{source.bookings} bookings</p>
+                          <p className="text-xs text-slate-600 mt-1">
+                            {source.bookings} bookings
+                          </p>
                         </div>
                       );
                     })}
@@ -516,11 +593,17 @@ export default function AnalyticsPage() {
                       </div>
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-slate-600">Bookings</span>
-                          <span className="text-lg font-bold text-slate-900">{source.count}</span>
+                          <span className="text-sm text-slate-600">
+                            Bookings
+                          </span>
+                          <span className="text-lg font-bold text-slate-900">
+                            {source.count}
+                          </span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-slate-600">Revenue</span>
+                          <span className="text-sm text-slate-600">
+                            Revenue
+                          </span>
                           <span className="text-lg font-bold text-green-600">
                             {formatCurrency(source.revenue)}
                           </span>
@@ -569,47 +652,57 @@ export default function AnalyticsPage() {
 
                 <SummaryCard
                   title="Avg Guests/Booking"
-                  value={(guestTrendsData.averageGuestsPerBooking || 0).toFixed(1)}
+                  value={(guestTrendsData.averageGuestsPerBooking || 0).toFixed(
+                    1,
+                  )}
                   icon={<UserCheck className="w-6 h-6" />}
                   iconBgColor="bg-slate-100"
                   iconColor="text-slate-600"
                 />
               </div>
 
-              {guestTrendsData.topGuests && guestTrendsData.topGuests.length > 0 && (
-                <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Users className="w-5 h-5 text-slate-600" />
-                    <h3 className="text-lg font-semibold text-slate-900">Top Guests</h3>
-                  </div>
-                  <div className="space-y-3">
-                    {guestTrendsData.topGuests.map((guest, index) => (
-                      <div
-                        key={guest.guestId}
-                        className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-white rounded-xl border border-slate-100"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600 font-semibold">
-                            {index + 1}
+              {guestTrendsData.topGuests &&
+                guestTrendsData.topGuests.length > 0 && (
+                  <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Users className="w-5 h-5 text-slate-600" />
+                      <h3 className="text-lg font-semibold text-slate-900">
+                        Top Guests
+                      </h3>
+                    </div>
+                    <div className="space-y-3">
+                      {guestTrendsData.topGuests.map((guest, index) => (
+                        <div
+                          key={guest.guestId}
+                          className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-white rounded-xl border border-slate-100"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600 font-semibold">
+                              {index + 1}
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-slate-900">
+                                {guest.guestName}
+                              </h4>
+                              <p className="text-sm text-slate-600">
+                                {guest.guestEmail}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="font-semibold text-slate-900">{guest.guestName}</h4>
-                            <p className="text-sm text-slate-600">{guest.guestEmail}</p>
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-slate-900">
+                              {guest.bookings}{" "}
+                              {guest.bookings === 1 ? "booking" : "bookings"}
+                            </p>
+                            <p className="text-xs text-slate-600">
+                              {formatCurrency(guest.totalSpent)}
+                            </p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm font-semibold text-slate-900">
-                            {guest.bookings} {guest.bookings === 1 ? "booking" : "bookings"}
-                          </p>
-                          <p className="text-xs text-slate-600">
-                            {formatCurrency(guest.totalSpent)}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
           )}
 
@@ -653,7 +746,9 @@ export default function AnalyticsPage() {
               <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <TrendingUp className="w-5 h-5 text-slate-600" />
-                  <h3 className="text-lg font-semibold text-slate-900">Performance Summary</h3>
+                  <h3 className="text-lg font-semibold text-slate-900">
+                    Performance Summary
+                  </h3>
                 </div>
                 <div className="space-y-4">
                   <div className="flex justify-between items-center p-5 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-100">
@@ -662,7 +757,9 @@ export default function AnalyticsPage() {
                         <DollarSign className="w-5 h-5 text-green-600" />
                       </div>
                       <div>
-                        <span className="text-slate-700 font-medium">Commission Saved</span>
+                        <span className="text-slate-700 font-medium">
+                          Commission Saved
+                        </span>
                         <p className="text-xs text-slate-600 mt-0.5">
                           Estimated savings from direct bookings
                         </p>

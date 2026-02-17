@@ -24,7 +24,7 @@ import toast from "react-hot-toast";
 const formatPermissions = (permissions) =>
   (permissions ?? [])
     .map((permission) =>
-      typeof permission === "string" ? permission : permission?.name ?? ""
+      typeof permission === "string" ? permission : (permission?.name ?? ""),
     )
     .filter(Boolean);
 
@@ -122,7 +122,7 @@ export default function UsersPage() {
           // Handle both direct array and nested response
           const rolesArray = Array.isArray(rolesResponse)
             ? rolesResponse
-            : rolesResponse?.roles ?? [];
+            : (rolesResponse?.roles ?? []);
           setRolesData(rolesArray);
         }
       } catch (err) {
@@ -244,7 +244,7 @@ export default function UsersPage() {
 
       // Find role ID from role name
       const selectedRole = rolesData.find(
-        (r) => r.name.toLowerCase() === createForm.role.toLowerCase()
+        (r) => r.name.toLowerCase() === createForm.role.toLowerCase(),
       );
 
       // Prepare data for API
@@ -336,7 +336,7 @@ export default function UsersPage() {
 
       // Find role ID from role name
       const selectedRole = rolesData.find(
-        (r) => r.name.toLowerCase() === editForm.role.toLowerCase()
+        (r) => r.name.toLowerCase() === editForm.role.toLowerCase(),
       );
 
       // Prepare data for API
@@ -351,7 +351,7 @@ export default function UsersPage() {
       const result = await updateUser(userId, userData);
 
       setUsersData((prev) =>
-        prev.map((u) => ((u.id || u._id) === userId ? { ...u, ...result } : u))
+        prev.map((u) => ((u.id || u._id) === userId ? { ...u, ...result } : u)),
       );
       setSelectedUser(null);
 
@@ -405,7 +405,7 @@ export default function UsersPage() {
       const toastId = toast.loading("Deleting user...");
       await deleteUserApi(userId);
       setUsersData((prev) =>
-        prev.filter((user) => (user.id || user._id) !== userId)
+        prev.filter((user) => (user.id || user._id) !== userId),
       );
       toast.success("User deleted successfully!", { id: toastId });
     } catch (err) {
@@ -486,7 +486,7 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
+    <div className="mx-auto space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
@@ -648,7 +648,7 @@ export default function UsersPage() {
                         <button
                           onClick={() =>
                             setOpenDropdownId(
-                              openDropdownId === userId ? null : userId
+                              openDropdownId === userId ? null : userId,
                             )
                           }
                           className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100 active:bg-slate-200 transition-colors"
@@ -1032,7 +1032,10 @@ export default function UsersPage() {
             <label className="space-y-1 text-sm text-slate-600">
               <span className="font-semibold text-sm">Role</span>
               <select
-                value={createForm.role || (rolesData.length > 0 ? rolesData[0].name : "")}
+                value={
+                  createForm.role ||
+                  (rolesData.length > 0 ? rolesData[0].name : "")
+                }
                 onChange={(e) => {
                   setCreateForm({
                     ...createForm,
