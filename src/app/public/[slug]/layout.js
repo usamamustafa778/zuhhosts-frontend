@@ -19,8 +19,32 @@ export default function PublicSlugLayout({ children }) {
   const [homeHref, setHomeHref] = useState(`/public/${slug}`);
 
   useEffect(() => {
+    if (!slug) return;
+    if (typeof window === "undefined") {
+      setHomeHref(`/public/${slug}`);
+      return;
+    }
+
     const sub = getTenantSlugFromSubdomain();
-    setHomeHref(sub && sub === slug ? "/" : `/public/${slug}`);
+    const hostname = window.location.hostname || "";
+    const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || "zuhahost.com";
+
+    const isTenantSubdomain = Boolean(sub && sub === slug);
+    const isCustomDomain =
+      hostname &&
+      hostname !== baseDomain &&
+      !hostname.endsWith(`.${baseDomain}`) &&
+      !hostname.startsWith("localhost") &&
+      !hostname.startsWith("127.0.0.1") &&
+      !hostname.startsWith("192.168.");
+
+    // For tenant subdomains and custom domains, use root-relative URLs (/, /properties, etc.)
+    // For dashboard/base domains, keep /public/[slug] in the path.
+    if (isTenantSubdomain || isCustomDomain) {
+      setHomeHref("/");
+    } else {
+      setHomeHref(`/public/${slug}`);
+    }
   }, [slug]);
 
   useEffect(() => {

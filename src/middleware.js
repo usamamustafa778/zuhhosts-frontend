@@ -57,7 +57,10 @@ export async function middleware(request) {
   const slug = await resolveCustomDomain(host);
   if (slug) {
     const path = url.pathname === "/" ? "" : url.pathname;
-    url.pathname = `/public/${slug}${path}`;
+    // Avoid double-prefixing when the path already starts with /public/[slug]
+    if (!path.startsWith(`/public/${slug}`)) {
+      url.pathname = `/public/${slug}${path}`;
+    }
     return NextResponse.rewrite(url);
   }
 
