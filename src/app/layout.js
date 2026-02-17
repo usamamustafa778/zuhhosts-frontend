@@ -12,8 +12,22 @@ const roboto = Roboto({
 
 export default async function RootLayout({ children }) {
   const headersList = await headers();
-  const host = headersList.get("x-forwarded-host") || headersList.get("host") || "";
-  const tenantSubdomain = isTenantSubdomain(host);
+  const hostHeader = headersList.get("x-forwarded-host") || headersList.get("host") || "";
+  const rawHost = hostHeader.split(":")[0].toLowerCase().trim();
+
+  const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || "zuhahost.com";
+  const isLocalHost =
+    rawHost === "localhost" ||
+    rawHost === "127.0.0.1" ||
+    rawHost.startsWith("192.168.");
+  const isBaseOrSubdomain =
+    rawHost === baseDomain || rawHost.endsWith(`.${baseDomain}`);
+
+  const tenantSubdomain = isTenantSubdomain(rawHost);
+  const isCustomDomainHost = !!rawHost && !isLocalHost && !isBaseOrSubdomain;
+
+  // Treat both tenant subdomains and custom domains as tenant public sites
+  const isTenantSiteHost = tenantSubdomain || isCustomDomainHost;
 
   return (
     <html lang="en" className={roboto.variable}>
@@ -29,7 +43,7 @@ export default async function RootLayout({ children }) {
         <link rel="icon" href="/favicon.ico" />
       </head>
       <body className={`${roboto.variable} antialiased`}>
-        <LayoutBody isTenantSubdomain={tenantSubdomain}>{children}</LayoutBody>
+        <LayoutBody isTenantSubdomain={isTenantSiteHost}>{children}</LayoutBody>
       </body>
     </html>
   );
