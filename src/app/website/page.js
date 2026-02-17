@@ -30,6 +30,12 @@ const SECTIONS = [
   { id: "amenities", label: "Amenities", icon: "M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" },
 ];
 
+// Fallback DNS records to show before we have dynamic records from Vercel
+const DEFAULT_DNS_RECORDS = [
+  { type: "CNAME", name: "www", value: "cname.vercel-dns.com" },
+  { type: "A", name: "@", value: "76.76.21.21" },
+];
+
 export default function WebsitePage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useRequireAuth();
@@ -65,6 +71,7 @@ export default function WebsitePage() {
   const [customDomain, setCustomDomainState] = useState("");
   const [customDomainStatus, setCustomDomainStatus] = useState("");
   const [customDomainVerificationError, setCustomDomainVerificationError] = useState("");
+  const [customDomainDnsRecords, setCustomDomainDnsRecords] = useState([]);
   const [customDomainInput, setCustomDomainInput] = useState("");
   const [isAddingDomain, setIsAddingDomain] = useState(false);
   const [isVerifyingDomain, setIsVerifyingDomain] = useState(false);
@@ -132,6 +139,10 @@ export default function WebsitePage() {
         setCustomDomainState((configData.customDomain ?? "").toString().trim());
         setCustomDomainStatus((configData.customDomainStatus ?? "").toString().trim());
         setCustomDomainVerificationError((configData.customDomainVerificationError ?? "").toString().trim());
+        const dnsRecords = Array.isArray(configData.customDomainDnsRecords)
+          ? configData.customDomainDnsRecords
+          : [];
+        setCustomDomainDnsRecords(dnsRecords);
         setLogoPreview(logo ? getImageUrl(logo) || logo : null);
         setHeroPreview(heroImage ? getImageUrl(heroImage) || heroImage : null);
       }
@@ -219,8 +230,33 @@ export default function WebsitePage() {
     }));
   };
 
+  const copyToClipboard = async (text, successMessage = "Copied to clipboard") => {
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      toast.success(successMessage);
+    } catch (error) {
+      console.error("Failed to copy text:", error);
+      toast.error("Unable to copy to clipboard");
+    }
+  };
+
   const handleAddCustomDomain = async (e) => {
-    e.preventDefault();
+    // Support being called from both a form submit and a regular button click
+    if (e?.preventDefault) {
+      e.preventDefault();
+    }
     const domain = (customDomainInput || "").trim().toLowerCase();
     if (!domain) {
       toast.error("Enter a domain (e.g. marriott.com)");
@@ -255,6 +291,9 @@ export default function WebsitePage() {
       const result = await verifyCustomDomain();
       setCustomDomainStatus(result?.status ?? result?.verified ? "active" : "pending_verification");
       setCustomDomainVerificationError((result?.verificationError ?? "").toString().trim());
+      if (Array.isArray(result?.dnsRecords)) {
+        setCustomDomainDnsRecords(result.dnsRecords);
+      }
       if (result?.verified || result?.status === "active") {
         toast.success("Domain verified and active!", { id: toastId });
       } else {
@@ -279,6 +318,7 @@ export default function WebsitePage() {
       setCustomDomainState("");
       setCustomDomainStatus("");
       setCustomDomainVerificationError("");
+      setCustomDomainDnsRecords([]);
       toast.success("Custom domain removed.", { id: toastId });
       await loadData(true);
     } catch (error) {
@@ -287,6 +327,10 @@ export default function WebsitePage() {
     } finally {
       setIsRemovingDomain(false);
     }
+  };
+
+  const handleEditCustomDomainClick = () => {
+    toast("To change the domain, remove it and add a new one.");
   };
 
   const handleToggleWebsite = async () => {
@@ -533,7 +577,7 @@ export default function WebsitePage() {
               <div className="p-4 sm:p-5 space-y-4">
                 {!customDomain ? (
                   <>
-                    <form onSubmit={handleAddCustomDomain} className="flex flex-wrap items-end gap-3">
+                    <div className="flex flex-wrap items-end gap-3">
                       <div className="flex-1 min-w-[200px]">
                         <label className="block text-xs font-medium text-slate-500 mb-1.5">Domain</label>
                         <input
@@ -545,57 +589,140 @@ export default function WebsitePage() {
                         />
                       </div>
                       <button
-                        type="submit"
+                        type="button"
+                        onClick={handleAddCustomDomain}
                         disabled={isAddingDomain}
                         className="rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50 transition-colors"
                       >
                         {isAddingDomain ? "Adding…" : "Add domain"}
                       </button>
-                    </form>
+                    </div>
                     <p className="text-xs text-slate-500">After adding, you’ll get DNS instructions. Once DNS is set and verified, your site will work on your custom domain with SSL.</p>
                   </>
                 ) : (
                   <>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className="font-medium text-slate-900">{customDomain}</span>
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          customDomainStatus === "active"
-                            ? "bg-emerald-100 text-emerald-800"
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-sm font-medium text-slate-900">{customDomain}</span>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                            customDomainStatus === "active"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : customDomainStatus === "failed"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-amber-100 text-amber-800"
+                          }`}
+                        >
+                          {customDomainStatus === "active"
+                            ? "Active"
                             : customDomainStatus === "failed"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-amber-100 text-amber-800"
-                        }`}
-                      >
-                        {customDomainStatus === "active" ? "Active" : customDomainStatus === "failed" ? "Verification failed" : "Pending verification"}
-                      </span>
+                              ? "Verification failed"
+                              : "Verification needed"}
+                        </span>
+                        <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600">
+                          <span className="mr-1 h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          Production
+                        </span>
+                      </div>
+                      {customDomainStatus !== "active" && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleVerifyCustomDomain}
+                            disabled={isVerifyingDomain}
+                            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                          >
+                            {isVerifyingDomain ? "Refreshing…" : "Refresh"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleEditCustomDomainClick}
+                            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      )}
                     </div>
                     {customDomainStatus !== "active" && (
-                      <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4 space-y-3">
-                        <p className="text-sm font-medium text-slate-700">Add one of these DNS records at your domain provider:</p>
-                        <div className="grid sm:grid-cols-2 gap-3 text-sm">
-                          <div className="rounded-lg border border-slate-200 bg-white p-3 font-mono text-xs space-y-1">
-                            <p className="text-slate-500">CNAME (recommended)</p>
-                            <p><span className="text-slate-500">Name:</span> @ or www</p>
-                            <p><span className="text-slate-500">Value:</span> cname.vercel-dns.com</p>
-                          </div>
-                          <div className="rounded-lg border border-slate-200 bg-white p-3 font-mono text-xs space-y-1">
-                            <p className="text-slate-500">A record</p>
-                            <p><span className="text-slate-500">Name:</span> @</p>
-                            <p><span className="text-slate-500">Value:</span> 76.76.21.21</p>
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+                          <svg className="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a1 1 0 00.86 1.5h18.64a1 1 0 00.86-1.5L13.71 3.86a1 1 0 00-1.72 0z" />
+                          </svg>
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide">Verification needed</p>
+                            <p className="mt-0.5 text-[11px]">
+                              Add the DNS records below at your domain provider, then click <span className="font-semibold">Verify DNS</span>.
+                            </p>
                           </div>
                         </div>
+
+                        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white font-mono text-xs">
+                          {customDomainDnsRecords.length === 0 && (
+                            <p className="px-3 pt-3 pb-1 text-[11px] text-slate-500">
+                              These are the recommended DNS records. After verification, we’ll show the exact records from Vercel.
+                            </p>
+                          )}
+                          <table className="min-w-full border-collapse">
+                            <thead className="bg-slate-50 text-[11px] font-semibold text-slate-500">
+                              <tr>
+                                <th className="px-3 py-2 text-left">Type</th>
+                                <th className="px-3 py-2 text-left">Name</th>
+                                <th className="px-3 py-2 text-left">Value</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200">
+                              {(customDomainDnsRecords.length ? customDomainDnsRecords : DEFAULT_DNS_RECORDS).map(
+                                (record, index) => (
+                                  <tr key={`${record.type}-${record.name}-${index}`}>
+                                    <td className="px-3 py-2 text-slate-700">{record.type}</td>
+                                    <td className="px-3 py-2">
+                                      <div className="flex items-center gap-1 text-slate-700">
+                                        <span>{record.name || "-"}</span>
+                                        {record.name && (
+                                          <button
+                                            type="button"
+                                            onClick={() => copyToClipboard(record.name, "Name copied")}
+                                            className="text-slate-400 hover:text-slate-700"
+                                            title="Copy name"
+                                          >
+                                            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" strokeWidth="2" />
+                                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" strokeWidth="2" />
+                                            </svg>
+                                          </button>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <div className="flex items-center gap-1 text-slate-700">
+                                        <span>{record.value || "-"}</span>
+                                        {record.value && (
+                                          <button
+                                            type="button"
+                                            onClick={() => copyToClipboard(record.value, "Value copied")}
+                                            className="text-slate-400 hover:text-slate-700"
+                                            title="Copy value"
+                                          >
+                                            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" strokeWidth="2" />
+                                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" strokeWidth="2" />
+                                            </svg>
+                                          </button>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+
                         {customDomainVerificationError && (
                           <p className="text-xs text-red-600">{customDomainVerificationError}</p>
                         )}
-                        <button
-                          type="button"
-                          onClick={handleVerifyCustomDomain}
-                          disabled={isVerifyingDomain}
-                          className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
-                        >
-                          {isVerifyingDomain ? "Verifying…" : "Verify DNS"}
-                        </button>
                       </div>
                     )}
                     {customDomainStatus === "active" && (
