@@ -19,7 +19,6 @@ import { useSEO } from "@/hooks/useSEO";
 const getInitialFormState = () => ({
   property_id: "",
   guest_id: "",
-  roomId: "",
   start_date: "",
   end_date: "",
   amount: "",
@@ -68,6 +67,7 @@ export default function NewBookingPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
   const [roomsData, setRoomsData] = useState([]);
+  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState("");
   const [idCardFiles, setIdCardFiles] = useState([]);
   const [idCardPreviews, setIdCardPreviews] = useState([]);
 
@@ -81,11 +81,9 @@ export default function NewBookingPage() {
     return prop?.propertyType === "hotel";
   };
 
-  // Clear roomId when property changes to a non-hotel
+  // Clear room type selection when property changes
   useEffect(() => {
-    if (createForm.property_id && !isHotelProperty(createForm.property_id) && createForm.roomId) {
-      setCreateForm((prev) => ({ ...prev, roomId: "" }));
-    }
+    setSelectedRoomTypeId("");
   }, [createForm.property_id]);
 
   // Sync currency on mount and when it changes in local storage
@@ -182,8 +180,8 @@ export default function NewBookingPage() {
       return;
     }
 
-    if (isHotelProperty(createForm.property_id) && !createForm.roomId) {
-      toast.error("Please select a room");
+    if (isHotelProperty(createForm.property_id) && !selectedRoomTypeId) {
+      toast.error("Please select a room type category");
       return;
     }
 
@@ -218,19 +216,17 @@ export default function NewBookingPage() {
       const formData = new FormData();
 
       // Append all booking fields, ensuring currency is from local storage.
-      // Skip roomId for non-hotel properties to avoid sending invalid/empty roomId.
-      const skipRoom = !isHotelProperty(createForm.property_id);
       Object.keys(createForm).forEach((key) => {
         if (key === "currency") {
           formData.append(key, getDefaultCurrency());
-        } else if (key === "roomId") {
-          if (!skipRoom && createForm[key]) formData.append(key, createForm[key]);
-        } else if (key === "roomId" && !createForm[key]) {
-          // Skip empty roomId
         } else {
           formData.append(key, createForm[key]);
         }
       });
+      // Do not send roomId anymore; send room type category instead so backend can auto-assign a room.
+      if (isHotelProperty(createForm.property_id) && selectedRoomTypeId) {
+        formData.append("roomTypeCategory", selectedRoomTypeId);
+      }
 
       // Append ID card files
       idCardFiles.forEach((file) => {
@@ -397,30 +393,40 @@ export default function NewBookingPage() {
             />
           </div>
 
-          {/* Room Selection */}
-          {createForm.property_id && (
+          {/* Room type category only (room is auto-assigned by backend) */}
+          {createForm.property_id && isHotelProperty(createForm.property_id) && (
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
-                Room *
+                Room type category *
               </label>
               <select
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                value={createForm.roomId}
-                onChange={(e) =>
-                  setCreateForm({ ...createForm, roomId: e.target.value })
-                }
+                value={selectedRoomTypeId}
+                onChange={(e) => setSelectedRoomTypeId(e.target.value)}
                 required
               >
-                <option value="">Select a room</option>
-                {roomsData.map((room) => {
-                  const rId = room._id || room.id;
-                  return (
-                    <option key={rId} value={rId}>
-                      Room {room.roomNumber} — {room.roomType} — ${room.price}/night
+                <option value="">Select a room type category</option>
+                {(() => {
+                  const seen = new Set();
+                  const options = [];
+                  roomsData.forEach((room) => {
+                    const rti = room.roomTypeId?._id ?? room.roomTypeId;
+                    if (!rti || seen.has(String(rti))) return;
+                    seen.add(String(rti));
+                    const id = String(rti);
+                    const label = room.roomType || room.roomTypeId?.name || "Category";
+                    options.push({ id, label });
+                  });
+                  return options.map((opt) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.label}
                     </option>
-                  );
-                })}
+                  ));
+                })()}
               </select>
+              <p className="mt-1 text-xs text-slate-500">
+                A room in this category will be assigned automatically for your dates.
+              </p>
             </div>
           )}
 

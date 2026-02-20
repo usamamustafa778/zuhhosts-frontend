@@ -80,7 +80,6 @@ export default function NewPropertyPage() {
   const [roomTypes, setRoomTypes] = useState([]);
   const [roomTypeForm, setRoomTypeForm] = useState(INITIAL_ROOM_TYPE_FORM);
   const [rooms, setRooms] = useState([]); // Rooms to be created: [{ roomTypeId: tempId, roomNumber, price, maxOccupancy, bedType, bedCount, size, bedrooms, bathrooms, amenities }]
-  const [expandedRoomTypes, setExpandedRoomTypes] = useState(new Set());
 
   const isAirbnbFlow = propertyModel === "airbnb";
   const isHotelFlow = propertyModel === "hotel";
@@ -297,7 +296,7 @@ export default function NewPropertyPage() {
           const unsaved = roomTypes.filter((r) => !r.saved);
           const roomTypeIdMap = new Map(); // Maps temp roomType id to actual created roomType id
           
-          // Create room types first
+          // Create room types first (one API call per room type)
           for (const rt of unsaved) {
             const created = await addRoomType(draftPropertyId, {
               name: rt.name,
@@ -311,23 +310,40 @@ export default function NewPropertyPage() {
             roomTypeIdMap.set(rt.id, created.id || created._id);
           }
           setRoomTypes((prev) => prev.map((r) => ({ ...r, saved: true })));
-          
-          // Create rooms for each room type
+
+          // Bulk room creation: one API call per room type with batches array
           const roomsToCreate = rooms.filter((r) => r.roomTypeId && roomTypeIdMap.has(r.roomTypeId));
+          const byRoomType = new Map();
           for (const room of roomsToCreate) {
-            const actualRoomTypeId = roomTypeIdMap.get(room.roomTypeId);
-            await addRoom(draftPropertyId, {
-              roomNumber: room.roomNumber,
-              roomTypeId: actualRoomTypeId,
-              price: Number(room.price) || Number(roomTypes.find(rt => rt.id === room.roomTypeId)?.price || 0),
-              maxOccupancy: Number(room.maxOccupancy) || Number(roomTypes.find(rt => rt.id === room.roomTypeId)?.maxOccupancy || 2),
-              bedType: room.bedType || undefined,
-              bedCount: room.bedCount ? Number(room.bedCount) : undefined,
-              size: room.size ? Number(room.size) : undefined,
-              bedrooms: room.bedrooms ? Number(room.bedrooms) : undefined,
-              bathrooms: room.bathrooms ? Number(room.bathrooms) : undefined,
-              amenities: Array.isArray(room.amenities) ? room.amenities : undefined,
-            });
+            const tempRtId = room.roomTypeId;
+            if (!byRoomType.has(tempRtId)) byRoomType.set(tempRtId, []);
+            byRoomType.get(tempRtId).push(room);
+          }
+          for (const [tempRtId, roomList] of byRoomType) {
+            const actualRoomTypeId = roomTypeIdMap.get(tempRtId);
+            if (!actualRoomTypeId) continue;
+            const numeric = roomList
+              .map((r) => Number(r.roomNumber))
+              .filter((n) => Number.isFinite(n));
+            const sorted = [...new Set(numeric)].sort((a, b) => a - b);
+            const batches = [];
+            let start = null,
+              end = null;
+            for (const n of sorted) {
+              if (start === null) {
+                start = n;
+                end = n;
+              } else if (n === end + 1) {
+                end = n;
+              } else {
+                batches.push({ batchStart: start, batchEnd: end });
+                start = n;
+                end = n;
+              }
+            }
+            if (start !== null) batches.push({ batchStart: start, batchEnd: end });
+            if (batches.length === 0) continue;
+            await addRoom(draftPropertyId, { roomTypeId: actualRoomTypeId, batches });
           }
         } else {
           await updateProperty(draftPropertyId, {
@@ -442,8 +458,6 @@ export default function NewPropertyPage() {
             rooms={rooms}
             addRoom={addRoomLocal}
             removeRoom={removeRoom}
-            expandedRoomTypes={expandedRoomTypes}
-            setExpandedRoomTypes={setExpandedRoomTypes}
             onBack={handleBack}
             onNext={handleNext}
             isSaving={isSaving}

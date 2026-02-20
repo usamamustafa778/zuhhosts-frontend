@@ -58,7 +58,7 @@ export default function Modal({
               {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
             </div>
             <button
-              className="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-500 hover:bg-slate-50 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-500 hover:bg-slate-50 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={onClose}
               aria-label="Close modal"
               disabled={disabled}
@@ -67,7 +67,7 @@ export default function Modal({
             </button>
           </div>
         </div>
-        <div className="p-6 max-h-[calc(100vh-16rem)] overflow-y-auto scrollbar-hide">
+        <div className="p-6 max-h-[70vh] overflow-y-auto">
           <div className="space-y-4">{children}</div>
         </div>
         <div className="sticky bottom-0 bg-white rounded-b-3xl border-t border-slate-100 py-4 px-6 flex justify-end gap-3">

@@ -18,8 +18,6 @@ export default function Step4HotelRoomTypes({
   rooms = [],
   addRoom,
   removeRoom,
-  expandedRoomTypes,
-  setExpandedRoomTypes,
   onBack, 
   onNext, 
   isSaving = false 
@@ -37,18 +35,13 @@ export default function Step4HotelRoomTypes({
     bathrooms: "",
     amenities: [],
   });
-
-  const toggleRoomTypeExpansion = (roomTypeId) => {
-    const newExpanded = new Set(expandedRoomTypes);
-    if (newExpanded.has(roomTypeId)) {
-      newExpanded.delete(roomTypeId);
-    } else {
-      newExpanded.add(roomTypeId);
-    }
-    setExpandedRoomTypes(newExpanded);
-  };
+  const [roomBatches, setRoomBatches] = useState([{ batchStart: "", batchEnd: "" }]);
+  const [roomBatchErrors, setRoomBatchErrors] = useState([]);
+  /** When editing a batch: { roomTypeId, batchStart, batchEnd } */
+  const [editingBatch, setEditingBatch] = useState(null);
 
   const openAddRoomModal = (roomTypeId) => {
+    setEditingBatch(null);
     const roomType = roomTypes.find(rt => rt.id === roomTypeId);
     if (roomType) {
       setSelectedRoomTypeId(roomTypeId);
@@ -63,37 +56,162 @@ export default function Step4HotelRoomTypes({
         bathrooms: "",
         amenities: Array.isArray(roomType.amenities) ? roomType.amenities : [],
       });
+      setRoomBatches([{ batchStart: "", batchEnd: "" }]);
+      setRoomBatchErrors([]);
       setIsAddRoomModalOpen(true);
     }
   };
 
+  const openEditBatchModal = (roomTypeId, batchStart, batchEnd) => {
+    const roomType = roomTypes.find(rt => rt.id === roomTypeId);
+    if (!roomType) return;
+    setSelectedRoomTypeId(roomTypeId);
+    setEditingBatch({ roomTypeId, batchStart, batchEnd });
+    setRoomForm({
+      roomNumber: "",
+      price: String(roomType.price || ""),
+      maxOccupancy: String(roomType.maxOccupancy || 2),
+      bedType: roomType.bedType || "",
+      bedCount: roomType.bedCount ? String(roomType.bedCount) : "",
+      size: roomType.size || "",
+      bedrooms: "",
+      bathrooms: "",
+      amenities: Array.isArray(roomType.amenities) ? roomType.amenities : [],
+    });
+    setRoomBatches([{ batchStart: String(batchStart), batchEnd: String(batchEnd) }]);
+    setRoomBatchErrors([]);
+    setIsAddRoomModalOpen(true);
+  };
+
   const handleAddRoom = () => {
     if (!selectedRoomTypeId) return;
-    if (!roomForm.roomNumber || !roomForm.roomNumber.trim()) {
-      alert("Room number is required");
-      return;
-    }
-    
-    // Check for duplicate room numbers
-    const existingRoom = rooms.find(r => 
-      r.roomTypeId === selectedRoomTypeId && 
-      r.roomNumber === roomForm.roomNumber.trim()
-    );
-    if (existingRoom) {
-      alert(`Room number ${roomForm.roomNumber} already exists for this category`);
+
+    // Validate batch configuration
+    if (!Array.isArray(roomBatches) || roomBatches.length === 0) {
+      alert("Please add at least one batch range");
       return;
     }
 
-    addRoom({
-      roomTypeId: selectedRoomTypeId,
-      roomNumber: roomForm.roomNumber.trim(),
-      price: roomForm.price || undefined,
-      maxOccupancy: roomForm.maxOccupancy || undefined,
-      bedType: roomForm.bedType || undefined,
-      bedCount: roomForm.bedCount || undefined,
-      size: roomForm.size || undefined,
-      bathrooms: roomForm.bathrooms || undefined,
-      amenities: roomForm.amenities || [],
+    const nextErrors = roomBatches.map(() => ({}));
+    const ranges = [];
+    const allNumbers = [];
+
+    roomBatches.forEach((batch, index) => {
+      const start = Number(batch.batchStart);
+      const end = Number(batch.batchEnd);
+
+      if (!Number.isFinite(start)) {
+        nextErrors[index].start = "Batch start is required";
+      }
+      if (!Number.isFinite(end)) {
+        nextErrors[index].end = "Batch end is required";
+      }
+      if (Number.isFinite(start) && Number.isFinite(end) && end < start) {
+        nextErrors[index].end = "End must be ≥ start";
+      }
+
+      if (Number.isFinite(start) && Number.isFinite(end) && end >= start) {
+        ranges.push({ start, end, index });
+        for (let n = start; n <= end; n++) {
+          allNumbers.push(String(n).trim());
+        }
+      }
+    });
+
+    // Prevent overlapping ranges within this submission
+    const sorted = [...ranges].sort((a, b) => a.start - b.start);
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = sorted[i - 1];
+      const curr = sorted[i];
+      if (curr.start <= prev.end) {
+        nextErrors[prev.index].range = "Overlaps another batch";
+        nextErrors[curr.index].range = "Overlaps another batch";
+      }
+    }
+
+    // Prevent duplicate numbers within this submission
+    const seen = new Set();
+    for (const num of allNumbers) {
+      if (seen.has(num)) {
+        // mark a generic range error
+        nextErrors.forEach((err) => {
+          if (!err.range) err.range = "Overlapping batches create duplicate room numbers";
+        });
+        break;
+      }
+      seen.add(num);
+    }
+
+    // Check against existing rooms for this room type (when editing a batch, exclude the old range)
+    let existingForType = rooms.filter((r) => r.roomTypeId === selectedRoomTypeId);
+    if (editingBatch && editingBatch.roomTypeId === selectedRoomTypeId) {
+      const oldStart = Number(editingBatch.batchStart);
+      const oldEnd = Number(editingBatch.batchEnd);
+      if (Number.isFinite(oldStart) && Number.isFinite(oldEnd)) {
+        existingForType = existingForType.filter((r) => {
+          const n = Number(r.roomNumber);
+          return !Number.isFinite(n) || n < oldStart || n > oldEnd;
+        });
+      }
+    }
+    const existingNumbers = new Set(
+      existingForType.map((r) => String(r.roomNumber).trim()),
+    );
+    const duplicateInExisting = allNumbers.find((num) =>
+      existingNumbers.has(num),
+    );
+    if (duplicateInExisting) {
+      // Attach a generic error; message via alert for clarity
+      nextErrors[0].range =
+        nextErrors[0].range ||
+        `Room number ${duplicateInExisting} already exists for this category`;
+    }
+
+    const hasErrors = nextErrors.some(
+      (err) => err.start || err.end || err.range,
+    );
+    if (hasErrors) {
+      setRoomBatchErrors(nextErrors);
+      if (duplicateInExisting) {
+        alert(`Room number ${duplicateInExisting} already exists for this category`);
+      } else {
+        alert("Please fix batch configuration errors");
+      }
+      return;
+    }
+
+    setRoomBatchErrors(nextErrors);
+
+    // When editing a batch, remove rooms in the old range first
+    if (editingBatch && editingBatch.roomTypeId === selectedRoomTypeId) {
+      const oldStart = Number(editingBatch.batchStart);
+      const oldEnd = Number(editingBatch.batchEnd);
+      if (Number.isFinite(oldStart) && Number.isFinite(oldEnd)) {
+        const toRemove = rooms.filter(
+          (r) =>
+            r.roomTypeId === selectedRoomTypeId &&
+            (() => {
+              const n = Number(r.roomNumber);
+              return Number.isFinite(n) && n >= oldStart && n <= oldEnd;
+            })()
+        );
+        toRemove.forEach((room) => removeRoom(room.id));
+      }
+    }
+
+    // Add one room entry per generated number
+    allNumbers.forEach((num) => {
+      addRoom({
+        roomTypeId: selectedRoomTypeId,
+        roomNumber: num,
+        price: roomForm.price || undefined,
+        maxOccupancy: roomForm.maxOccupancy || undefined,
+        bedType: roomForm.bedType || undefined,
+        bedCount: roomForm.bedCount || undefined,
+        size: roomForm.size || undefined,
+        bathrooms: roomForm.bathrooms || undefined,
+        amenities: roomForm.amenities || [],
+      });
     });
 
     setIsAddRoomModalOpen(false);
@@ -104,10 +222,14 @@ export default function Step4HotelRoomTypes({
       bedType: "",
       bedCount: "",
       size: "",
+      bedrooms: "",
       bathrooms: "",
       amenities: [],
     });
+    setRoomBatches([{ batchStart: "", batchEnd: "" }]);
+    setRoomBatchErrors([]);
     setSelectedRoomTypeId(null);
+    setEditingBatch(null);
   };
 
   const getRoomsForRoomType = (roomTypeId) => {
@@ -207,8 +329,6 @@ export default function Step4HotelRoomTypes({
             <div className="space-y-3">
               {roomTypes.map((rt) => {
                 const roomsInCategory = getRoomsForRoomType(rt.id);
-                const isExpanded = expandedRoomTypes.has(rt.id);
-                
                 return (
                   <div key={rt.id} className="border border-slate-200 rounded-xl overflow-hidden">
                     <div className="bg-slate-50 p-4 flex items-center justify-between">
@@ -224,33 +344,43 @@ export default function Step4HotelRoomTypes({
                           <span className="text-sm font-semibold text-slate-900">${rt.price}/night</span>
                           {rt.size && <span className="text-xs text-slate-600">{rt.size} sq ft</span>}
                         </div>
-                        <div className="mt-2 flex items-center gap-4 text-sm">
+                        <div className="mt-2 flex flex-col gap-1 text-sm">
                           <span className="font-semibold text-slate-900">
                             Inventory: <span className="text-blue-600">{roomsInCategory.length}</span> room{roomsInCategory.length !== 1 ? "s" : ""}
                           </span>
+                          {roomsInCategory.length > 0 && (() => {
+                            const numeric = roomsInCategory.map((r) => Number(r.roomNumber)).filter((n) => Number.isFinite(n));
+                            const sorted = [...new Set(numeric)].sort((a, b) => a - b);
+                            if (sorted.length === 0) return null;
+                            const batchStart = sorted[0];
+                            const batchEnd = sorted[sorted.length - 1];
+                            return (
+                              <div className="mt-1 text-slate-700">
+                                <span>Batch-1: {batchStart} to {batchEnd}</span>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => openAddRoomModal(rt.id)}
+                          onClick={() => {
+                            if (roomsInCategory.length > 0) {
+                              const numeric = roomsInCategory.map((r) => Number(r.roomNumber)).filter((n) => Number.isFinite(n));
+                              const sorted = [...new Set(numeric)].sort((a, b) => a - b);
+                              if (sorted.length > 0) {
+                                openEditBatchModal(rt.id, sorted[0], sorted[sorted.length - 1]);
+                              } else {
+                                openAddRoomModal(rt.id);
+                              }
+                            } else {
+                              openAddRoomModal(rt.id);
+                            }
+                          }}
                           className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
                         >
-                          + Add Room
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => toggleRoomTypeExpansion(rt.id)}
-                          className="p-2 text-slate-600 hover:text-slate-900"
-                        >
-                          <svg
-                            className={`w-5 h-5 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
+                          {roomsInCategory.length > 0 ? "Edit" : "+ Add Room"}
                         </button>
                         <button
                           type="button"
@@ -263,55 +393,6 @@ export default function Step4HotelRoomTypes({
                         </button>
                       </div>
                     </div>
-                    {isExpanded && (
-                      <div className="p-4 border-t border-slate-200 bg-white">
-                        {roomsInCategory.length === 0 ? (
-                          <p className="text-sm text-slate-500 text-center py-4">
-                            No rooms added yet. Click "+ Add Room" to add rooms under this category.
-                          </p>
-                        ) : (
-                          <div className="space-y-2">
-                            {roomsInCategory.map((room) => (
-                              <div
-                                key={room.id}
-                                className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
-                              >
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="font-medium text-slate-900">Room {room.roomNumber}</span>
-                                    {room.bedCount && room.bedType && (
-                                      <span className="text-xs bg-blue-100 text-blue-700 rounded-full px-2 py-0.5">
-                                        {room.bedCount}x {room.bedType}
-                                      </span>
-                                    )}
-                                    {room.size && (
-                                      <span className="text-xs text-slate-500">{room.size} sq ft</span>
-                                    )}
-                                  </div>
-                                  <div className="mt-1 flex items-center gap-3 text-sm text-slate-600 flex-wrap">
-                                    {room.price && <span>${Number(room.price).toLocaleString()}/night</span>}
-                                    {room.maxOccupancy && (
-                                      <>
-                                        {room.price && <span>•</span>}
-                                        <span>Max {room.maxOccupancy} guests</span>
-                                      </>
-                                    )}
-                                    {room.bathrooms && <span>• {room.bathrooms} bathroom{room.bathrooms !== 1 ? 's' : ''}</span>}
-                                  </div>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => removeRoom(room.id)}
-                                  className="text-rose-600 hover:text-rose-700 text-sm underline ml-4"
-                                >
-                                  Remove
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 );
               })}
@@ -326,14 +407,15 @@ export default function Step4HotelRoomTypes({
           </div>
         )}
 
-        {/* Add Room Modal */}
+        {/* Room Batch Modal */}
         <Modal
-          title="Add Room"
-          description="Add a room to this category. You can customize room details or use the category defaults."
+          title="Room Batch"
+          description="Configure one or more batches of room numbers for this category. A separate room will be created for each number."
           isOpen={isAddRoomModalOpen}
           onClose={() => {
             setIsAddRoomModalOpen(false);
             setSelectedRoomTypeId(null);
+            setEditingBatch(null);
             setRoomForm({
               roomNumber: "",
               price: "",
@@ -341,94 +423,75 @@ export default function Step4HotelRoomTypes({
               bedType: "",
               bedCount: "",
               size: "",
+              bedrooms: "",
               bathrooms: "",
               amenities: [],
             });
+            setRoomBatches([{ batchStart: "", batchEnd: "" }]);
+            setRoomBatchErrors([]);
           }}
-          primaryActionLabel="Add Room"
+          primaryActionLabel="Room Batch"
           onPrimaryAction={handleAddRoom}
+          disabled={roomBatches.length === 0}
         >
           <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleAddRoom(); }}>
-            <FormField
-              label="Room Number *"
-              value={roomForm.roomNumber}
-              onChange={(e) => setRoomForm({ ...roomForm, roomNumber: e.target.value })}
-              placeholder="101"
-              required
-            />
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                label="Price per Night (USD)"
-                type="number"
-                min="0"
-                step="0.01"
-                value={roomForm.price}
-                onChange={(e) => setRoomForm({ ...roomForm, price: e.target.value })}
-                placeholder="Auto-filled from category"
-              />
-              <FormField
-                label="Max Occupancy"
-                type="number"
-                min="1"
-                value={roomForm.maxOccupancy}
-                onChange={(e) => setRoomForm({ ...roomForm, maxOccupancy: e.target.value })}
-                placeholder="Auto-filled from category"
-              />
-              <Select
-                label="Bed Type"
-                value={roomForm.bedType}
-                onChange={(value) => setRoomForm({ ...roomForm, bedType: value })}
-                placeholder="Select bed type"
-                options={["King", "Queen", "Double", "Twin", "Single", "Bunk"]}
-              />
-              <FormField
-                label="Bed Count"
-                type="number"
-                min="1"
-                value={roomForm.bedCount}
-                onChange={(e) => setRoomForm({ ...roomForm, bedCount: e.target.value })}
-                placeholder="1"
-              />
-              <FormField
-                label="Size (sq ft)"
-                type="number"
-                min="0"
-                value={roomForm.size}
-                onChange={(e) => setRoomForm({ ...roomForm, size: e.target.value })}
-                placeholder="350"
-              />
-              <FormField
-                label="Bathrooms"
-                type="number"
-                min="0"
-                value={roomForm.bathrooms}
-                onChange={(e) => setRoomForm({ ...roomForm, bathrooms: e.target.value })}
-                placeholder="1"
-              />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-700 mb-2">Room Amenities (optional)</p>
-              <div className="flex flex-wrap gap-2">
-                {ROOM_AMENITIES.map((a) => {
-                  const selected = (roomForm.amenities || []).includes(a);
+            {/* Room Configuration */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-slate-700">Room Configuration</h3>
+              <div className="space-y-2">
+                {roomBatches.map((batch, index) => {
+                  const errors = roomBatchErrors[index] || {};
                   return (
-                    <button
-                      key={a}
-                      type="button"
-                      onClick={() =>
-                        setRoomForm({
-                          ...roomForm,
-                          amenities: selected
-                            ? (roomForm.amenities || []).filter((x) => x !== a)
-                            : [...(roomForm.amenities || []), a],
-                        })
-                      }
-                      className={`rounded-full px-3 py-1.5 text-sm ${
-                        selected ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                      }`}
+                    <div
+                      key={index}
+                      className="grid grid-cols-2 gap-3 items-start"
                     >
-                      {a}
-                    </button>
+                      <div>
+                        <FormField
+                          label="Batch Start"
+                          type="number"
+                          min="0"
+                          value={batch.batchStart}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setRoomBatches((prev) =>
+                              prev.map((row, i) =>
+                                i === index ? { ...row, batchStart: value } : row,
+                              ),
+                            );
+                          }}
+                          placeholder="201"
+                        />
+                        {errors.start && (
+                          <p className="mt-1 text-xs text-rose-600">{errors.start}</p>
+                        )}
+                      </div>
+                      <div>
+                        <FormField
+                          label="Batch End"
+                          type="number"
+                          min="0"
+                          value={batch.batchEnd}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setRoomBatches((prev) =>
+                              prev.map((row, i) =>
+                                i === index ? { ...row, batchEnd: value } : row,
+                              ),
+                            );
+                          }}
+                          placeholder="205"
+                        />
+                        {errors.end && (
+                          <p className="mt-1 text-xs text-rose-600">{errors.end}</p>
+                        )}
+                      </div>
+                      {errors.range && (
+                        <p className="col-span-2 mt-1 text-xs text-rose-600">
+                          {errors.range}
+                        </p>
+                      )}
+                    </div>
                   );
                 })}
               </div>

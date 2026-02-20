@@ -48,6 +48,21 @@ import {
   getCurrencyMap,
 } from "@/utils/currencyUtils";
 import { useRequireAuth } from "@/hooks/useAuth";
+
+/** Normalize room type id from a room (handles populated or raw ref) */
+function roomTypeIdFromRoom(r) {
+  if (!r) return "";
+  const rt = r.roomTypeId;
+  if (rt == null) return "";
+  if (typeof rt === "string") return rt;
+  return (rt._id ?? rt.id)?.toString?.() ?? String(rt);
+}
+
+/** Normalize room type id from a room type object */
+function roomTypeIdFromType(rt) {
+  if (!rt) return "";
+  return (rt._id ?? rt.id)?.toString?.() ?? String(rt._id ?? rt.id ?? "");
+}
 import { useSEO } from "@/hooks/useSEO";
 
 const getInitialFormState = () => ({
@@ -317,6 +332,13 @@ export default function BookingsPage() {
     );
   };
 
+  // Valid ID card input: must contain at least one digit (avoids opening create-guest form for plain text)
+  const isValidIdCardInput = (text) => {
+    const t = (text || "").trim();
+    if (!t) return false;
+    return /\d/.test(t);
+  };
+
   // Clear roomId when property changes to a non-hotel (avoid stale room selection)
   useEffect(() => {
     if (
@@ -327,6 +349,19 @@ export default function BookingsPage() {
       setCreateForm((prev) => ({ ...prev, roomId: "" }));
     }
   }, [createForm.property_id]);
+
+  // Clear room type category selection when the selected category has 0 rooms (e.g. after date change)
+  useEffect(() => {
+    if (!createSelectedProperty || !createSelectedRoomTypeId) return;
+    const roomTypes = createSelectedProperty.roomTypes || [];
+    const roomCount = (rt) => rt.inventoryCount ?? rt.inventory ?? 0;
+    const selected = roomTypes.find(
+      (rt) => String(rt.id || rt._id) === createSelectedRoomTypeId,
+    );
+    if (selected && roomCount(selected) === 0) {
+      setCreateSelectedRoomTypeId("");
+    }
+  }, [createSelectedProperty, createSelectedRoomTypeId]);
 
   useEffect(() => {
     if (
@@ -702,7 +737,14 @@ export default function BookingsPage() {
         getAllGuests(),
       ]);
 
-      setBookingsData(Array.isArray(bookings) ? bookings : []);
+      // Newest first: sort by createdAt (or created_at) descending
+      const list = Array.isArray(bookings) ? bookings : [];
+      const sorted = [...list].sort((a, b) => {
+        const dateA = new Date(a.createdAt ?? a.created_at ?? 0).getTime();
+        const dateB = new Date(b.createdAt ?? b.created_at ?? 0).getTime();
+        return dateB - dateA;
+      });
+      setBookingsData(sorted);
       setPropertiesData(Array.isArray(properties) ? properties : []);
       setGuestsData(Array.isArray(guests) ? guests : []);
 
@@ -778,9 +820,9 @@ export default function BookingsPage() {
         }
       }
 
-      // Validate room selection only for hotel properties
-      if (isHotelProperty(createForm.property_id) && !createForm.roomId) {
-        const errorMsg = "Please select a room";
+      // Validate room type category for hotel properties (room is auto-assigned by backend)
+      if (isHotelProperty(createForm.property_id) && !createSelectedRoomTypeId) {
+        const errorMsg = "Please select a room type category";
         setError(errorMsg);
         toast.error(errorMsg, { id: toastId });
         return;
@@ -832,8 +874,8 @@ export default function BookingsPage() {
         const formData = new FormData();
         formData.append("property_id", createForm.property_id);
         if (guestId) formData.append("guest_id", guestId);
-        if (isHotelProperty(createForm.property_id) && createForm.roomId) {
-          formData.append("roomId", createForm.roomId);
+        if (isHotelProperty(createForm.property_id) && createSelectedRoomTypeId) {
+          formData.append("roomTypeCategory", createSelectedRoomTypeId);
         }
         formData.append("start_date", createForm.start_date);
         formData.append("end_date", createForm.end_date);
@@ -851,7 +893,7 @@ export default function BookingsPage() {
         });
 
         const newBooking = await createBooking(formData);
-        setBookingsData((prev) => [...prev, newBooking]);
+        setBookingsData((prev) => [newBooking, ...prev]);
 
         // Update guest's idCard with the first ID card file
         if (createIdCardFiles.length > 0 && guestId) {
@@ -891,16 +933,16 @@ export default function BookingsPage() {
           currency: getDefaultCurrency(),
         };
         if (guestId) payload.guest_id = guestId;
-        // Omit roomId for non-hotel properties to avoid sending invalid/empty roomId
-        if (!isHotelProperty(createForm.property_id)) {
-          delete payload.roomId;
+        delete payload.roomId;
+        if (isHotelProperty(createForm.property_id) && createSelectedRoomTypeId) {
+          payload.roomTypeCategory = createSelectedRoomTypeId;
         }
         // Remove guest form-only fields from booking payload
         delete payload.guest_name;
         delete payload.guest_phone;
         delete payload.guest_id_card;
         const newBooking = await createBooking(payload);
-        setBookingsData((prev) => [...prev, newBooking]);
+        setBookingsData((prev) => [newBooking, ...prev]);
       }
 
       toast.success("Booking created successfully! 🎉", {
@@ -910,6 +952,7 @@ export default function BookingsPage() {
       });
       setCreateOpen(false);
       setCreateForm(getInitialFormState());
+      setCreateSelectedRoomTypeId(null);
       setCreateIdCardFiles([]);
       setSelectedExistingGuest(null);
       setShowCreateGuestFields(false);
@@ -1330,6 +1373,7 @@ export default function BookingsPage() {
   const closeCreateModal = () => {
     setCreateOpen(false);
     setCreateForm(getInitialFormState());
+    setCreateSelectedRoomTypeId(null);
     setCreateIdCardFiles([]);
     setIsCreatingNewGuest(false);
     setNewGuestForm({ name: "", phone: "" });
@@ -2032,21 +2076,15 @@ export default function BookingsPage() {
 
                   // Ensure current room type is included even if no available rooms
                   const roomTypesToShow = allRoomTypes.filter((rt) => {
-                    const rtId = String(rt.id || rt._id);
+                    const rtId = roomTypeIdFromType(rt);
                     // Always include the current room type
                     if (currentRoomTypeId && rtId === currentRoomTypeId) {
                       return true;
                     }
                     // For other room types, only show if they have available rooms
-                    const roomsInCategory = editRooms.filter((r) => {
-                      const rRoomTypeId = String(
-                        r.roomTypeId?.id ||
-                          r.roomTypeId?._id ||
-                          r.roomTypeId ||
-                          "",
-                      );
-                      return rRoomTypeId === rtId;
-                    });
+                    const roomsInCategory = editRooms.filter(
+                      (r) => roomTypeIdFromRoom(r) === rtId,
+                    );
                     return roomsInCategory.length > 0;
                   });
 
@@ -2074,12 +2112,7 @@ export default function BookingsPage() {
                               String(r.id || r._id) === String(currentRoomId),
                           );
                           if (currentRoom) {
-                            const rRoomTypeId = String(
-                              currentRoom.roomTypeId?.id ||
-                                currentRoom.roomTypeId?._id ||
-                                currentRoom.roomTypeId ||
-                                "",
-                            );
+                            const rRoomTypeId = roomTypeIdFromRoom(currentRoom);
                             // If the current room belongs to the new room type, keep it; otherwise clear it
                             if (rRoomTypeId !== newRoomTypeId) {
                               setEditForm({ ...editForm, roomId: "" });
@@ -2097,16 +2130,10 @@ export default function BookingsPage() {
                     >
                       <option value="">Select a room type category</option>
                       {roomTypesToShow.map((rt) => {
-                        const rtId = String(rt.id || rt._id);
-                        const roomsInCategory = editRooms.filter((r) => {
-                          const rRoomTypeId = String(
-                            r.roomTypeId?.id ||
-                              r.roomTypeId?._id ||
-                              r.roomTypeId ||
-                              "",
-                          );
-                          return rRoomTypeId === rtId;
-                        });
+                        const rtId = roomTypeIdFromType(rt);
+                        const roomsInCategory = editRooms.filter(
+                          (r) => roomTypeIdFromRoom(r) === rtId,
+                        );
                         // For current room type, show count or "Current booking" if no available rooms
                         const roomCount = roomsInCategory.length;
                         const isCurrentType =
@@ -2143,15 +2170,10 @@ export default function BookingsPage() {
                     : null;
 
                   // Filter rooms by room type
-                  let roomsInCategory = editRooms.filter((r) => {
-                    const rRoomTypeId = String(
-                      r.roomTypeId?.id ||
-                        r.roomTypeId?._id ||
-                        r.roomTypeId ||
-                        "",
-                    );
-                    return rRoomTypeId === String(editSelectedRoomTypeId);
-                  });
+                  const selectedRtId = String(editSelectedRoomTypeId || "");
+                  let roomsInCategory = editRooms.filter(
+                    (r) => roomTypeIdFromRoom(r) === selectedRtId,
+                  );
 
                   // For edit mode, always include the current room even if it's not in the filtered list
                   // (because it's already booked and might not be in available rooms)
@@ -2458,6 +2480,14 @@ export default function BookingsPage() {
                     guest_id: "",
                   }));
 
+                  // Invalid ID (e.g. alphabets only): show toast and never show create-guest form
+                  if (text.trim() && !isValidIdCardInput(text)) {
+                    setSelectedExistingGuest(null);
+                    setShowCreateGuestFields(false);
+                    toast.error("Please enter a valid ID card number.");
+                    return;
+                  }
+
                   // Check if any guest matches this ID card
                   const matchingGuest = guestsData.find((g) => {
                     const idCard =
@@ -2473,14 +2503,10 @@ export default function BookingsPage() {
                   });
 
                   if (matchingGuest && text.trim()) {
-                    // Guest found with this ID card - show in dropdown but don't auto-select
                     setSelectedExistingGuest(null);
                     setShowCreateGuestFields(false);
-                  } else if (text.trim() && !createForm.guest_id) {
-                    // No matching guest, show create guest option
-                    setSelectedExistingGuest(null);
-                    setShowCreateGuestFields(true);
                   } else {
+                    // Valid ID but no match: only search, do not show create-guest form on this screen
                     setSelectedExistingGuest(null);
                     setShowCreateGuestFields(false);
                   }
@@ -2517,12 +2543,10 @@ export default function BookingsPage() {
                 </div>
               )}
 
-              {(showCreateGuestFields ||
-                (createForm.guest_id_card &&
-                  !createForm.guest_id &&
-                  !selectedExistingGuest)) &&
+              {showCreateGuestFields &&
                 !selectedExistingGuest &&
-                createForm.guest_id_card && (
+                createForm.guest_id_card &&
+                isValidIdCardInput(createForm.guest_id_card) && (
                   <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
                     <p className="text-xs text-blue-700 font-medium mb-2">
                       Create new guest with ID card: {createForm.guest_id_card}
@@ -2570,8 +2594,8 @@ export default function BookingsPage() {
 
               {!selectedExistingGuest && !showCreateGuestFields && (
                 <p className="mt-1 text-xs text-slate-500">
-                  Enter an ID card number to search for existing guests or
-                  create a new one
+                  Enter a valid ID card number (with digits) to search for
+                  existing guests
                 </p>
               )}
             </div>
@@ -2730,11 +2754,6 @@ export default function BookingsPage() {
                 ) : (
                   (() => {
                     const roomTypes = createSelectedProperty.roomTypes || [];
-                    console.log("Checking roomTypes:", {
-                      property: createSelectedProperty,
-                      roomTypes: roomTypes,
-                      roomTypesLength: roomTypes.length,
-                    });
 
                     if (!Array.isArray(roomTypes) || roomTypes.length === 0) {
                       return (
@@ -2744,49 +2763,72 @@ export default function BookingsPage() {
                       );
                     }
 
-                    // Filter room types to only show those with available rooms
-                    const availableRoomTypes = roomTypes.filter((rt) => {
-                      const rtId = String(rt.id || rt._id);
-                      const roomsInCategory = createRooms.filter((r) => {
-                        const rRoomTypeId = String(
-                          r.roomTypeId || r.roomTypeId,
-                        );
-                        return rRoomTypeId === rtId;
-                      });
-                      return roomsInCategory.length > 0;
-                    });
-
-                    if (availableRoomTypes.length === 0) {
-                      return (
-                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                          No room types available for the selected dates.
-                        </div>
+                    // Show all room type categories; those with 0 rooms are visible but disabled (non-selectable)
+                    const roomCount = (rt) =>
+                      rt.inventoryCount ?? rt.inventory ?? 0;
+                    const selectedHasRooms =
+                      createSelectedRoomTypeId &&
+                      roomTypes.some(
+                        (rt) =>
+                          String(rt.id || rt._id) === createSelectedRoomTypeId &&
+                          roomCount(rt) > 0,
                       );
-                    }
+                    const selectValue = selectedHasRooms
+                      ? createSelectedRoomTypeId
+                      : "";
 
                     return (
                       <select
                         className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                        value={createSelectedRoomTypeId || ""}
+                        value={selectValue}
                         onChange={(e) => {
-                          setCreateSelectedRoomTypeId(e.target.value);
-                          setCreateForm({ ...createForm, roomId: "" });
+                          const val = e.target.value;
+                          setCreateSelectedRoomTypeId(val);
+                          const selectedRt = val
+                            ? roomTypes.find(
+                                (rt) => String(rt.id || rt._id) === val,
+                              )
+                            : null;
+                          const perNight =
+                            selectedRt != null
+                              ? Number(
+                                  selectedRt.price ??
+                                    selectedRt.basePrice ??
+                                    0,
+                                )
+                              : 0;
+                          const nights = Math.max(
+                            1,
+                            calculateNights(
+                              createForm.start_date,
+                              createForm.end_date,
+                            ),
+                          );
+                          const totalAmount = val ? perNight * nights : 0;
+                          setCreateForm((prev) => ({
+                            ...prev,
+                            roomId: "",
+                            amount: val
+                              ? String(
+                                  totalAmount >= 0 ? totalAmount : perNight,
+                                )
+                              : prev.amount,
+                          }));
                         }}
                         required
                       >
                         <option value="">Select a room type category</option>
-                        {availableRoomTypes.map((rt) => {
+                        {roomTypes.map((rt) => {
                           const rtId = String(rt.id || rt._id);
-                          const roomsInCategory = createRooms.filter((r) => {
-                            const rRoomTypeId = String(
-                              r.roomTypeId || r.roomTypeId,
-                            );
-                            return rRoomTypeId === rtId;
-                          });
+                          const count = roomCount(rt);
+                          const hasRooms = count > 0;
                           return (
-                            <option key={rtId} value={rtId}>
-                              {rt.name} ({rt.bedCount || 1}x {rt.bedType || "—"}
-                              ) - {roomsInCategory.length} rooms
+                            <option
+                              key={rtId}
+                              value={rtId}
+                              disabled={!hasRooms}
+                            >
+                              {rt.name} ({rt.bedCount || 1}x {rt.bedType || "—"}) - {count} rooms
                             </option>
                           );
                         })}
@@ -2796,57 +2838,6 @@ export default function BookingsPage() {
                 )}
               </div>
             )}
-
-          {/* Room Selection (only for hotel properties after category selection) */}
-          {createForm.property_id &&
-            isHotelProperty(createForm.property_id) &&
-            (createSelectedRoomTypeId ? (
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Room *
-                </label>
-                {(() => {
-                  const roomsInCategory = createRooms.filter((r) => {
-                    const rRoomTypeId = String(r.roomTypeId || r.roomTypeId);
-                    return rRoomTypeId === String(createSelectedRoomTypeId);
-                  });
-
-                  if (roomsInCategory.length === 0) {
-                    return (
-                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                        No rooms available in this category.
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <select
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                      value={createForm.roomId}
-                      onChange={(e) =>
-                        setCreateForm({ ...createForm, roomId: e.target.value })
-                      }
-                      required
-                    >
-                      <option value="">Select a room</option>
-                      {roomsInCategory.map((room) => {
-                        const rId = String(room.id || room._id);
-                        return (
-                          <option key={rId} value={rId}>
-                            Room {room.roomNumber} — $
-                            {room.basePrice ?? room.price ?? 0}/night
-                          </option>
-                        );
-                      })}
-                    </select>
-                  );
-                })()}
-              </div>
-            ) : (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
-                Please select a room type category first.
-              </div>
-            ))}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -2998,7 +2989,7 @@ export default function BookingsPage() {
           <div className="space-y-6">
             {/* Guest & Property Info */}
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-blue-50 to-white p-4 shadow-sm">
+              <div className="rounded-xl border border-slate-200 bg-linear-to-br from-blue-50 to-white p-4 shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="p-2 rounded-lg bg-blue-100">
                     <User className="h-4 w-4 text-blue-600" />
@@ -3035,7 +3026,7 @@ export default function BookingsPage() {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-purple-50 to-white p-4 shadow-sm">
+              <div className="rounded-xl border border-slate-200 bg-linear-to-br from-purple-50 to-white p-4 shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="p-2 rounded-lg bg-purple-100">
                     <Building2 className="h-4 w-4 text-purple-600" />
@@ -3135,7 +3126,7 @@ export default function BookingsPage() {
             </div>
 
             {/* Booking Details */}
-            <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-5 shadow-sm">
+            <div className="rounded-xl border border-slate-200 bg-linear-to-br from-slate-50 to-white p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 rounded-lg bg-slate-100">
                   <CalendarIcon className="h-4 w-4 text-slate-600" />
@@ -3221,7 +3212,7 @@ export default function BookingsPage() {
             </div>
 
             {/* Status Info */}
-            <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-5 shadow-sm">
+            <div className="rounded-xl border border-slate-200 bg-linear-to-br from-slate-50 to-white p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 rounded-lg bg-slate-100">
                   <CheckCircle2 className="h-4 w-4 text-slate-600" />
