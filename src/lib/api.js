@@ -2112,13 +2112,19 @@ export async function deleteRoom(propertyId, roomId) {
  * Add a room type to a property (Hotel model)
  * Endpoint: POST /api/properties/:propertyId/room-types
  * @param {string} propertyId - Property ID
- * @param {Object} data - Room type data (name, bedType, bedCount, maxOccupancy, price, inventory, amenities)
+ * @param {Object|FormData} data - Room type data (name, bedType, bedCount, maxOccupancy, price, amenities) or FormData when uploading images
  * @returns {Promise<Object>} Created room type object
  */
 export async function addRoomType(propertyId, data) {
-  const res = await fetchWithAuth(`${API_BASE_URL}/api/properties/${propertyId}/room-types`, {
+  const isFormData = data instanceof FormData;
+  const url = `${API_BASE_URL}/api/properties/${propertyId}/room-types`;
+  const token = getToken();
+  const headers = { Authorization: token ? `Bearer ${token}` : "" };
+  if (!isFormData) headers["Content-Type"] = "application/json";
+  const res = await fetch(url, {
     method: "POST",
-    body: JSON.stringify(data),
+    headers,
+    body: isFormData ? data : JSON.stringify(data),
   });
   return handleResponse(res, "Failed to add room type");
 }
@@ -2139,14 +2145,20 @@ export async function getRoomTypes(propertyId) {
  * Endpoint: PUT /api/properties/:propertyId/room-types/:roomTypeId
  * @param {string} propertyId - Property ID
  * @param {string} roomTypeId - Room type ID
- * @param {Object} data - Update data
+ * @param {Object|FormData} data - Update data or FormData when uploading images
  * @returns {Promise<Object>} Updated room type object
  */
 export async function updateRoomType(propertyId, roomTypeId, data) {
-  const res = await fetchWithAuth(
-    `${API_BASE_URL}/api/properties/${propertyId}/room-types/${roomTypeId}`,
-    { method: "PUT", body: JSON.stringify(data) }
-  );
+  const isFormData = data instanceof FormData;
+  const url = `${API_BASE_URL}/api/properties/${propertyId}/room-types/${roomTypeId}`;
+  const token = getToken();
+  const headers = { Authorization: token ? `Bearer ${token}` : "" };
+  if (!isFormData) headers["Content-Type"] = "application/json";
+  const res = await fetch(url, {
+    method: "PUT",
+    headers,
+    body: isFormData ? data : JSON.stringify(data),
+  });
   return handleResponse(res, "Failed to update room type");
 }
 

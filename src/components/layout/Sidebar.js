@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, Fragment } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -213,9 +213,8 @@ export default function Sidebar({
                         isBookingsItem &&
                         pathname.startsWith("/bookings");
                       return (
-                        <>
+                        <Fragment key={item.href}>
                           <Link
-                            key={item.href}
                             href={isDisabled ? "#" : item.href}
                             className={`group relative flex items-center gap-2 mx-1 px-2.5 py-1.5 rounded-md text-[13px] font-medium transition-all duration-150 ${
                               isActive
@@ -309,7 +308,7 @@ export default function Sidebar({
                               })}
                             </div>
                           )}
-                        </>
+                        </Fragment>
                       );
                     })}
                   </div>
