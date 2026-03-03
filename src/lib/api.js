@@ -511,6 +511,30 @@ export async function getAllBookings(queryParams = "") {
   return handleResponse(res, "Failed to fetch bookings");
 }
 
+/**
+ * Search bookings with POST + pagination.
+ * Body shape: { page: '2', itemsPerPage: '100', filters: '' | object }
+ */
+export async function searchBookings(body) {
+  const url = `${API_BASE_URL}/bookings/search`;
+  const payload = body || {};
+  // Ensure required shape and stringify filters object if needed
+  let filters = payload.filters ?? "";
+  if (filters && typeof filters === "object") {
+    filters = JSON.stringify(filters);
+  }
+  const finalBody = {
+    page: String(payload.page ?? "1"),
+    itemsPerPage: String(payload.itemsPerPage ?? "50"),
+    filters,
+  };
+  const res = await fetchWithAuth(url, {
+    method: "POST",
+    body: JSON.stringify(finalBody),
+  });
+  return handleResponse(res, "Failed to search bookings");
+}
+
 export async function getBookingById(id) {
   const res = await fetchWithAuth(`${API_BASE_URL}/bookings/${id}`);
   return handleResponse(res, "Failed to fetch booking");

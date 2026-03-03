@@ -41,6 +41,7 @@ import {
   getRooms,
   getRoomTypes,
   getPropertyById,
+  searchBookings,
 } from "@/lib/api";
 import {
   getDefaultCurrency,
@@ -291,6 +292,123 @@ export default function BookingsPage() {
   const [editSelectedRoomTypeId, setEditSelectedRoomTypeId] = useState(null);
   const [isInitializingEdit, setIsInitializingEdit] = useState(false);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [totalBookings, setTotalBookings] = useState(0);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(
+      (totalBookings || bookingsData.length || 0) / (itemsPerPage || 1),
+    ),
+  );
+  const pageStartIndex =
+    totalBookings === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const pageEndIndex =
+    totalBookings === 0
+      ? 0
+      : pageStartIndex + (bookingsData.length > 0 ? bookingsData.length - 1 : 0);
+
+  const handlePageChange = (newPage) => {
+    if (newPage < 1 || newPage > totalPages) return;
+    loadData(newPage);
+  };
+
+  const PaginationControls = ({ className = "" }) => {
+    const pageButtons = [];
+    const start = Math.max(1, currentPage - 1);
+    const end = Math.min(totalPages, currentPage + 1);
+    for (let p = start; p <= end; p += 1) {
+      pageButtons.push(p);
+    }
+
+    return (
+      <div className={`flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between ${className}`}>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+          <span>
+            Showing{" "}
+            <span className="font-semibold text-slate-900">
+              {totalBookings === 0 ? 0 : pageStartIndex}
+            </span>
+            {totalBookings > 0 && (
+              <>
+                {" "}
+                –{" "}
+                <span className="font-semibold text-slate-900">
+                  {pageEndIndex}
+                </span>
+              </>
+            )}{" "}
+            of{" "}
+            <span className="font-semibold text-slate-900">
+              {totalBookings || bookingsData.length}
+            </span>{" "}
+            bookings
+          </span>
+        </div>
+        <div className="flex items-center gap-2 justify-end text-xs text-slate-600">
+          <span>
+            Page{" "}
+            <span className="font-semibold text-slate-900">{currentPage}</span>{" "}
+            of{" "}
+            <span className="font-semibold text-slate-900">{totalPages}</span>
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className="rounded-full border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage <= 1}
+            >
+              ‹
+            </button>
+            {pageButtons.map((p) => (
+              <button
+                key={p}
+                type="button"
+                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                  p === currentPage
+                    ? "bg-slate-900 text-white"
+                    : "border border-slate-200 text-slate-700 hover:bg-slate-50"
+                }`}
+                onClick={() => handlePageChange(p)}
+                disabled={p === currentPage}
+              >
+                {p}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="rounded-full border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+            >
+              ›
+            </button>
+            <label className="flex items-center gap-1 ml-3">
+              <span>Per page:</span>
+              <select
+                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
+                value={itemsPerPage}
+                onChange={(e) => {
+                  const next = Number(e.target.value) || 25;
+                  setItemsPerPage(next);
+                  loadData(1);
+                }}
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={250}>250</option>
+                <option value={500}>500</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Sync period filter with URL query (?period=...) and route
   useEffect(() => {
     if (!searchParams) return;
@@ -300,8 +418,8 @@ export default function BookingsPage() {
 
     const periodFromUrl = searchParams.get("period");
 
-    // Default: /bookings without period is treated as "today"
-    const normalizedPeriod = periodFromUrl || "today";
+    // Default: /bookings without ?period=... ⇒ no period filter (show latest bookings)
+    const normalizedPeriod = periodFromUrl || "";
 
     setFilterPeriod((prev) =>
       prev === normalizedPeriod ? prev : normalizedPeriod,
@@ -413,8 +531,8 @@ export default function BookingsPage() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    loadData();
-  }, [isAuthenticated, filterPeriod, filterStatus, filterPaymentStatus]);
+    loadData(1);
+  }, [isAuthenticated, filterPeriod, filterStatus, filterPaymentStatus, itemsPerPage]);
 
   // Fetch property details and rooms when create form property changes
   useEffect(() => {
@@ -717,34 +835,50 @@ export default function BookingsPage() {
     editRooms,
   ]);
 
-  const loadData = async () => {
+  const loadData = async (pageOverride) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Build query parameters
-      const queryParams = [];
-      if (filterPeriod) queryParams.push(`period=${filterPeriod}`);
-      if (filterStatus) queryParams.push(`status=${filterStatus}`);
-      if (filterPaymentStatus)
-        queryParams.push(`payment_status=${filterPaymentStatus}`);
+      const pageToLoad = pageOverride ?? currentPage ?? 1;
 
-      const params = queryParams.length > 0 ? `?${queryParams.join("&")}` : "";
+      const filtersPayload = {
+        period: filterPeriod || undefined,
+        status: filterStatus || undefined,
+        payment_status: filterPaymentStatus || undefined,
+      };
 
-      const [bookings, properties, guests] = await Promise.all([
-        getAllBookings(params),
+      const [searchResult, properties, guests] = await Promise.all([
+        searchBookings({
+          page: String(pageToLoad),
+          itemsPerPage: String(itemsPerPage),
+          filters: filtersPayload,
+        }),
         getAllProperties(),
         getAllGuests(),
       ]);
 
+      const listFromResult = Array.isArray(searchResult?.data)
+        ? searchResult.data
+        : Array.isArray(searchResult)
+          ? searchResult
+          : [];
+
       // Newest first: sort by createdAt (or created_at) descending
-      const list = Array.isArray(bookings) ? bookings : [];
-      const sorted = [...list].sort((a, b) => {
+      const sorted = [...listFromResult].sort((a, b) => {
         const dateA = new Date(a.createdAt ?? a.created_at ?? 0).getTime();
         const dateB = new Date(b.createdAt ?? b.created_at ?? 0).getTime();
         return dateB - dateA;
       });
       setBookingsData(sorted);
+      setTotalBookings(
+        typeof searchResult?.pagination?.total === "number"
+          ? searchResult.pagination.total
+          : sorted.length,
+      );
+      if (typeof searchResult?.pagination?.page === "number") {
+        setCurrentPage(searchResult.pagination.page);
+      }
       setPropertiesData(Array.isArray(properties) ? properties : []);
       setGuestsData(Array.isArray(guests) ? guests : []);
 
@@ -1691,13 +1825,33 @@ export default function BookingsPage() {
                 <select
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
                   value={filterPeriod}
-                  onChange={(e) => setFilterPeriod(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Update local state optimistically
+                    setFilterPeriod(value);
+
+                    // Sync URL: /bookings?period=value (or remove when empty)
+                    const params = new URLSearchParams(
+                      searchParams ? searchParams.toString() : "",
+                    );
+                    if (value) {
+                      params.set("period", value);
+                    } else {
+                      params.delete("period");
+                    }
+                    const query = params.toString();
+                    router.push(
+                      query ? `${pathname}?${query}` : pathname,
+                      { scroll: false },
+                    );
+                  }}
                 >
-                  <option value="">All Periods</option>
+                  <option value="">All time</option>
                   <option value="today">Today</option>
-                  <option value="current">Current</option>
                   <option value="upcoming">Upcoming</option>
-                  <option value="past">Past</option>
+                  <option value="last_7_days">Last 7 days</option>
+                  <option value="last_6_months">Last 6 months</option>
+                  <option value="1year">Last 1 year</option>
                 </select>
               </div>
 
@@ -1739,16 +1893,6 @@ export default function BookingsPage() {
               </div>
             </div>
 
-            {/* Results count */}
-            <div className="mt-4 pt-4 border-t border-slate-100">
-              <p className="text-sm text-slate-600">
-                Showing{" "}
-                <span className="font-semibold text-slate-900">
-                  {bookingsData.length}
-                </span>{" "}
-                booking{bookingsData.length !== 1 ? "s" : ""}
-              </p>
-            </div>
           </div>
         )}
       </div>
@@ -1886,23 +2030,29 @@ export default function BookingsPage() {
 
       {/* Table View */}
       {viewMode === "table" && (
-        <DataTable
-          headers={[
-            "#",
-            "Guest",
-            "Property",
-            "Check In",
-            "Check Out",
-            "Period",
-            "Guests",
-            "ID Cards",
-            "Status",
-            "Payment",
-            "Amount",
-            "",
-          ]}
-          rows={tableRows}
-        />
+        <>
+          <PaginationControls className="mb-3" />
+          <DataTable
+            headers={[
+              "#",
+              "Guest",
+              "Property",
+              "Check In",
+              "Check Out",
+              "Period",
+              "Guests",
+              "ID Cards",
+              "Status",
+              "Payment",
+              "Amount",
+              "",
+            ]}
+            rows={tableRows}
+          />
+          <div className="mt-4">
+            <PaginationControls />
+          </div>
+        </>
       )}
 
       <Modal
