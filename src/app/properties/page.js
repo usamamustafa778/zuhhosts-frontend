@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import toast from "react-hot-toast";
 import {
   Eye,
@@ -38,6 +38,7 @@ import {
   updateProperty,
   getRoomTypes,
   getRooms,
+  searchProperties,
 } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSEO } from "@/hooks/useSEO";
@@ -73,14 +74,22 @@ export default function PropertiesPage() {
     return "table";
   });
   const [showFilters, setShowFilters] = useState(false);
+
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
   const [filters, setFilters] = useState({
     search: "",
-    propertyType: "",
+    propertyType: searchParams?.get("propertyType") || "",
     status: "",
     minPrice: "",
     maxPrice: "",
     bedrooms: "",
   });
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [totalProperties, setTotalProperties] = useState(0);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -93,37 +102,94 @@ export default function PropertiesPage() {
   // modelType: "hotel" | "airbnb" — derived from propertyType (Hotel → hotel, others → airbnb)
   const [newImages, setNewImages] = useState([]);
 
+  const fetchProperties = async (pageOverride, perOverride) => {
+    if (!isAuthenticated) return;
+    const pageToLoad = pageOverride ?? currentPage ?? 1;
+    const perToUse = perOverride ?? itemsPerPage ?? 50;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const filtersPayload = { ...filters };
+      if (filtersPayload.propertyType) {
+        filtersPayload.type = filtersPayload.propertyType;
+      }
+
+      const result = await searchProperties({
+        page: String(pageToLoad),
+        itemsPerPage: String(perToUse),
+        filters: filtersPayload,
+      });
+
+      const list = Array.isArray(result?.data)
+        ? result.data
+        : Array.isArray(result)
+          ? result
+          : [];
+
+      setPropertiesData(list);
+      setTotalProperties(
+        typeof result?.pagination?.total === "number"
+          ? result.pagination.total
+          : list.length,
+      );
+      setCurrentPage(
+        typeof result?.pagination?.page === "number"
+          ? result.pagination.page
+          : pageToLoad,
+      );
+      setItemsPerPage(perToUse);
+    } catch (err) {
+      let errorMessage = err.message || "Failed to load properties";
+
+      if (errorMessage.includes("is not a function")) {
+        errorMessage =
+          "Backend API error: Please contact support or check backend logs";
+        console.error("🔴 Backend Error:", err.message);
+      } else if (errorMessage.includes("fetch")) {
+        errorMessage =
+          "Unable to connect to server. Please check your connection.";
+      }
+
+      console.error("🔴 PropertiesPage: API call failed:", err);
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!isAuthenticated) return;
-    const loadProperties = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const data = await getAllProperties();
-        setPropertiesData(Array.isArray(data) ? data : []);
-      } catch (err) {
-        let errorMessage = err.message || "Failed to load properties";
 
-        // Provide more helpful error messages for common backend issues
-        if (errorMessage.includes("is not a function")) {
-          errorMessage =
-            "Backend API error: Please contact support or check backend logs";
-          console.error("🔴 Backend Error:", err.message);
-        } else if (errorMessage.includes("fetch")) {
-          errorMessage =
-            "Unable to connect to server. Please check your connection.";
-        }
+    fetchProperties();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, filters, currentPage, itemsPerPage]);
 
-        console.error("🔴 PropertiesPage: API call failed:", err);
-        setError(errorMessage);
-        toast.error(errorMessage);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Sync filters.propertyType from URL (?propertyType=...)
+  useEffect(() => {
+    const urlPropertyType = searchParams?.get("propertyType") || "";
+    setFilters((prev) =>
+      prev.propertyType === urlPropertyType
+        ? prev
+        : { ...prev, propertyType: urlPropertyType },
+    );
+  }, [searchParams]);
 
-    loadProperties();
-  }, [isAuthenticated]);
+  // Clean pagination params from URL (keep only non-pagination like propertyType)
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams ? searchParams.toString() : "");
+    const hadPageParams = params.has("page") || params.has("itemsPerPage");
+    if (!hadPageParams) return;
+
+    params.delete("page");
+    params.delete("itemsPerPage");
+
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Handle window resize to update view mode on screen size change
   useEffect(() => {
@@ -161,9 +227,8 @@ export default function PropertiesPage() {
         isPubliclyVisible: !currentVisibility,
       });
       toast.success("Visibility updated!", { id: toastId });
-      // Reload properties to reflect the change
-      const data = await getAllProperties();
-      setPropertiesData(Array.isArray(data) ? data : []);
+      // Reload properties using current pagination + filters
+      await fetchProperties(currentPage, itemsPerPage);
     } catch (error) {
       toast.error(error.message || "Failed to update visibility", {
         id: toastId,
@@ -316,8 +381,29 @@ export default function PropertiesPage() {
     setIsCreating(false);
   };
 
+  const updatePaginationInUrl = () => {
+    // Pagination is now handled only via state/API payload,
+    // not reflected in the browser URL.
+  };
+
   const handleFilterChange = (field, value) => {
-    setFilters((prev) => ({ ...prev, [field]: value }));
+    const nextFilters = { ...filters, [field]: value };
+    setFilters(nextFilters);
+    setCurrentPage(1);
+
+    const params = new URLSearchParams(
+      searchParams ? searchParams.toString() : "",
+    );
+
+    // Keep propertyType in URL query (?propertyType=...)
+    if (nextFilters.propertyType) {
+      params.set("propertyType", nextFilters.propertyType);
+    } else {
+      params.delete("propertyType");
+    }
+
+    const query = params.toString();
+    router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
   };
 
   const clearFilters = () => {
@@ -329,6 +415,8 @@ export default function PropertiesPage() {
       maxPrice: "",
       bedrooms: "",
     });
+    setCurrentPage(1);
+    updatePaginationInUrl();
   };
 
   // Filter properties based on filter criteria
@@ -378,6 +466,125 @@ export default function PropertiesPage() {
       return true;
     });
   }, [propertiesData, filters]);
+
+  const totalFromApi = totalProperties || 0;
+  const totalLocal = filteredProperties.length;
+  const effectiveTotal = totalFromApi || totalLocal;
+  const totalPages = Math.max(
+    1,
+    Math.ceil((effectiveTotal || 0) / (itemsPerPage || 1)),
+  );
+  const pageStartIndex =
+    effectiveTotal === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const pageEndIndex =
+    effectiveTotal === 0
+      ? 0
+      : pageStartIndex +
+        (Math.min(itemsPerPage, effectiveTotal - (pageStartIndex - 1)) - 1);
+
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const pagedProperties = filteredProperties.slice(startIndex, endIndex);
+
+  const handlePageChange = (newPage) => {
+    if (newPage < 1 || newPage > totalPages) return;
+    setCurrentPage(newPage);
+    updatePaginationInUrl();
+  };
+
+  const PaginationControls = ({ className = "" }) => {
+    const pageButtons = [];
+    const start = Math.max(1, currentPage - 1);
+    const end = Math.min(totalPages, currentPage + 1);
+    for (let p = start; p <= end; p += 1) pageButtons.push(p);
+
+    return (
+      <div className={`flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between ${className}`}>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+          <span>
+            Showing{" "}
+            <span className="font-semibold text-slate-900">
+              {totalProperties === 0 ? 0 : pageStartIndex}
+            </span>
+            {totalProperties > 0 && (
+              <>
+                {" "}
+                –{" "}
+                <span className="font-semibold text-slate-900">
+                  {pageEndIndex}
+                </span>
+              </>
+            )}{" "}
+            of{" "}
+            <span className="font-semibold text-slate-900">
+              {totalProperties}
+            </span>{" "}
+            properties
+          </span>
+        </div>
+        <div className="flex items-center gap-2 justify-end text-xs text-slate-600">
+          <span>
+            Page{" "}
+            <span className="font-semibold text-slate-900">{currentPage}</span>{" "}
+            of{" "}
+            <span className="font-semibold text-slate-900">{totalPages}</span>
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className="rounded-full border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage <= 1}
+            >
+              ‹
+            </button>
+            {pageButtons.map((p) => (
+              <button
+                key={p}
+                type="button"
+                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                  p === currentPage
+                    ? "bg-slate-900 text-white"
+                    : "border border-slate-200 text-slate-700 hover:bg-slate-50"
+                }`}
+                onClick={() => handlePageChange(p)}
+                disabled={p === currentPage}
+              >
+                {p}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="rounded-full border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+            >
+              ›
+            </button>
+            <label className="flex items-center gap-1 ml-3">
+              <span>Per page:</span>
+              <select
+                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
+                value={itemsPerPage}
+                onChange={(e) => {
+                  const next = Number(e.target.value) || 25;
+                  setItemsPerPage(next);
+                  setCurrentPage(1);
+                  updatePaginationInUrl();
+                }}
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={250}>250</option>
+                <option value={500}>500</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   if (authLoading || !isAuthenticated) {
     return <PageLoader message="Checking your access..." />;
@@ -702,7 +909,7 @@ export default function PropertiesPage() {
       {/* Blog Card View - Large cards with full-width image */}
       {viewMode === "blog" && (
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredProperties.map((property) => {
+          {pagedProperties.map((property) => {
             const propertyId = property.id || property._id;
             const images =
               property.images && property.images.length > 0
@@ -809,7 +1016,7 @@ export default function PropertiesPage() {
       {/* List View - Compact horizontal layout */}
       {viewMode === "list" && (
         <section className="space-y-3">
-          {filteredProperties.map((property) => {
+          {pagedProperties.map((property) => {
             const propertyId = property.id || property._id;
             const images =
               property.images && property.images.length > 0
@@ -891,6 +1098,7 @@ export default function PropertiesPage() {
 
       {viewMode === "table" && (
         <section>
+          <PaginationControls className="mb-3" />
           <DataTable
             headers={[
               "S.No",
@@ -907,7 +1115,7 @@ export default function PropertiesPage() {
               "Drafted",
               "Actions",
             ]}
-            rows={filteredProperties.map((property, index) => {
+            rows={pagedProperties.map((property, index) => {
               const propertyId = property.id || property._id;
               const hostName = property.hostId?.name || "N/A";
 
@@ -1085,6 +1293,9 @@ export default function PropertiesPage() {
               };
             })}
           />
+          <div className="mt-4">
+            <PaginationControls />
+          </div>
         </section>
       )}
 
@@ -1303,11 +1514,11 @@ export default function PropertiesPage() {
                       <PhotoCarousel photos={images} />
                     </div>
                   ) : (
-                    <div className="h-72 md:h-96 w-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center rounded-t-3xl">
+                    <div className="h-72 md:h-96 w-full bg-gr-to-br from-slate-200 to-slate-300 flex items-center justify-center rounded-t-3xl">
                       <Home className="w-16 h-16 text-slate-400" />
                     </div>
                   )}
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent p-6">
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to- from-black/70 via-black/40 to-transparent p-6">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
@@ -1359,7 +1570,7 @@ export default function PropertiesPage() {
 
             {/* Quick Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
+              <div className="bg-gradient-to- from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
                 <div className="flex items-center gap-2 mb-1">
                   <DollarSign className="w-4 h-4 text-blue-600" />
                   <p className="text-xs font-medium text-blue-600">Price</p>
@@ -1372,7 +1583,7 @@ export default function PropertiesPage() {
                 </p>
                 <p className="text-xs text-blue-600 mt-0.5">per night</p>
               </div>
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
+              <div className="bg-gradient-to-bo from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
                 <div className="flex items-center gap-2 mb-1">
                   <Bed className="w-4 h-4 text-purple-600" />
                   <p className="text-xs font-medium text-purple-600">
@@ -1383,7 +1594,7 @@ export default function PropertiesPage() {
                   {viewProperty.bedrooms || 0}
                 </p>
               </div>
-              <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-xl p-4 border border-pink-200">
+              <div className="bg-gradient-to- from-pink-50 to-pink-100 rounded-xl p-4 border border-pink-200">
                 <div className="flex items-center gap-2 mb-1">
                   <Bath className="w-4 h-4 text-pink-600" />
                   <p className="text-xs font-medium text-pink-600">Bathrooms</p>
@@ -1392,7 +1603,7 @@ export default function PropertiesPage() {
                   {viewProperty.bathrooms || 0}
                 </p>
               </div>
-              <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-4 border border-emerald-200">
+              <div className="bg-gradient-to-bo from-emerald-50 to-emerald-100 rounded-xl p-4 border border-emerald-200">
                 <div className="flex items-center gap-2 mb-1">
                   <Users className="w-4 h-4 text-emerald-600" />
                   <p className="text-xs font-medium text-emerald-600">
@@ -1537,7 +1748,7 @@ export default function PropertiesPage() {
                     {viewProperty.amenities.map((amenity, idx) => (
                       <span
                         key={idx}
-                        className="px-4 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-sm font-medium border border-blue-200 hover:from-blue-100 hover:to-indigo-100 transition-colors"
+                        className="px-4 py-2 bg-gradient-to- from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-sm font-medium border border-blue-200 hover:from-blue-100 hover:to-indigo-100 transition-colors"
                       >
                         {amenity}
                       </span>
@@ -1550,7 +1761,7 @@ export default function PropertiesPage() {
             {(viewProperty.placeType ||
               viewProperty.guestPlaceType ||
               viewProperty.weekendPremiumPercent) && (
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border border-purple-200 p-6 shadow-sm">
+              <div className="bg-gradient-to-bo from-purple-50 to-pink-50 rounded-xl border border-purple-200 p-6 shadow-sm">
                 <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                   <Home className="w-5 h-5 text-purple-600" />
                   Airbnb Details
@@ -1609,7 +1820,7 @@ export default function PropertiesPage() {
                     viewProperty.smokingPolicy ||
                     viewProperty.petPolicy ||
                     viewProperty.cancellationPolicy) && (
-                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl border border-blue-200 p-6 shadow-sm">
+                    <div className="bg-gradient-to- from-blue-50 to-cyan-50 rounded-xl border border-blue-200 p-6 shadow-sm">
                       <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                         <Calendar className="w-5 h-5 text-blue-600" />
                         Hotel Details
@@ -1699,7 +1910,7 @@ export default function PropertiesPage() {
                       </p>
                     </div>
                   ) : viewPropertyRoomTypes.length > 0 ? (
-                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-200 p-6 shadow-sm">
+                    <div className="bg-gradient-to- from-indigo-50 to-purple-50 rounded-xl border border-indigo-200 p-6 shadow-sm">
                       <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                         <Bed className="w-5 h-5 text-indigo-600" />
                         Room Types ({viewPropertyRoomTypes.length})
