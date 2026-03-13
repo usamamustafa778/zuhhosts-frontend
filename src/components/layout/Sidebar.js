@@ -317,6 +317,53 @@ export default function Sidebar({
             ))}
           </nav>
         </div>
+
+        {/* Mobile Account Settings section at very bottom of sidebar.
+            Only render when the mobile sidebar is actually visible. */}
+        {isVisible && user && (
+          <div className="lg:hidden border-t border-slate-200 px-3 py-3">
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">
+              Account
+            </p>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-white text-sm font-semibold">
+                {(user.name || user.email || "U")
+                  .trim()
+                  .split(" ")
+                  .map((part) => part.charAt(0))
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-900 truncate">
+                  {user.name || "User"}
+                </p>
+                <p className="text-xs text-slate-500 truncate">
+                  {user.email}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onCloseMobile();
+                window.location.href = "/profile";
+              }}
+              className="w-full mb-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 text-center hover:bg-slate-50 transition-colors"
+            >
+              Account Settings
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center gap-1 rounded-full bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Logout</span>
+            </button>
+          </div>
+        )}
       </aside>
     </>
   );

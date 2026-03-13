@@ -247,6 +247,29 @@ export async function getAllProperties() {
   return handleResponse(res, "Failed to fetch properties");
 }
 
+// Paginated + filtered properties search (POST), mirroring bookings search
+export async function searchProperties(body) {
+  const url = `${API_BASE_URL}/api/properties/search`;
+  const payload = body || {};
+
+  let filters = payload.filters ?? "";
+  if (filters && typeof filters === "object") {
+    filters = JSON.stringify(filters);
+  }
+
+  const finalBody = {
+    page: String(payload.page ?? "1"),
+    itemsPerPage: String(payload.itemsPerPage ?? "50"),
+    filters,
+  };
+
+  const res = await fetchWithAuth(url, {
+    method: "POST",
+    body: JSON.stringify(finalBody),
+  });
+  return handleResponse(res, "Failed to search properties");
+}
+
 export async function getPropertyById(id) {
   // Add cache-busting parameter to ensure fresh data
   const timestamp = new Date().getTime();
@@ -1821,7 +1844,12 @@ export async function getMyActiveSubscription() {
     throw new Error("No authentication token found");
   }
 
-  const res = await fetch(`${API_BASE_URL}/api/subscriptions/my-active`, {
+  const base = API_BASE_URL || getEffectiveApiBase();
+  if (!base) {
+    throw new Error("API base URL is not configured");
+  }
+
+  const res = await fetch(`${base}/api/subscriptions/my-active`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -1849,12 +1877,17 @@ export async function getMySubscriptions(filters = {}) {
     throw new Error("No authentication token found");
   }
 
+  const base = API_BASE_URL || getEffectiveApiBase();
+  if (!base) {
+    throw new Error("API base URL is not configured");
+  }
+
   const queryParams = new URLSearchParams();
   if (filters.status) queryParams.append("status", filters.status);
   if (filters.package) queryParams.append("package", filters.package);
   if (filters.paymentStatus) queryParams.append("paymentStatus", filters.paymentStatus);
 
-  const url = `${API_BASE_URL}/api/subscriptions/my-subscriptions${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+  const url = `${base}/api/subscriptions/my-subscriptions${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
   const res = await fetch(url, {
     method: "GET",
     headers: {
@@ -1880,7 +1913,12 @@ export async function getMySubscriptionById(id) {
     throw new Error("No authentication token found");
   }
 
-  const res = await fetch(`${API_BASE_URL}/api/subscriptions/my-subscriptions/${id}`, {
+  const base = API_BASE_URL || getEffectiveApiBase();
+  if (!base) {
+    throw new Error("API base URL is not configured");
+  }
+
+  const res = await fetch(`${base}/api/subscriptions/my-subscriptions/${id}`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -1908,6 +1946,11 @@ export async function createSubscription(data) {
     throw new Error("No authentication token found");
   }
 
+  const base = API_BASE_URL || getEffectiveApiBase();
+  if (!base) {
+    throw new Error("API base URL is not configured");
+  }
+
   // Check if paymentScreenshot is provided (FormData scenario)
   const hasFile = data.paymentScreenshot instanceof File;
 
@@ -1917,7 +1960,7 @@ export async function createSubscription(data) {
     if (data.notes) formData.append("notes", data.notes);
     if (data.paymentScreenshot) formData.append("paymentScreenshot", data.paymentScreenshot);
 
-    const res = await fetch(`${API_BASE_URL}/api/subscriptions/create`, {
+    const res = await fetch(`${base}/api/subscriptions/create`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -1926,7 +1969,7 @@ export async function createSubscription(data) {
     });
     return handleResponse(res, "Failed to create subscription");
   } else {
-    const res = await fetch(`${API_BASE_URL}/api/subscriptions/create`, {
+    const res = await fetch(`${base}/api/subscriptions/create`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -1957,10 +2000,15 @@ export async function uploadPaymentScreenshot(id, file) {
     throw new Error("No authentication token found");
   }
 
+  const base = API_BASE_URL || getEffectiveApiBase();
+  if (!base) {
+    throw new Error("API base URL is not configured");
+  }
+
   const formData = new FormData();
   formData.append("paymentScreenshot", file);
 
-  const res = await fetch(`${API_BASE_URL}/api/subscriptions/${id}/upload-screenshot`, {
+  const res = await fetch(`${base}/api/subscriptions/${id}/upload-screenshot`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
